@@ -6,12 +6,85 @@ adding a new "isDone" field as a boolean. The authorization rule below
 specifies that any user authenticated via an API key can "create", "read",
 "update", and "delete" any "Todo" records.
 =========================================================================*/
+
 const schema = a.schema({
-  Todo: a
+  // Custom types need to be defined inside the schema
+  Location: a.customType({
+    lat: a.float(),
+    lng: a.float(),
+  }),
+
+  Driver: a.customType({
+    id: a.string(),
+    name: a.string(), 
+    phone: a.string(),
+    currentLocation: a.ref('Location'),
+  }),
+
+  Restaurant: a
     .model({
-      content: a.string(),
+      name: a.string(),
+      slug: a.string(),
+      description: a.string(),
+      imageUrl: a.string(),
+      menuCategories: a.hasMany('MenuCategory', 'restaurantId'),
+      orders: a.hasMany('Order', 'restaurantId')
     })
     .authorization((allow) => [allow.publicApiKey()]),
+
+  MenuCategory: a
+    .model({
+      name: a.string(),
+      description: a.string(),
+      menuItems: a.hasMany('MenuItem', 'categoryId'),
+      restaurantId: a.string(),
+      restaurant: a.belongsTo('Restaurant', 'restaurantId')
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
+
+  MenuItem: a
+    .model({
+      name: a.string(),
+      description: a.string(),
+      price: a.float(),
+      imageUrl: a.string(),
+      categoryId: a.string(),
+      category: a.belongsTo('MenuCategory', 'categoryId'),
+      orderItems: a.hasMany('OrderItem', 'menuItemId')
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
+
+  Order: a
+    .model({
+      restaurantId: a.string(),
+      restaurant: a.belongsTo('Restaurant', 'restaurantId'),
+      customerEmail: a.string(),
+      items: a.hasMany('OrderItem', 'orderId'),
+      total: a.float(),
+      status: a.enum(['PENDING', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'IN_DELIVERY', 'DELIVERED', 'CANCELLED']),
+      specialInstructions: a.string(),
+      deliveryAddress: a.string(),
+      driver: a.ref('Driver'),
+      createdAt: a.string(),
+      updatedAt: a.string(),
+      trackingInfo: a.customType({
+        source: a.string(),
+        campaignId: a.string(),
+        clickId: a.string()
+      })
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
+
+  OrderItem: a
+    .model({
+      menuItemId: a.string(),
+      menuItem: a.belongsTo('MenuItem', 'menuItemId'),
+      quantity: a.integer(),
+      specialInstructions: a.string(),
+      orderId: a.string(),
+      order: a.belongsTo('Order', 'orderId')
+    })
+    .authorization((allow) => [allow.publicApiKey()])
 });
 
 export type Schema = ClientSchema<typeof schema>;

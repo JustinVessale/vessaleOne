@@ -4,26 +4,29 @@ import { generateClient } from "aws-amplify/data";
 
 const client = generateClient<Schema>();
 
+
 function App() {
-  const [todos, setTodos] = useState<Array<Schema["Todo"]["type"]>>([]);
+  const [restaurants, setRestaurants] = useState<Array<Schema["Restaurant"]["type"]>>([]);
 
   useEffect(() => {
-    client.models.Todo.observeQuery().subscribe({
-      next: (data) => setTodos([...data.items]),
+    client.models.Restaurant.observeQuery().subscribe({
+      next: (data) => setRestaurants([...data.items]),
     });
   }, []);
 
-  function createTodo() {
-    client.models.Todo.create({ content: window.prompt("Todo content") });
+  function createRestaurant() {
+    client.models.Restaurant.create({ name: window.prompt("Restaurant name") });
   }
 
   return (
     <main>
       <h1>My todos</h1>
-      <button onClick={createTodo}>+ new</button>
+      <button onClick={createRestaurant}>+ new</button>
       <ul>
-        {todos.map((todo) => (
-          <li key={todo.id}>{todo.content}</li>
+        {restaurants.map((restaurant) => (
+          <li key={restaurant.id}>
+            {restaurant.name}
+          </li>
         ))}
       </ul>
       <div>
