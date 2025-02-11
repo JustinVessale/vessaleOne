@@ -1,42 +1,32 @@
-import { useEffect, useState } from "react";
-import type { Schema } from "../amplify/data/resource";
-import { generateClient } from "aws-amplify/data";
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { NavigationBar } from './features/shared/components/NavigationBar';
+import { RestaurantPage } from './features/restaurant/components/RestaurantPage';
+import { CartProvider } from './features/cart/context/CartContext';
 
-const client = generateClient<Schema>();
-
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function App() {
-  const [restaurants, setRestaurants] = useState<Array<Schema["Restaurant"]["type"]>>([]);
-
-  useEffect(() => {
-    client.models.Restaurant.observeQuery().subscribe({
-      next: (data) => setRestaurants([...data.items]),
-    });
-  }, []);
-
-  function createRestaurant() {
-    client.models.Restaurant.create({ name: window.prompt("Restaurant name") });
-  }
-
   return (
-    <main>
-      <h1>My todos</h1>
-      <button onClick={createRestaurant}>+ new</button>
-      <ul>
-        {restaurants.map((restaurant) => (
-          <li key={restaurant.id}>
-            {restaurant.name}
-          </li>
-        ))}
-      </ul>
-      <div>
-        🥳 App successfully hosted. Try creating a new todo.
-        <br />
-        <a href="https://docs.amplify.aws/react/start/quickstart/#make-frontend-updates">
-          Review next step of this tutorial.
-        </a>
-      </div>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <CartProvider>
+        <BrowserRouter>
+          <div className="flex flex-col min-h-screen">
+            <NavigationBar />
+            <Routes>
+              <Route path="/:slug" element={<RestaurantPage />} />
+            </Routes>
+          </div>
+        </BrowserRouter>
+      </CartProvider>
+    </QueryClientProvider>
   );
 }
 
