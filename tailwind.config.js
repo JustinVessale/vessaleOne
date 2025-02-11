@@ -9,16 +9,16 @@ export default {
       colors: {
         primary: {
           DEFAULT: '#FF4400',
-          50: '#FFE5D9',
-          100: '#FFCCB8',
-          200: '#FF9980',
-          300: '#FF6647',
-          400: '#FF4400',
-          500: '#CC3600',
-          600: '#992900',
-          700: '#661B00',
-          800: '#330E00',
-          900: '#000000',
+          50: '#f0f9ff',
+          100: '#e0f2fe',
+          200: '#bae6fd',
+          300: '#7dd3fc',
+          400: '#38bdf8',
+          500: '#0ea5e9',
+          600: '#0284c7',
+          700: '#0369a1',
+          800: '#075985',
+          900: '#0c4a6e',
         },
       },
       container: {
@@ -27,5 +27,7 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/line-clamp'),
+  ],
 } 

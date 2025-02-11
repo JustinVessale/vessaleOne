@@ -14,7 +14,7 @@ export function MenuCategory({ categoryId }: MenuCategoryProps) {
     queryKey: ['menuCategory', categoryId],
     queryFn: async () => {
       const { data, errors } = await client.models.MenuCategory.get(
-        {id: categoryId},
+        { id: categoryId },
         {
           selectionSet: ['id', 'name', 'description', 'menuItems.*']
         }
@@ -31,11 +31,26 @@ export function MenuCategory({ categoryId }: MenuCategoryProps) {
 
   if (isLoading) {
     return (
-      <div className="animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 bg-gray-200 rounded"></div>
+      <div className="space-y-4">
+        {/* Category header skeleton */}
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+        </div>
+        
+        {/* Menu items grid skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="animate-pulse bg-white rounded-lg p-4">
+              <div className="flex justify-between">
+                <div className="flex-1">
+                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                </div>
+                <div className="ml-4 w-24 h-24 bg-gray-200 rounded-lg"></div>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -45,12 +60,20 @@ export function MenuCategory({ categoryId }: MenuCategoryProps) {
   if (!category) return null;
 
   return (
-    <div className="mb-8">
-      <h2 className="text-2xl font-bold text-gray-900 mb-4">{category.name}</h2>
-      {category.description && (
-        <p className="text-gray-600 mb-4">{category.description}</p>
-      )}
-      <div className="space-y-4">
+    <section 
+      id={`category-${category.id}`}
+      className="scroll-mt-16 bg-white rounded-lg p-6 shadow-sm"
+    >
+      {/* Category Header */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">{category.name}</h2>
+        {category.description && (
+          <p className="text-gray-600 text-base">{category.description}</p>
+        )}
+      </div>
+
+      {/* Menu Items Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {category.menuItems?.map((item) => (
           <MenuItem 
             key={item.id} 
@@ -64,6 +87,9 @@ export function MenuCategory({ categoryId }: MenuCategoryProps) {
           />
         ))}
       </div>
-    </div>
+
+      {/* Bottom Spacing for Last Category */}
+      <div className="h-8"></div>
+    </section>
   );
-} 
+}
