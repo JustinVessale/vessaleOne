@@ -1,35 +1,70 @@
 import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { headers } from 'next/headers';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia',
-});
+import Stripe from 'stripe';
+import { stripe } from '@/config/stripe';
+import { generateServerClient } from '@/lib/amplify-utils';
+import { OrderStatus } from '@/features/order/types';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-export async function POST(request: Request) {
-  const body = await request.text();
-  const signature = headers().get('stripe-signature')!;
-
+export async function POST(req: Request) {
   try {
-    const event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      webhookSecret
-    );
+    const body = await req.text();
+    const signature = headers().get('stripe-signature')!;
+
+    let event: Stripe.Event;
+
+    try {
+      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err);
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+    }
+
+    const client = generateServerClient();
 
     switch (event.type) {
-      case 'payment_intent.succeeded':
+      case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        // Update order status to paid
-        await updateOrderStatus(paymentIntent.metadata.orderId, 'paid');
+        
+        // Update order status to PAID
+        const { data: orders } = await client.models.Order.list({
+          filter: {
+            stripePaymentIntentId: { eq: paymentIntent.id }
+          }
+        });
+
+        if (orders && orders.length > 0) {
+          const order = orders[0];
+          await client.models.Order.update({
+            id: order.id,
+            status: OrderStatus.PAID,
+            updatedAt: new Date().toISOString()
+          });
+        }
         break;
-      case 'payment_intent.payment_failed':
-        const failedPaymentIntent = event.data.object as Stripe.PaymentIntent;
-        // Update order status to failed
-        await updateOrderStatus(failedPaymentIntent.metadata.orderId, 'failed');
+      }
+
+      case 'payment_intent.payment_failed': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        
+        // Update order status to CANCELLED
+        const { data: orders } = await client.models.Order.list({
+          filter: {
+            stripePaymentIntentId: { eq: paymentIntent.id }
+          }
+        });
+
+        if (orders && orders.length > 0) {
+          const order = orders[0];
+          await client.models.Order.update({
+            id: order.id,
+            status: OrderStatus.CANCELLED,
+            updatedAt: new Date().toISOString()
+          });
+        }
         break;
+      }
     }
 
     return NextResponse.json({ received: true });
@@ -37,13 +72,7 @@ export async function POST(request: Request) {
     console.error('Webhook error:', err);
     return NextResponse.json(
       { error: 'Webhook handler failed' },
-      { status: 400 }
+      { status: 500 }
     );
   }
-}
-
-async function updateOrderStatus(orderId: string, status: 'paid' | 'failed') {
-  // Implement your order status update logic here
-  // This could be a GraphQL mutation to update the order status
-  console.log(`Updating order ${orderId} to ${status}`);
 } 
