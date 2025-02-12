@@ -1,10 +1,19 @@
 import { XMarkIcon, MinusIcon, PlusIcon, ShoppingBagIcon } from '@heroicons/react/24/solid';
 import { useCart } from '../context/CartContext';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export function Cart() {
   const { state, removeItem, updateQuantity, updateInstructions, toggleCart, total } = useCart();
   const [editingInstructions, setEditingInstructions] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleCheckout = () => {
+    if (state.isOpen) {
+      toggleCart(); // Close mobile cart if open
+    }
+    navigate('/checkout');
+  };
 
   const CartContent = () => (
     <>
@@ -105,6 +114,7 @@ export function Cart() {
               <span>${total.toFixed(2)}</span>
             </div>
             <button
+              onClick={handleCheckout}
               className="w-full mt-4 bg-primary-400 text-white py-3 px-4 rounded-lg hover:bg-primary-500 
                          transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-400
                          font-medium text-base"
