@@ -10,9 +10,10 @@ type MenuItemData = {
 
 type MenuItemProps = {
   item: MenuItemData;
+  restaurantId: string;
 };
 
-export function MenuItem({ item }: MenuItemProps) {
+export function MenuItem({ item, restaurantId }: MenuItemProps) {
   const { addItem } = useCart();
 
   const handleAddToCart = () => {
@@ -22,6 +23,7 @@ export function MenuItem({ item }: MenuItemProps) {
       price: item.price,
       quantity: 1,
       imageUrl: item.imageUrl,
+      restaurantId
     });
   };
 

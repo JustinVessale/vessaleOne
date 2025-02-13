@@ -7,9 +7,10 @@ const client = generateClient<Schema>();
 
 type MenuCategoryProps = {
   categoryId: string;
+  restaurantId: string;
 };
 
-export function MenuCategory({ categoryId }: MenuCategoryProps) {
+export function MenuCategory({ categoryId, restaurantId }: MenuCategoryProps) {
   const { data: category, isLoading } = useQuery({
     queryKey: ['menuCategory', categoryId],
     queryFn: async () => {
@@ -83,7 +84,8 @@ export function MenuCategory({ categoryId }: MenuCategoryProps) {
               description: item.description ?? '',
               price: item.price ?? 0,
               imageUrl: item.imageUrl ?? ''
-            }} 
+            }}
+            restaurantId={restaurantId}
           />
         ))}
       </div>
