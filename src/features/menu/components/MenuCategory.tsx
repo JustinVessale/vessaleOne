@@ -63,18 +63,18 @@ export function MenuCategory({ categoryId, restaurantId }: MenuCategoryProps) {
   return (
     <section 
       id={`category-${category.id}`}
-      className="scroll-mt-16 bg-white rounded-lg p-6 shadow-sm mb-6"
+      className="scroll-mt-16 bg-white rounded-lg p-6 shadow-sm"
     >
-      {/* Category Header - Force new line */}
-      <div className="mb-6 w-full">
+      {/* Category Header */}
+      <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">{category.name}</h2>
         {category.description && (
           <p className="text-gray-600 text-base">{category.description}</p>
         )}
       </div>
 
-      {/* Menu Items Grid - Force grid layout */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Menu Items Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {category.menuItems?.map((item) => (
           <MenuItem 
             key={item.id} 
@@ -89,6 +89,9 @@ export function MenuCategory({ categoryId, restaurantId }: MenuCategoryProps) {
           />
         ))}
       </div>
+
+      {/* Bottom Spacing for Last Category */}
+      <div className="h-8"></div>
     </section>
   );
 }
