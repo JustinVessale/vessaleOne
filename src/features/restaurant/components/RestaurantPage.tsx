@@ -31,48 +31,25 @@ export function RestaurantPage() {
   }
 
   return (
-    <div className="flex flex-col flex-1">
-      {/* Hero Section - Fixed height */}
-      <div className="relative h-48 md:h-64">
-        <img
-          src={restaurant.imageUrl ?? ''}
-          alt={restaurant.name ?? ''}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black/50">
-          <div className="h-full max-w-7xl mx-auto px-4 flex items-end pb-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">{restaurant.name}</h1>
-              <p className="mt-2 text-sm md:text-base text-white/90">{restaurant.description}</p>
-            </div>
-          </div>
+    <div className="flex flex-col min-h-screen">
+      {/* Restaurant Header */}
+      <div className="bg-white shadow-sm mb-6">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{restaurant.name}</h1>
+          <p className="text-gray-600">{restaurant.description}</p>
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="flex gap-8">
-            {/* Menu Content - Takes available space */}
-            <div className="flex-1">
-              <div className="space-y-6">
-                {restaurant.menuCategories?.map((category) => (
-                  <MenuCategory 
-                    key={category.id} 
-                    categoryId={category.id} 
-                    restaurantId={restaurant.id}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Cart - Fixed width */}
-            <div className="hidden lg:block w-96">
-              <div className="sticky top-4">
-                <Cart />
-              </div>
-            </div>
-          </div>
+      {/* Menu Categories */}
+      <div className="max-w-7xl mx-auto px-4 pb-12">
+        <div className="space-y-8">
+          {restaurant.menuCategories?.map((category) => (
+            <MenuCategory 
+              key={category.id} 
+              categoryId={category.id} 
+              restaurantId={restaurant.id}
+            />
+          ))}
         </div>
       </div>
     </div>
