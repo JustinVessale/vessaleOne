@@ -29,7 +29,7 @@ export async function createPaymentIntent(params: CreatePaymentIntentParams): Pr
 
     // Call Stripe through Amplify API
     const { body } = await post({
-      apiName: 'stripe-payment',
+      apiName: 'payment-api',
       path: '/create-payment-intent',
       options: {
         body: params

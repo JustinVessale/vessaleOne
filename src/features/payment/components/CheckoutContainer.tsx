@@ -26,6 +26,13 @@ export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: Ch
   const MAX_ATTEMPTS = 3;
 
   useEffect(() => {
+    // Reset attempt counters when component mounts
+    //TODO: This is a hack to prevent the payment from being created multiple times
+    //  but it still failes sometimes and we should fix this
+    orderAttemptsRef.current = 0;
+    paymentAttemptsRef.current = 0;
+    isSubscribedRef.current = true;
+
     // Guard against multiple initialization attempts
     if (isInitializing || clientSecret || order) {
       return;
@@ -101,6 +108,11 @@ export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: Ch
 
     return () => {
       isSubscribedRef.current = false;
+      // Reset states and counters on cleanup
+      setClientSecret('');
+      setOrder(null);
+      orderAttemptsRef.current = 0;
+      paymentAttemptsRef.current = 0;
     };
   }, [createInitialOrder, onError, clientSecret, order, isInitializing]);  // Add dependencies
 

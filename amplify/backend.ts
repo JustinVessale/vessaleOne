@@ -27,9 +27,21 @@ const paymentApi = new RestApi(apiStack, "PaymentApi", {
     stageName: "dev",
   },
   defaultCorsPreflightOptions: {
-    allowOrigins: Cors.ALL_ORIGINS,
-    allowMethods: Cors.ALL_METHODS,
-    allowHeaders: Cors.DEFAULT_HEADERS,
+    allowOrigins: [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://*.amplifyapp.com'  // This will allow all Amplify app domains
+    ],
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: [
+      'Content-Type',
+      'X-Amz-Date',
+      'Authorization',
+      'X-Api-Key',
+      'X-Amz-Security-Token',
+      'stripe-signature'
+    ],
+    allowCredentials: true
   },
 });
 
