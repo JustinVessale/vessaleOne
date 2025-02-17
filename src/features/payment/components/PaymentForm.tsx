@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js';
 import { Button } from '@/components/ui/button';
-import { StripeError } from '@stripe/stripe-js';
+import { StripeError, PaymentIntent } from '@stripe/stripe-js';
 
-type PaymentFormProps = {
-  onPaymentSuccess: (paymentIntent: any) => void;
-  onPaymentError: (error: StripeError) => void;
-  amount: number;
+export type PaymentFormProps = {
+  onSuccess: (paymentIntent: PaymentIntent) => Promise<void>;
+  onError: (error: StripeError) => void;
 };
 
-export function PaymentForm({ onPaymentSuccess, onPaymentError, amount }: PaymentFormProps) {
+export function PaymentForm({ onSuccess, onError }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -30,12 +29,12 @@ export function PaymentForm({ onPaymentSuccess, onPaymentError, amount }: Paymen
       });
 
       if (error) {
-        onPaymentError(error as StripeError);
+        onError(error);
       } else if (paymentIntent) {
-        onPaymentSuccess(paymentIntent);
+        await onSuccess(paymentIntent);
       }
     } catch (e) {
-      onPaymentError(e as StripeError);
+      onError(e as StripeError);
     } finally {
       setIsProcessing(false);
     }
@@ -49,7 +48,7 @@ export function PaymentForm({ onPaymentSuccess, onPaymentError, amount }: Paymen
         disabled={!stripe || isProcessing}
         className="w-full"
       >
-        {isProcessing ? 'Processing...' : `Pay $${(amount / 100).toFixed(2)}`}
+        {isProcessing ? 'Processing...' : 'Pay'}
       </Button>
     </form>
   );

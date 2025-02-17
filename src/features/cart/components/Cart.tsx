@@ -64,7 +64,7 @@ export function Cart() {
                       
                       <button
                         onClick={() => removeItem(item.id)}
-                        className="text-sm font-medium text-primary-400 hover:text-primary-500"
+                        className="text-sm font-medium text-primary hover:text-primary/80"
                       >
                         Remove
                       </button>
@@ -73,7 +73,7 @@ export function Cart() {
                     <div className="mt-4">
                       {editingInstructions === item.id ? (
                         <textarea
-                          className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                          className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                           placeholder="Add special instructions..."
                           value={item.specialInstructions || ''}
                           onChange={(e) => updateInstructions(item.id, e.target.value)}
@@ -115,9 +115,9 @@ export function Cart() {
             </div>
             <button
               onClick={handleCheckout}
-              className="w-full mt-4 bg-primary-400 text-white py-3 px-4 rounded-lg hover:bg-primary-500 
-                         transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-400
-                         font-medium text-base"
+              className="w-full mt-4 bg-primary text-primary-foreground py-3 px-4 rounded-lg 
+                       hover:bg-primary/90 transition-colors focus:outline-none focus:ring-2 
+                       focus:ring-offset-2 focus:ring-primary font-medium text-base"
             >
               Go to Checkout
             </button>
@@ -134,7 +134,7 @@ export function Cart() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-medium text-gray-900">Your order</h2>
           {state.items.length > 0 && (
-            <span className="bg-primary-400 text-white px-2 py-1 rounded-full text-sm">
+            <span className="bg-primary text-primary-foreground px-2 py-1 rounded-full text-sm">
               {state.items.reduce((acc, item) => acc + item.quantity, 0)}
             </span>
           )}

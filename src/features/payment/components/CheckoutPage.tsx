@@ -1,40 +1,42 @@
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../cart/context/CartContext';
 import { CheckoutContainer } from './CheckoutContainer';
-import { type Order } from '@/features/order/types';
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
 import { OrderStatus } from '@/features/order/types';
 import { useToast } from '@/hooks/use-toast';
+import { useState, useCallback } from 'react';
 
 const client = generateClient<Schema>();
+
+type Order = Schema['Order']['type'];
 
 export function CheckoutPage() {
   const navigate = useNavigate();
   const { state, total, clearCart } = useCart();
   const { toast } = useToast();
+  const [order, setOrder] = useState<Order | null>(null);
 
-  const handlePaymentSuccess = async (paymentIntent: any) => {
+  // Memoize createInitialOrder to prevent infinite re-renders
+  const createInitialOrder = useCallback(async () => {
     try {
-      // First create the order
-      const { data: order, errors: orderErrors } = await client.models.Order.create({
+      const { data: newOrder, errors } = await client.models.Order.create({
         total,
-        status: OrderStatus.PAID,
-        stripePaymentIntentId: paymentIntent.id,
-        customerEmail: '',
+        status: OrderStatus.PENDING,
+        customerEmail: '', // TODO: Add customer email when we have auth
         restaurantId: state.items[0]?.restaurantId || '', // Get restaurantId from first item
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
 
-      if (orderErrors || !order) {
-        throw new Error('Failed to create order');
+      if (errors || !newOrder) {
+        throw new Error('Failed to create initial order');
       }
 
-      // Then create order items
+      // Create order items
       const itemPromises = state.items.map(item => 
         client.models.OrderItem.create({
-          orderId: order.id,
+          orderId: newOrder.id,
           menuItemId: item.menuItemId,
           quantity: item.quantity,
           specialInstructions: item.specialInstructions || ''
@@ -42,6 +44,24 @@ export function CheckoutPage() {
       );
 
       await Promise.all(itemPromises);
+      setOrder(newOrder);
+      return newOrder;
+    } catch (error) {
+      console.error('Error creating initial order:', error);
+      toast({
+        title: "Error creating order",
+        description: "There was a problem creating your order. Please try again.",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [total, state.items, toast]);
+
+  const handlePaymentSuccess = async (_paymentIntent: any) => {
+    try {
+      if (!order) {
+        throw new Error('No order found');
+      }
 
       // Clear the cart
       clearCart();
@@ -55,10 +75,10 @@ export function CheckoutPage() {
       // Redirect to order confirmation
       navigate(`/orders/${order.id}`);
     } catch (error) {
-      console.error('Error creating order:', error);
+      console.error('Error handling payment success:', error);
       toast({
-        title: "Error placing order",
-        description: "There was a problem creating your order. Please try again.",
+        title: "Error completing order",
+        description: "There was a problem completing your order. Please contact support.",
         variant: "destructive",
       });
     }
@@ -71,18 +91,6 @@ export function CheckoutPage() {
       description: error.message || "There was a problem processing your payment. Please try again.",
       variant: "destructive",
     });
-  };
-
-  // Create initial order object
-  const order: Order = {
-    id: crypto.randomUUID(), // Temporary ID for the payment intent
-    total,
-    status: OrderStatus.PENDING,
-    items: state.items,
-    customerEmail: '', // TODO: Add customer email
-    restaurantId: '', // TODO: Add restaurant ID
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
   };
 
   return (
@@ -115,7 +123,7 @@ export function CheckoutPage() {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-medium mb-4">Payment Details</h2>
         <CheckoutContainer
-          order={order}
+          createInitialOrder={createInitialOrder}
           onSuccess={handlePaymentSuccess}
           onError={handlePaymentError}
         />

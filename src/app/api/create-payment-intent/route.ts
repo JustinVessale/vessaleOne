@@ -1,31 +1,44 @@
 import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia',
-});
+import { stripe } from '@/config/stripe';
+import { generateServerClient } from '@/lib/amplify-utils';
+import { OrderStatus } from '@/features/order/types';
 
 export async function POST(request: Request) {
   try {
-    const order = await request.json();
+    const { total, orderId, restaurantId } = await request.json();
     
+    // Create a PaymentIntent with the order amount and currency
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: order.total,
+      amount: Math.round(total * 100), // Convert to cents
       currency: 'usd',
       automatic_payment_methods: {
         enabled: true,
       },
       metadata: {
-        orderId: order.id,
-        restaurantId: order.restaurantId,
+        orderId,
+        restaurantId,
       },
     });
 
+    // Update the existing order with payment processing status and payment intent ID
+    const client = generateServerClient();
+    const { data: order, errors } = await client.models.Order.update({
+      id: orderId,
+      status: OrderStatus.PAYMENT_PROCESSING,
+      stripePaymentIntentId: paymentIntent.id,
+      updatedAt: new Date().toISOString()
+    });
+
+    if (errors || !order) {
+      throw new Error('Failed to update order');
+    }
+
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id,
+      orderId: order.id,
     });
-  } catch (error) {
+  } catch (err) {
+    console.error('Error:', err);
     return NextResponse.json(
       { error: 'Failed to create payment intent' },
       { status: 500 }
