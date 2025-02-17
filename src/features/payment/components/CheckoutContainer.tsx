@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { PaymentForm } from './PaymentForm';
@@ -18,46 +18,52 @@ type CheckoutContainerProps = {
 export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: CheckoutContainerProps) {
   const [clientSecret, setClientSecret] = useState<string>('');
   const [order, setOrder] = useState<Order | null>(null);
-  let orderAttempts = 0;
-  let paymentAttempts = 0;
+  const [isInitializing, setIsInitializing] = useState(false);  // Add loading state
+  
+  const orderAttemptsRef = useRef(0);
+  const paymentAttemptsRef = useRef(0);
+  const isSubscribedRef = useRef(true);
   const MAX_ATTEMPTS = 3;
-  let isSubscribed = true; // For cleanup
 
   useEffect(() => {
-
+    // Guard against multiple initialization attempts
+    if (isInitializing || clientSecret || order) {
+      return;
+    }
 
     const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     const createPaymentIntentWithRetry = async (params: { orderId: string; total: number; restaurantId: string }) => {
-      if (paymentAttempts >= MAX_ATTEMPTS) {
+      if (paymentAttemptsRef.current >= MAX_ATTEMPTS) {
         throw new Error(`Failed to create payment intent after ${MAX_ATTEMPTS} attempts`);
       }
 
       try {
-        paymentAttempts++;
-        if (paymentAttempts > 1) {
-          await sleep(Math.pow(2, paymentAttempts - 2) * 1000);
+        paymentAttemptsRef.current++;
+        if (paymentAttemptsRef.current > 1) {
+          await sleep(Math.pow(2, paymentAttemptsRef.current - 2) * 1000);
         }
 
-        console.log(`Creating payment intent (attempt ${paymentAttempts})...`);
+        console.log(`Creating payment intent (attempt ${paymentAttemptsRef.current})...`);
         const { clientSecret } = await createPaymentIntent(params);
         return clientSecret;
       } catch (error) {
-        console.error(`Payment intent creation failed (attempt ${paymentAttempts}/${MAX_ATTEMPTS}):`, error);
+        console.error(`Payment intent creation failed (attempt ${paymentAttemptsRef.current}/${MAX_ATTEMPTS}):`, error);
         return createPaymentIntentWithRetry(params);
       }
     };
 
     const initializePayment = async () => {
-      if (orderAttempts >= MAX_ATTEMPTS) {
+      if (orderAttemptsRef.current >= MAX_ATTEMPTS) {
         onError(new Error(`Failed to initialize payment after ${MAX_ATTEMPTS} attempts`));
         return;
       }
 
+      setIsInitializing(true);  // Set loading state
       try {
-        orderAttempts++;
-        if (orderAttempts > 1) {
-          await sleep(Math.pow(2, orderAttempts - 2) * 1000);
+        orderAttemptsRef.current++;
+        if (orderAttemptsRef.current > 1) {
+          await sleep(Math.pow(2, orderAttemptsRef.current - 2) * 1000);
         }
 
         // Create the order first
@@ -66,7 +72,7 @@ export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: Ch
           throw new Error('Failed to create order');
         }
         
-        if (!isSubscribed) return; // Check if component is still mounted
+        if (!isSubscribedRef.current) return; // Check if component is still mounted
         setOrder(newOrder);
 
         // Then create the payment intent
@@ -77,25 +83,26 @@ export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: Ch
         };
         
         const clientSecret = await createPaymentIntentWithRetry(params);
-        if (!isSubscribed) return; // Check if component is still mounted
+        if (!isSubscribedRef.current) return; // Check if component is still mounted
         setClientSecret(clientSecret);
       } catch (error) {
-        console.error(`Error initializing payment (attempt ${orderAttempts}/${MAX_ATTEMPTS}):`, error);
-        if (orderAttempts < MAX_ATTEMPTS) {
+        console.error(`Error initializing payment (attempt ${orderAttemptsRef.current}/${MAX_ATTEMPTS}):`, error);
+        if (orderAttemptsRef.current < MAX_ATTEMPTS) {
           await initializePayment();
         } else {
           onError(error);
         }
+      } finally {
+        setIsInitializing(false);  // Reset loading state
       }
     };
 
     initializePayment();
 
-    // Cleanup function
     return () => {
-      isSubscribed = false;
+      isSubscribedRef.current = false;
     };
-  }, [createInitialOrder, onError]);
+  }, [createInitialOrder, onError, clientSecret, order, isInitializing]);  // Add dependencies
 
   if (!clientSecret || !order) {
     return <div>Loading...</div>;
