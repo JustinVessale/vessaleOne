@@ -57,7 +57,11 @@ export function RestaurantPage() {
             <div className="flex-1">
               <div className="space-y-6">
                 {restaurant.menuCategories?.map((category) => (
-                  <MenuCategory key={category.id} categoryId={category.id} />
+                  <MenuCategory 
+                    key={category.id} 
+                    categoryId={category.id} 
+                    restaurantId={restaurant.id}
+                  />
                 ))}
               </div>
             </div>

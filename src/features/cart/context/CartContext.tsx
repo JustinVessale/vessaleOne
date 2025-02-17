@@ -3,6 +3,7 @@ import { createContext, useContext, useReducer, ReactNode } from 'react';
 export type CartItem = {
   id: string;
   menuItemId: string;
+  restaurantId: string;
   name: string;
   price: number;
   quantity: number;

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NavigationBar } from './features/shared/components/NavigationBar';
 import { RestaurantPage } from './features/restaurant/components/RestaurantPage';
 import { CartProvider } from './features/cart/context/CartContext';
+import { CheckoutPage } from './features/payment/components/CheckoutPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,6 +23,7 @@ function App() {
             <NavigationBar />
             <Routes>
               <Route path="/:slug" element={<RestaurantPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
             </Routes>
           </div>
         </BrowserRouter>
