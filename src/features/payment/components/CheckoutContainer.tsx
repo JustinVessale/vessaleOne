@@ -28,7 +28,7 @@ export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: Ch
   useEffect(() => {
     // Reset attempt counters when component mounts
     //TODO: This is a hack to prevent the payment from being created multiple times
-    //  but it still failes sometimes and we should fix this
+    // but it still failes sometimes and we should fix this
     orderAttemptsRef.current = 0;
     paymentAttemptsRef.current = 0;
     isSubscribedRef.current = true;

@@ -9,12 +9,17 @@ import {
   RestApi,
 } from "aws-cdk-lib/aws-apigateway";
 import { stripePayment } from "./functions/stripe-payment/resource";
+import { secret } from '@aws-amplify/backend';
 
 export const backend = defineBackend({
   auth,
   data,
   stripePayment
 });
+
+// Add secrets to the Lambda function
+backend.stripePayment.addEnvironment('STRIPE_SECRET_KEY', secret('STRIPE_SECRET_KEY'));
+backend.stripePayment.addEnvironment('STRIPE_WEBHOOK_SECRET', secret('STRIPE_WEBHOOK_SECRET'));
 
 // Create API stack
 const apiStack = backend.createStack("api-stack");
@@ -24,13 +29,15 @@ const paymentApi = new RestApi(apiStack, "PaymentApi", {
   restApiName: "payment-api",
   deploy: true,
   deployOptions: {
-    stageName: "dev",
+    stageName: process.env.AMPLIFY_ENV || 'dev', // Will be 'dev', 'prod', etc. based on the branch
   },
   defaultCorsPreflightOptions: {
     allowOrigins: [
       'http://localhost:5173',
       'http://localhost:3000',
-      'https://*.amplifyapp.com'  // This will allow all Amplify app domains
+      ...(process.env.AMPLIFY_ENV === 'prod' 
+        ? ['https://your-production-domain.com'] 
+        : ['https://*.amplifyapp.com'])
     ],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: [
@@ -53,6 +60,13 @@ const paymentIntegration = new LambdaIntegration(
 // Add payment endpoint
 const paymentPath = paymentApi.root.addResource("create-payment-intent");
 paymentPath.addMethod("POST", paymentIntegration);
+
+// Add webhook endpoint
+const webhookRoot = paymentApi.root.addResource("webhook");
+const stripeWebhook = webhookRoot.addResource("stripe");
+stripeWebhook.addMethod("POST", paymentIntegration, {
+  apiKeyRequired: false // Stripe needs to call this endpoint directly
+});
 
 // Add outputs to configuration
 backend.addOutput({
