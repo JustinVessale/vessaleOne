@@ -1,0 +1,23 @@
+{
+  "rules": {
+    "amplify": {
+      "include": [
+        "@aws-amplify/backend",
+        "@aws-amplify/backend-*",
+        "aws-cdk-lib",
+        "amplify/backend.ts"
+      ],
+      "exclude": [
+        "aws-amplify",
+        "@aws-amplify/ui-react",
+        "amplify-cli",
+        "amplify configure"
+      ],
+      "preferredDocs": [
+        "https://docs.amplify.aws/gen2/",
+        "https://docs.aws.amazon.com/amplify/latest/userguide/welcome.html"
+      ],
+      "customPrompt": "Please provide suggestions specifically for AWS Amplify Gen 2, using the new programming model with TypeScript and CDK constructs. Avoid Gen 1 patterns and commands."
+    }
+  }
+} 
