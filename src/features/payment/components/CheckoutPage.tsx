@@ -3,7 +3,6 @@ import { useCart } from '../../cart/context/CartContext';
 import { CheckoutContainer } from './CheckoutContainer';
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
-import { OrderStatus } from '@/features/order/types';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useCallback } from 'react';
 
@@ -22,7 +21,7 @@ export function CheckoutPage() {
     try {
       const { data: newOrder, errors } = await client.models.Order.create({
         total,
-        status: OrderStatus.PENDING,
+        status: 'PENDING',
         customerEmail: '', // TODO: Add customer email when we have auth
         restaurantId: state.items[0]?.restaurantId || '', // Get restaurantId from first item
         createdAt: new Date().toISOString(),

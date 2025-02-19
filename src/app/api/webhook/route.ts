@@ -3,14 +3,13 @@ import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import { stripe } from '@/config/stripe';
 import { generateServerClient } from '@/lib/amplify-utils';
-import { OrderStatus } from '@/features/order/types';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: Request) {
   try {
     const body = await req.text();
-    const signature = headers().get('stripe-signature')!;
+    const signature = (await headers()).get('stripe-signature')!;
 
     let event: Stripe.Event;
 
@@ -38,7 +37,7 @@ export async function POST(req: Request) {
           const order = orders[0];
           await client.models.Order.update({
             id: order.id,
-            status: OrderStatus.PAID,
+            status: 'PAID',
             updatedAt: new Date().toISOString()
           });
         }
@@ -59,7 +58,7 @@ export async function POST(req: Request) {
           const order = orders[0];
           await client.models.Order.update({
             id: order.id,
-            status: OrderStatus.CANCELLED,
+            status: 'CANCELLED',
             updatedAt: new Date().toISOString()
           });
         }

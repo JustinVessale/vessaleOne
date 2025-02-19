@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { stripe } from '@/config/stripe';
 import { generateServerClient } from '@/lib/amplify-utils';
-import { OrderStatus } from '@/features/order/types';
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +23,7 @@ export async function POST(request: Request) {
     const client = generateServerClient();
     const { data: order, errors } = await client.models.Order.update({
       id: orderId,
-      status: OrderStatus.PAYMENT_PROCESSING,
+      status: 'PAYMENT_PROCESSING',
       stripePaymentIntentId: paymentIntent.id,
       updatedAt: new Date().toISOString()
     });
