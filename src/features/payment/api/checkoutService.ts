@@ -27,14 +27,12 @@ async function mockCreatePaymentIntent(_params: CreatePaymentIntentParams): Prom
 
 export async function createPaymentIntent(params: CreatePaymentIntentParams): Promise<CreatePaymentIntentResponse> {
   try {
-    // First validate we have a valid order ID
     if (!params.orderId) {
       throw new Error('No order ID provided');
     }
 
-    console.log('Attempting payment intent creation for order:', params.orderId);
+    console.log('Creating payment intent for order:', params);
 
-    // Use mock implementation if enabled
     if (MOCK_API) {
       console.log('Using mock payment API');
       return mockCreatePaymentIntent(params);
@@ -48,14 +46,14 @@ export async function createPaymentIntent(params: CreatePaymentIntentParams): Pr
     });
 
     if (errors || !data) {
+      console.error('Failed to update order status:', errors);
       throw new Error('Failed to update order status');
     }
 
-    // Real implementation
     try {
-      const { body } = await post({
+      const response = await post({
         apiName: 'payment-api',
-        path: 'create-payment-intent',
+        path: 'create-payment-intent', // Remove leading slash
         options: {
           body: params,
           headers: {
@@ -64,20 +62,26 @@ export async function createPaymentIntent(params: CreatePaymentIntentParams): Pr
         }
       }).response;
 
-      return body as unknown as CreatePaymentIntentResponse;
+      const responseData = await response.body.json() as CreatePaymentIntentResponse;
+      console.log('Payment intent created successfully:', responseData);
+
+      if (!responseData.clientSecret) {
+        throw new Error('No client secret received from payment API');
+      }
+
+      return {
+        clientSecret: responseData.clientSecret,
+        orderId: responseData.orderId
+      };
     } catch (error) {
-      // Log the full error object
-      console.error('Payment API request failed - Full error:', error);
-      console.error('Payment API request failed - Details:', {
-        status: (error as any)?.response?.status,
-        message: (error as any)?.message,
-        response: (error as any)?.response,
-        body: params // Log what we're sending
-      });
+      console.error('Payment API request failed:', error);
+      if (error instanceof Error) {
+        throw new Error(`Payment API error: ${error.message}`);
+      }
       throw error;
     }
   } catch (error) {
-    console.error('Payment intent request failed:', error);
+    console.error('Payment intent creation failed:', error);
     throw error;
   }
 } 
