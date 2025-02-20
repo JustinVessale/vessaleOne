@@ -21,6 +21,8 @@ Amplify.configure({
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <div className="bg-gradient-to-r from-blue-500 to-green-500 min-h-screen">
+      <App />
+    </div>
   </React.StrictMode>
 );

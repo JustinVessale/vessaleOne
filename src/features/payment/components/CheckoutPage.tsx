@@ -4,7 +4,7 @@ import { CheckoutContainer } from './CheckoutContainer';
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 const client = generateClient<Schema>();
 
@@ -15,15 +15,21 @@ export function CheckoutPage() {
   const { state, total, clearCart } = useCart();
   const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
+  const orderAttemptedRef = useRef(false);
 
-  // Memoize createInitialOrder to prevent infinite re-renders
   const createInitialOrder = useCallback(async () => {
+    if (orderAttemptedRef.current) {
+      console.log('Order creation already attempted');
+      return null;
+    }
+
+    orderAttemptedRef.current = true;
     try {
       const { data: newOrder, errors } = await client.models.Order.create({
         total,
         status: 'PENDING',
-        customerEmail: '', // TODO: Add customer email when we have auth
-        restaurantId: state.items[0]?.restaurantId || '', // Get restaurantId from first item
+        customerEmail: '',
+        restaurantId: state.items[0]?.restaurantId || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
@@ -32,7 +38,6 @@ export function CheckoutPage() {
         throw new Error('Failed to create initial order');
       }
 
-      // Create order items
       const itemPromises = state.items.map(item => 
         client.models.OrderItem.create({
           orderId: newOrder.id,
