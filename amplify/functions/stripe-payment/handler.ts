@@ -41,7 +41,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         },
         body: JSON.stringify({
           error: 'Stripe Authentication Error',
-          details: 'Invalid or missing API key. Please check your Stripe configuration.',
+          details: `Invalid or missing API key. Please check your Stripe configuration. ${error.message}`,
           type: 'StripeAuthenticationError'
         })
       };
