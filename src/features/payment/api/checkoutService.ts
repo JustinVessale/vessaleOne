@@ -27,19 +27,12 @@ async function mockCreatePaymentIntent(_params: CreatePaymentIntentParams): Prom
 
 export async function createPaymentIntent(params: CreatePaymentIntentParams): Promise<CreatePaymentIntentResponse> {
   try {
-    // Skip the order update when in mock mode to prevent AWS calls
-    if (!MOCK_API) {
-      console.log('Using Real API');
-      const { data, errors } = await client.models.Order.update({
-        id: params.orderId,
-        stripePaymentIntentId: 'pending',
-        status: 'PAYMENT_PROCESSING'
-      });
-
-      if (errors || !data) {
-        throw new Error('Failed to update order status');
-      }
+    // First validate we have a valid order ID
+    if (!params.orderId) {
+      throw new Error('No order ID provided');
     }
+
+    console.log('Attempting payment intent creation for order:', params.orderId);
 
     // Use mock implementation if enabled
     if (MOCK_API) {
@@ -47,16 +40,42 @@ export async function createPaymentIntent(params: CreatePaymentIntentParams): Pr
       return mockCreatePaymentIntent(params);
     }
 
-    // Real implementation
-    const { body } = await post({
-      apiName: 'payment-api',
-      path: '/create-payment-intent',
-      options: {
-        body: params
-      }
-    }).response;
+    console.log('Using Real API');
+    const { data, errors } = await client.models.Order.update({
+      id: params.orderId,
+      stripePaymentIntentId: 'pending',
+      status: 'PAYMENT_PROCESSING'
+    });
 
-    return body as unknown as CreatePaymentIntentResponse;
+    if (errors || !data) {
+      throw new Error('Failed to update order status');
+    }
+
+    // Real implementation
+    try {
+      const { body } = await post({
+        apiName: 'payment-api',
+        path: 'create-payment-intent',
+        options: {
+          body: params,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      }).response;
+
+      return body as unknown as CreatePaymentIntentResponse;
+    } catch (error) {
+      // Log the full error object
+      console.error('Payment API request failed - Full error:', error);
+      console.error('Payment API request failed - Details:', {
+        status: (error as any)?.response?.status,
+        message: (error as any)?.message,
+        response: (error as any)?.response,
+        body: params // Log what we're sending
+      });
+      throw error;
+    }
   } catch (error) {
     console.error('Payment intent request failed:', error);
     throw error;

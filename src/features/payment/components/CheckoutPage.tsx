@@ -4,7 +4,7 @@ import { CheckoutContainer } from './CheckoutContainer';
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 const client = generateClient<Schema>();
 
@@ -17,14 +17,30 @@ export function CheckoutPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const orderAttemptedRef = useRef(false);
 
+  // Reset the ref when component mounts
+  useEffect(() => {
+    orderAttemptedRef.current = false;
+    
+    return () => {
+      orderAttemptedRef.current = false;
+    };
+  }, []);
+
   const createInitialOrder = useCallback(async () => {
     if (orderAttemptedRef.current) {
-      console.log('Order creation already attempted');
+      console.log('Order creation already attempted in this session');
       return null;
     }
 
     orderAttemptedRef.current = true;
     try {
+      // Log the input data
+      console.log('Creating order with:', {
+        total,
+        restaurantId: state.items[0]?.restaurantId || '',
+        itemsCount: state.items.length
+      });
+
       const { data: newOrder, errors } = await client.models.Order.create({
         total,
         status: 'PENDING',
@@ -34,24 +50,40 @@ export function CheckoutPage() {
         updatedAt: new Date().toISOString()
       });
 
-      if (errors || !newOrder) {
+      // Log any GraphQL errors
+      if (errors) {
+        console.error('GraphQL Errors:', errors);
+      }
+
+      if (!newOrder) {
+        console.error('No order data returned');
         throw new Error('Failed to create initial order');
       }
 
-      const itemPromises = state.items.map(item => 
-        client.models.OrderItem.create({
+      // Log successful order creation
+      console.log('Order created:', newOrder);
+
+      const itemPromises = state.items.map(item => {
+        console.log('Creating order item:', item);
+        return client.models.OrderItem.create({
           orderId: newOrder.id,
           menuItemId: item.menuItemId,
           quantity: item.quantity,
           specialInstructions: item.specialInstructions || ''
-        })
-      );
+        });
+      });
 
-      await Promise.all(itemPromises);
+      const orderItems = await Promise.all(itemPromises);
+      console.log('Order items created:', orderItems);
+
       setOrder(newOrder);
       return newOrder;
     } catch (error) {
       console.error('Error creating initial order:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        console.error('Error stack:', error.stack);
+      }
       toast({
         title: "Error creating order",
         description: "There was a problem creating your order. Please try again.",
