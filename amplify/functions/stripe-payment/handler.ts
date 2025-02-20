@@ -30,14 +30,49 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       })
     };
   } catch (error) {
-    console.error('Payment intent creation failed:', error);
+    console.error('Stripe error:', error);
+    
+    if (error instanceof Stripe.errors.StripeAuthenticationError) {
+      return {
+        statusCode: 401,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "*"
+        },
+        body: JSON.stringify({
+          error: 'Stripe Authentication Error',
+          details: `Invalid or missing API key. Please check your Stripe configuration. ${error.message}`,
+          type: 'StripeAuthenticationError'
+        })
+      };
+    }
+
+    if (error instanceof Stripe.errors.StripeError) {
+      return {
+        statusCode: error.statusCode || 500,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "*"
+        },
+        body: JSON.stringify({
+          error: 'Failed to create payment intent',
+          details: error.message,
+          type: error.type
+        })
+      };
+    }
+
+    // Handle non-Stripe errors
     return {
       statusCode: 500,
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Headers": "*"
       },
-      body: JSON.stringify({ error: 'Failed to create payment intent' })
+      body: JSON.stringify({
+        error: 'An unexpected error occurred',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      })
     };
   }
 }; 

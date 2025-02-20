@@ -18,106 +18,95 @@ type CheckoutContainerProps = {
 export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: CheckoutContainerProps) {
   const [clientSecret, setClientSecret] = useState<string>('');
   const [order, setOrder] = useState<Order | null>(null);
-  const [isInitializing, setIsInitializing] = useState(false);  // Add loading state
-  
-  const orderAttemptsRef = useRef(0);
-  const paymentAttemptsRef = useRef(0);
-  const isSubscribedRef = useRef(true);
-  const MAX_ATTEMPTS = 3;
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const initializationPromiseRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
-    // Reset attempt counters when component mounts
-    //TODO: This is a hack to prevent the payment from being created multiple times
-    // but it still failes sometimes and we should fix this
-    orderAttemptsRef.current = 0;
-    paymentAttemptsRef.current = 0;
-    isSubscribedRef.current = true;
-
-    // Guard against multiple initialization attempts
-    if (isInitializing || clientSecret || order) {
-      return;
-    }
-
-    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-    const createPaymentIntentWithRetry = async (params: { orderId: string; total: number; restaurantId: string }) => {
-      if (paymentAttemptsRef.current >= MAX_ATTEMPTS) {
-        throw new Error(`Failed to create payment intent after ${MAX_ATTEMPTS} attempts`);
-      }
-
+    async function initializePayment() {
       try {
-        paymentAttemptsRef.current++;
-        if (paymentAttemptsRef.current > 1) {
-          await sleep(Math.pow(2, paymentAttemptsRef.current - 2) * 1000);
-        }
-
-        console.log(`Creating payment intent (attempt ${paymentAttemptsRef.current})...`);
-        const { clientSecret } = await createPaymentIntent(params);
-        return clientSecret;
-      } catch (error) {
-        console.error(`Payment intent creation failed (attempt ${paymentAttemptsRef.current}/${MAX_ATTEMPTS}):`, error);
-        return createPaymentIntentWithRetry(params);
-      }
-    };
-
-    const initializePayment = async () => {
-      if (orderAttemptsRef.current >= MAX_ATTEMPTS) {
-        onError(new Error(`Failed to initialize payment after ${MAX_ATTEMPTS} attempts`));
-        return;
-      }
-
-      setIsInitializing(true);  // Set loading state
-      try {
-        orderAttemptsRef.current++;
-        if (orderAttemptsRef.current > 1) {
-          await sleep(Math.pow(2, orderAttemptsRef.current - 2) * 1000);
-        }
-
         // Create the order first
         const newOrder = await createInitialOrder();
         if (!newOrder) {
-          throw new Error('Failed to create order');
+          setError('Failed to create order');
+          return;
         }
         
-        if (!isSubscribedRef.current) return; // Check if component is still mounted
         setOrder(newOrder);
-
-        // Then create the payment intent
+        
         const params = {
           orderId: newOrder.id,
           total: newOrder.total ?? 0,
           restaurantId: newOrder.restaurantId ?? ''
         };
         
-        const clientSecret = await createPaymentIntentWithRetry(params);
-        if (!isSubscribedRef.current) return; // Check if component is still mounted
-        setClientSecret(clientSecret);
-      } catch (error) {
-        console.error(`Error initializing payment (attempt ${orderAttemptsRef.current}/${MAX_ATTEMPTS}):`, error);
-        if (orderAttemptsRef.current < MAX_ATTEMPTS) {
-          await initializePayment();
-        } else {
-          onError(error);
+        console.log('Creating payment intent with params:', params);
+        
+        const response = await createPaymentIntent(params);
+        console.log('Payment intent response:', response);
+        
+        if (!response.clientSecret) {
+          throw new Error('No client secret received from payment intent');
         }
+        
+        setClientSecret(response.clientSecret);
+      } catch (error) {
+        console.error('Error in payment initialization:', error);
+        setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+        onError(error);
       } finally {
-        setIsInitializing(false);  // Reset loading state
+        setIsLoading(false);
       }
-    };
+    }
 
-    initializePayment();
+    // Only initialize if we haven't started the process
+    if (!initializationPromiseRef.current) {
+      initializationPromiseRef.current = initializePayment();
+    }
 
     return () => {
-      isSubscribedRef.current = false;
-      // Reset states and counters on cleanup
-      setClientSecret('');
-      setOrder(null);
-      orderAttemptsRef.current = 0;
-      paymentAttemptsRef.current = 0;
+      // Cleanup can stay empty as we want to keep the promise ref
+      // until component is fully unmounted
     };
-  }, [createInitialOrder, onError, clientSecret, order, isInitializing]);  // Add dependencies
+  }, [createInitialOrder, onError]);
 
-  if (!clientSecret || !order) {
-    return <div>Loading...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <span className="ml-2">Processing payment...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-red-600 p-4 bg-red-50 rounded-md">
+        <p className="font-medium">Error: {error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-2 text-sm text-red-700 hover:text-red-800"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="text-red-600 p-4 bg-red-50 rounded-md">
+        Failed to create order. Please try again.
+      </div>
+    );
+  }
+
+  if (!clientSecret) {
+    return (
+      <div className="text-red-600 p-4 bg-red-50 rounded-md">
+        Failed to initialize payment. Please try again.
+      </div>
+    );
   }
 
   return (
