@@ -4,6 +4,7 @@ import { NavigationBar } from './features/shared/components/NavigationBar';
 import { RestaurantPage } from './features/restaurant/components/RestaurantPage';
 import { CartProvider } from './features/cart/context/CartContext';
 import { CheckoutPage } from './features/payment/components/CheckoutPage';
+import { OrderConfirmationPage } from '@/features/orders/components/OrderConfirmationPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,6 +25,7 @@ function App() {
             <Routes>
               <Route path="/:slug" element={<RestaurantPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/orders/:orderId" element={<OrderConfirmationPage />} />
             </Routes>
           </div>
         </BrowserRouter>
