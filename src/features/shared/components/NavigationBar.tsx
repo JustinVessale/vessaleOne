@@ -1,9 +1,45 @@
 import { ShoppingBagIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { useCart } from '../../cart/context/CartContext';
+import { useLocation } from 'react-router-dom';
 
 export function NavigationBar() {
   const { toggleCart, state } = useCart();
+  const location = useLocation();
   const itemCount = state.items.reduce((acc, item) => acc + item.quantity, 0);
+
+  const hideCartPaths = ['/checkout', '/orders'];
+  const shouldShowCart = !hideCartPaths.some(path => location.pathname.startsWith(path));
+
+  if (!shouldShowCart) {
+    return (
+      <nav className="sticky top-0 z-40 bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex-shrink-0">
+              <a href="/" className="text-xl font-bold text-gray-900">Vessale</a>
+            </div>
+
+            {/* Search Bar */}
+            <div className="hidden md:block flex-1 max-w-2xl mx-8">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="search"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-full 
+                           text-sm placeholder-gray-500 focus:outline-none focus:ring-2 
+                           focus:ring-primary-400 focus:border-primary-400"
+                  placeholder="Search menu items..."
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <>
