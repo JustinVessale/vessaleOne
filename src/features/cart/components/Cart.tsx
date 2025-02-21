@@ -1,12 +1,9 @@
-import { XMarkIcon, MinusIcon, PlusIcon, ShoppingBagIcon } from '@heroicons/react/24/solid';
+import { XMarkIcon, ShoppingBagIcon } from '@heroicons/react/24/solid';
 import { useCart } from '../context/CartContext';
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { cn } from '@/lib/utils';
 
 export function Cart() {
-  const { state, removeItem, updateQuantity, updateInstructions, toggleCart, total } = useCart();
-  const [editingInstructions, setEditingInstructions] = useState<string | null>(null);
+  const { state, removeItem, updateQuantity, toggleCart } = useCart();
   const navigate = useNavigate();
 
   const handleCheckout = () => {

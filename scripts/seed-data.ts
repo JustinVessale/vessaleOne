@@ -11,10 +11,10 @@ async function seedData() {
   try {
     // Create Restaurant
     const restaurantResponse = await client.models.Restaurant.create({
-      name: "The Tasty Corner",
-      slug: "the-tasty-corner",
-      description: "A cozy restaurant serving delicious comfort food with a modern twist",
-      imageUrl: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+      name: "World Famous Grill",
+      slug: "world-famous-grill",
+      description: "A cozy Mediterranean and Greek restaurant serving delicious authentic dishes with modern flair",
+      imageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5",
     });
 
     if (restaurantResponse.data?.id) {
@@ -27,91 +27,119 @@ async function seedData() {
     // Create Menu Categories
     const categories = await Promise.all([
       client.models.MenuCategory.create({
-        name: "Starters",
-        description: "Light bites to start your meal",
+        name: "Appetizers",
+        description: "Delicious starters and small plates",
         restaurantId: restaurantId,
       }),
       client.models.MenuCategory.create({
         name: "Main Courses",
-        description: "Hearty main dishes",
+        description: "Hearty Mediterranean and Greek entrees",
         restaurantId: restaurantId,
       }),
       client.models.MenuCategory.create({
-        name: "Desserts",
-        description: "Sweet treats to finish",
+        name: "Sides",
+        description: "Perfect accompaniments to your meal",
         restaurantId: restaurantId,
       }),
     ]);
 
     // Create Menu Items for each category
-    const [starters, mains, desserts] = categories;
+    const [appetizers, mains, sides] = categories;
 
-    if (!starters.data?.id || !mains.data?.id || !desserts.data?.id) {
+    if (!appetizers.data?.id || !mains.data?.id || !sides.data?.id) {
       throw new Error("One or more category IDs are missing from the response.");
     }
 
-    const startersId = starters.data.id;
+    const appetizersId = appetizers.data.id;
     const mainsId = mains.data.id;
-    const dessertsId = desserts.data.id;
+    const sidesId = sides.data.id;
 
-    // Starters
+    // Appetizers
     await Promise.all([
       client.models.MenuItem.create({
-        name: "Crispy Calamari",
-        description: "Lightly battered calamari served with garlic aioli",
-        price: 12.99,
-        imageUrl: "https://images.unsplash.com/photo-1604909052743-94e838986d24",
-        categoryId: startersId,
+        name: "Monster Nachos",
+        description: "Homemade tortilla chips topped with asada beef, cheese, guacamole, sour cream, pico de gallo & jalapenos",
+        price: 16.99,
+        imageUrl: "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d",
+        categoryId: appetizersId,
       }),
       client.models.MenuItem.create({
-        name: "Caesar Salad",
-        description: "Fresh romaine lettuce, parmesan, croutons, and house-made dressing",
-        price: 10.99,
-        imageUrl: "https://images.unsplash.com/photo-1550304943-4f24f54ddde9",
-        categoryId: startersId,
+        name: "Hummus",
+        description: "Creamy house-made hummus served with warm pita bread",
+        price: 7.99,
+        imageUrl: "https://images.unsplash.com/photo-1577805947697-89e18249d767",
+        categoryId: appetizersId,
+      }),
+      client.models.MenuItem.create({
+        name: "Grape Leaves",
+        description: "Traditional dolmas stuffed with seasoned rice and herbs",
+        price: 7.99,
+        imageUrl: "https://images.unsplash.com/photo-1628438273202-a26b710c5710",
+        categoryId: appetizersId,
       }),
     ]);
 
     // Main Courses
     await Promise.all([
       client.models.MenuItem.create({
-        name: "Grilled Salmon",
-        description: "Fresh Atlantic salmon with seasonal vegetables",
-        price: 24.99,
-        imageUrl: "https://images.unsplash.com/photo-1467003909585-2f8a72700288",
+        name: "Chicken Roll",
+        description: "Tender chicken wrapped in fresh flatbread with garlic sauce",
+        price: 10.99,
+        imageUrl: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143",
         categoryId: mainsId,
       }),
       client.models.MenuItem.create({
-        name: "Ribeye Steak",
-        description: "12oz ribeye with garlic mashed potatoes",
-        price: 32.99,
-        imageUrl: "https://images.unsplash.com/photo-1600891964092-4316c288032e",
+        name: "Chicken Wings",
+        description: "Crispy wings tossed in your choice of sauce",
+        price: 13.99,
+        imageUrl: "https://images.unsplash.com/photo-1608039829572-78524f79c4c7",
         categoryId: mainsId,
       }),
       client.models.MenuItem.create({
-        name: "Mushroom Risotto",
-        description: "Creamy arborio rice with wild mushrooms and parmesan",
-        price: 18.99,
-        imageUrl: "https://images.unsplash.com/photo-1476124369491-e7addf5db371",
+        name: "Mixed Grill Platter",
+        description: "A generous assortment of grilled meats including lamb, chicken, and beef with Mediterranean seasonings",
+        price: 28.99,
+        imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947",
+        categoryId: mainsId,
+      }),
+      client.models.MenuItem.create({
+        name: "Falafel Plate",
+        description: "Crispy falafel served with hummus, tahini sauce, and fresh pita bread",
+        price: 15.99,
+        imageUrl: "https://images.unsplash.com/photo-1593001874117-c99c800e3eb7",
+        categoryId: mainsId,
+      }),
+      client.models.MenuItem.create({
+        name: "Gyro Plate",
+        description: "Traditional gyro meat served with tzatziki sauce, Greek salad, and pita bread",
+        price: 17.99,
+        imageUrl: "https://images.unsplash.com/photo-1529059997568-3d847b1154f0",
         categoryId: mainsId,
       }),
     ]);
 
-    // Desserts
+    // Sides
     await Promise.all([
       client.models.MenuItem.create({
-        name: "Chocolate Lava Cake",
-        description: "Warm chocolate cake with a molten center",
-        price: 8.99,
-        imageUrl: "https://images.unsplash.com/photo-1511911063855-2bf39afa5b2e",
-        categoryId: dessertsId,
+        name: "Garlic Potato",
+        description: "Roasted potatoes seasoned with garlic and herbs",
+        price: 9.99,
+        imageUrl: "https://images.unsplash.com/photo-1585148859783-94a66ee1093f",
+        categoryId: sidesId,
       }),
       client.models.MenuItem.create({
-        name: "New York Cheesecake",
-        description: "Classic cheesecake with berry compote",
-        price: 7.99,
-        imageUrl: "https://images.unsplash.com/photo-1524351199678-941a58a3df50",
-        categoryId: dessertsId,
+        name: "Onion Rings Tower",
+        description: "Crispy battered onion rings stacked high",
+        price: 8.99,
+        imageUrl: "https://images.unsplash.com/photo-1639024471283-03518883512d",
+        categoryId: sidesId,
+      }),
+      client.models.MenuItem.create({
+        name: "Cheese Sticks",
+        description: "Golden-fried mozzarella sticks with marinara sauce",
+        price: 9.49,
+        imageUrl: "https://images.unsplash.com/photo-1531749668029-2db88e4276c7",
+        categoryId: sidesId,
       }),
     ]);
 
