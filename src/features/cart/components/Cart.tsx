@@ -2,6 +2,7 @@ import { XMarkIcon, MinusIcon, PlusIcon, ShoppingBagIcon } from '@heroicons/reac
 import { useCart } from '../context/CartContext';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 export function Cart() {
   const { state, removeItem, updateQuantity, updateInstructions, toggleCart, total } = useCart();
@@ -16,128 +17,89 @@ export function Cart() {
   };
 
   const CartContent = () => (
-    <>
-      <div className="flex-1 overflow-y-auto">
+    <div className="flex flex-col h-full">
+      {/* Cart Items */}
+      <div className="flex-1 overflow-auto p-4">
         {state.items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-6">
-            <ShoppingBagIcon className="w-16 h-16 text-gray-400 mb-4" />
-            <p className="text-gray-500">Your cart is empty</p>
+          <div className="flex flex-col items-center justify-center h-full text-gray-500">
+            <ShoppingBagIcon className="h-12 w-12 mb-4" />
+            <p className="text-lg">Your cart is empty</p>
           </div>
         ) : (
-          <ul className="divide-y divide-gray-200">
+          <>
             {state.items.map((item) => (
-              <li key={item.id} className="py-6 px-4">
-                <div className="flex items-start space-x-4">
-                  {item.imageUrl && (
-                    <img
-                      src={item.imageUrl}
-                      alt={item.name}
-                      className="h-20 w-20 rounded-lg object-cover bg-gray-100"
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between">
-                      <p className="text-base font-medium text-gray-900 truncate">{item.name}</p>
-                      <p className="text-base font-medium text-gray-900">
-                        ${(item.price * item.quantity).toFixed(2)}
-                      </p>
-                    </div>
-                    
-                    <div className="mt-4 flex items-center justify-between">
-                      <div className="flex items-center border rounded-full">
-                        <button
-                          onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
-                          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                        >
-                          <MinusIcon className="h-4 w-4" />
-                        </button>
-                        <span className="mx-2 min-w-[2rem] text-center text-sm font-medium">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                        >
-                          <PlusIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                      
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="text-sm font-medium text-primary hover:text-primary/80"
+              <div key={item.id} className="flex items-start space-x-4 mb-6">
+                <img
+                  src={item.imageUrl}
+                  alt={item.name}
+                  className="w-20 h-20 rounded-lg object-cover"
+                />
+                <div className="flex-1 min-w-0 pr-2">
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-medium">{item.name}</h3>
+                    <span className="text-lg font-semibold ml-4">${item.price.toFixed(2)}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center mt-2">
+                    <div className="flex items-center border rounded-full px-2">
+                      <button 
+                        className="p-2" 
+                        onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
                       >
-                        Remove
+                        -
+                      </button>
+                      <span className="px-4">{item.quantity}</span>
+                      <button 
+                        className="p-2" 
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      >
+                        +
                       </button>
                     </div>
-
-                    <div className="mt-4">
-                      {editingInstructions === item.id ? (
-                        <textarea
-                          className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                          placeholder="Add special instructions..."
-                          value={item.specialInstructions || ''}
-                          onChange={(e) => updateInstructions(item.id, e.target.value)}
-                          onBlur={() => setEditingInstructions(null)}
-                          rows={2}
-                          autoFocus
-                        />
-                      ) : (
-                        <button
-                          onClick={() => setEditingInstructions(item.id)}
-                          className="text-sm text-gray-500 hover:text-gray-700"
-                        >
-                          {item.specialInstructions || 'Add special instructions...'}
-                        </button>
-                      )}
-                    </div>
+                    <button 
+                      className="text-red-500 hover:text-red-700 px-3 py-1"
+                      onClick={() => removeItem(item.id)}
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </>
         )}
       </div>
 
+      {/* Cart Footer */}
       {state.items.length > 0 && (
-        <div className="border-t border-gray-200 p-4 bg-white">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm text-gray-500">
-              <span>Subtotal</span>
-              <span>${total.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm text-gray-500">
-              <span>Delivery Fee</span>
-              <span>TBD</span>
-            </div>
-            <div className="flex items-center justify-between text-base font-medium text-gray-900 pt-2">
-              <span>Total</span>
-              <span>${total.toFixed(2)}</span>
-            </div>
-            <button
-              onClick={handleCheckout}
-              className="w-full mt-4 bg-primary text-primary-foreground py-3 px-4 rounded-lg 
-                       hover:bg-primary/90 transition-colors focus:outline-none focus:ring-2 
-                       focus:ring-offset-2 focus:ring-primary font-medium text-base"
-            >
-              Go to Checkout
-            </button>
+        <div className="border-t p-4 space-y-4">
+          <div className="flex justify-between items-center">
+            <span className="text-lg font-semibold">Subtotal</span>
+            <span className="text-lg font-semibold">
+              ${state.items.reduce((acc, item) => acc + (item.price * item.quantity), 0).toFixed(2)}
+            </span>
           </div>
+          
+          <button 
+            className="w-full bg-blue-400 text-white py-3 px-4 rounded-lg 
+                       hover:bg-blue-500 transition-colors font-medium
+                       border-2 border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2
+                       shadow-sm"
+            onClick={handleCheckout}
+          >
+            Go to Checkout
+          </button>
         </div>
       )}
-    </>
+    </div>
   );
 
   // Desktop version
   if (!state.isOpen) {
     return (
       <div className="bg-white rounded-lg shadow-lg p-4 h-full">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Your order</h2>
-          {state.items.length > 0 && (
-            <span className="bg-primary text-primary-foreground px-2 py-1 rounded-full text-sm">
-              {state.items.reduce((acc, item) => acc + item.quantity, 0)}
-            </span>
-          )}
+        <div className="flex items-center justify-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">Your order</h2>
         </div>
         <CartContent />
       </div>
@@ -151,7 +113,9 @@ export function Cart() {
       <div className="absolute inset-y-0 right-0 max-w-full flex">
         <div className="w-full sm:w-96 bg-white shadow-xl flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Your order</h2>
+            <div className="flex-1 text-center">
+              <h2 className="text-xl font-semibold text-gray-900">Your order</h2>
+            </div>
             <button
               onClick={toggleCart}
               className="rounded-full p-2 hover:bg-gray-100 transition-colors"
