@@ -1,6 +1,6 @@
 import { generateClient } from "aws-amplify/api";
 import { type Schema } from "../amplify/data/resource";
-import outputs from "../amplify_outputs.json";
+import outputs from "../amplify_outputs_dev.json";
 import { Amplify } from "aws-amplify";
 
 Amplify.configure(outputs);
