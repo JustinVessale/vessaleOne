@@ -2,8 +2,14 @@ import { ShoppingBagIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outlin
 import { useCart } from '../../cart/context/CartContext';
 
 export function NavigationBar() {
-  const { state, toggleCart } = useCart();
-  const itemCount = state.items.reduce((acc, item) => acc + item.quantity, 0);
+  // Temporarily disabled navigation bar for UI development
+  const isEnabled = false;
+
+  if (!isEnabled) {
+    return null;
+  }
+
+  const { toggleCart } = useCart();
 
   return (
     <nav className="sticky top-0 z-40 bg-white shadow-sm">
@@ -11,9 +17,7 @@ export function NavigationBar() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <a href="/" className="text-xl font-bold text-gray-900">
-              Restaurant Name
-            </a>
+            <a href="/" className="text-xl font-bold text-gray-900"/>
           </div>
 
           {/* Search Bar */}
@@ -40,12 +44,6 @@ export function NavigationBar() {
               aria-label="Shopping cart"
             >
               <ShoppingBagIcon className="h-6 w-6 text-gray-600" />
-              {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-primary-400 text-white text-xs 
-                               font-medium px-2 py-0.5 rounded-full">
-                  {itemCount}
-                </span>
-              )}
             </button>
           </div>
         </div>
