@@ -1,6 +1,6 @@
 import { generateClient } from "aws-amplify/api";
 import { type Schema } from "../amplify/data/resource";
-import outputs from "../amplify_outputs_dev.json";
+import outputs from "../amplify_outputs.json";
 import { Amplify } from "aws-amplify";
 
 Amplify.configure(outputs);
@@ -74,7 +74,7 @@ async function seedData() {
         name: "Grape Leaves",
         description: "Traditional dolmas stuffed with seasoned rice and herbs",
         price: 7.99,
-        imageUrl: "https://images.unsplash.com/photo-1628438273202-a26b710c5710",
+        imageUrl: "https://images.unsplash.com/photo-1541518763669-27fef04b14ea",
         categoryId: appetizersId,
       }),
     ]);
@@ -106,7 +106,7 @@ async function seedData() {
         name: "Falafel Plate",
         description: "Crispy falafel served with hummus, tahini sauce, and fresh pita bread",
         price: 15.99,
-        imageUrl: "https://images.unsplash.com/photo-1593001874117-c99c800e3eb7",
+        imageUrl: "https://images.unsplash.com/photo-1601050690597-df0568f70950",
         categoryId: mainsId,
       }),
       client.models.MenuItem.create({
@@ -124,7 +124,7 @@ async function seedData() {
         name: "Garlic Potato",
         description: "Roasted potatoes seasoned with garlic and herbs",
         price: 9.99,
-        imageUrl: "https://images.unsplash.com/photo-1585148859783-94a66ee1093f",
+        imageUrl: "https://images.unsplash.com/photo-1568569350062-ebfa3cb195df",
         categoryId: sidesId,
       }),
       client.models.MenuItem.create({
