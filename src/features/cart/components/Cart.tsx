@@ -105,10 +105,19 @@ export function Cart() {
 
   // Mobile version (slide-in panel)
   return (
-    <div className="fixed inset-0 z-50 lg:hidden">
-      <div className="absolute inset-0 bg-black bg-opacity-50" onClick={toggleCart} />
+    <div className={`fixed inset-0 z-[100] lg:hidden ${state.isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+      <div 
+        className={`fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
+          state.isOpen ? 'opacity-100' : 'opacity-0'
+        }`} 
+        onClick={toggleCart} 
+      />
       <div className="absolute inset-y-0 right-0 max-w-full flex">
-        <div className="w-full sm:w-96 bg-white shadow-xl flex flex-col">
+        <div 
+          className={`w-full sm:w-96 bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out ${
+            state.isOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
             <div className="flex-1 text-center">
               <h2 className="text-xl font-semibold text-gray-900">Your order</h2>

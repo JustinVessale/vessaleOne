@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../../../amplify/data/resource';
 import { MenuCategory } from '../../menu/components/MenuCategory';
-import { Cart } from '../../cart/components/Cart';
 
 const client = generateClient<Schema>();
 
@@ -63,13 +62,6 @@ export function RestaurantPage() {
                     restaurantId={restaurant.id}
                   />
                 ))}
-              </div>
-            </div>
-
-            {/* Cart - Fixed width */}
-            <div className="hidden lg:block w-96">
-              <div className="sticky top-4">
-                <Cart />
               </div>
             </div>
           </div>
