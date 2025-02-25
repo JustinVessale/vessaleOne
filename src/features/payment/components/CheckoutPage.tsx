@@ -5,16 +5,27 @@ import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { DeliveryCheckout } from '@/features/delivery/components/DeliveryCheckout';
 
 const client = generateClient<Schema>();
 
 type Order = Schema['Order']['type'];
+
+type DeliveryData = {
+  address: string;
+  deliveryFee: number;
+  quoteId: string;
+  estimatedDeliveryTime: string;
+};
 
 export function CheckoutPage() {
   const navigate = useNavigate();
   const { state, total, clearCart } = useCart();
   const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
+  const [isDelivery, setIsDelivery] = useState(false);
+  const [deliveryData, setDeliveryData] = useState<DeliveryData | null>(null);
+  const [checkoutStep, setCheckoutStep] = useState<'delivery-option' | 'delivery-details' | 'payment'>('delivery-option');
   const orderAttemptedRef = useRef(false);
 
   // Reset the ref when component mounts
@@ -25,6 +36,18 @@ export function CheckoutPage() {
       orderAttemptedRef.current = false;
     };
   }, []);
+
+  // Mock restaurant data - in a real app, this would come from the restaurant details
+  const restaurantData = {
+    name: "Sample Restaurant",
+    phone: "555-123-4567",
+    address: {
+      street: "123 Main St",
+      city: "Anytown",
+      state: "CA",
+      zip: "12345"
+    }
+  };
 
   const createInitialOrder = useCallback(async () => {
     if (orderAttemptedRef.current) {
@@ -38,16 +61,38 @@ export function CheckoutPage() {
       console.log('Creating order with:', {
         total,
         restaurantId: state.items[0]?.restaurantId || '',
-        itemsCount: state.items.length
+        itemsCount: state.items.length,
+        isDelivery,
+        deliveryData
       });
 
+      // Calculate the total with delivery fee if applicable
+      const orderTotal = isDelivery 
+        ? total + (deliveryData?.deliveryFee || 0) 
+        : total;
+
       const { data: newOrder, errors } = await client.models.Order.create({
-        total,
+        total: orderTotal,
         status: 'PENDING',
         customerEmail: '',
         restaurantId: state.items[0]?.restaurantId || '',
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        // Add delivery-related fields if delivery is selected
+        isDelivery,
+        deliveryAddress: deliveryData?.address || '',
+        deliveryFee: deliveryData?.deliveryFee || 0,
+        // If we have customer info from delivery form
+        customerName: deliveryData ? 'Customer Name' : '',
+        customerPhone: deliveryData ? 'Customer Phone' : '',
+        // Add delivery info if available
+        ...(deliveryData && {
+          deliveryInfo: {
+            quoteId: deliveryData.quoteId,
+            estimatedDeliveryTime: deliveryData.estimatedDeliveryTime,
+            status: 'PENDING'
+          }
+        })
       });
 
       // Log any GraphQL errors
@@ -91,7 +136,7 @@ export function CheckoutPage() {
       });
       return null;
     }
-  }, [total, state.items, toast]);
+  }, [total, state.items, toast, isDelivery, deliveryData]);
 
   const handlePaymentSuccess = async (_paymentIntent: any) => {
     try {
@@ -129,6 +174,16 @@ export function CheckoutPage() {
     });
   };
 
+  const handleDeliveryOptionSelect = (useDelivery: boolean) => {
+    setIsDelivery(useDelivery);
+    setCheckoutStep(useDelivery ? 'delivery-details' : 'payment');
+  };
+
+  const handleDeliveryContinue = (data: DeliveryData) => {
+    setDeliveryData(data);
+    setCheckoutStep('payment');
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-8">
       <h1 className="text-2xl font-semibold">Checkout</h1>
@@ -146,24 +201,91 @@ export function CheckoutPage() {
               <div>${(item.price * item.quantity).toFixed(2)}</div>
             </div>
           ))}
+          
+          {/* Show delivery fee if applicable */}
+          {isDelivery && deliveryData && (
+            <div className="flex justify-between text-gray-700">
+              <span>Delivery Fee</span>
+              <span>${deliveryData.deliveryFee.toFixed(2)}</span>
+            </div>
+          )}
+          
           <div className="border-t pt-4">
             <div className="flex justify-between font-medium">
               <span>Total</span>
-              <span>${total.toFixed(2)}</span>
+              <span>
+                ${(total + (isDelivery && deliveryData ? deliveryData.deliveryFee : 0)).toFixed(2)}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Delivery Option Selection */}
+      {checkoutStep === 'delivery-option' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-medium mb-4">Delivery Options</h2>
+          <div className="space-y-4">
+            <button
+              onClick={() => handleDeliveryOptionSelect(false)}
+              className="w-full flex items-center justify-between p-4 border rounded-lg hover:border-primary-500 hover:bg-primary-50"
+            >
+              <div className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+                <div className="text-left">
+                  <h3 className="font-medium">Pickup</h3>
+                  <p className="text-sm text-gray-600">Pick up your order at the restaurant</p>
+                </div>
+              </div>
+              <span className="text-primary-600">Free</span>
+            </button>
+            
+            <button
+              onClick={() => handleDeliveryOptionSelect(true)}
+              className="w-full flex items-center justify-between p-4 border rounded-lg hover:border-primary-500 hover:bg-primary-50"
+            >
+              <div className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+                </svg>
+                <div className="text-left">
+                  <h3 className="font-medium">Delivery</h3>
+                  <p className="text-sm text-gray-600">Get your order delivered to your door</p>
+                </div>
+              </div>
+              <span className="text-primary-600">From $3.99</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delivery Details */}
+      {checkoutStep === 'delivery-details' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-medium mb-4">Delivery Details</h2>
+          <DeliveryCheckout
+            restaurantAddress={restaurantData.address}
+            restaurantName={restaurantData.name}
+            restaurantPhone={restaurantData.phone}
+            onContinue={handleDeliveryContinue}
+          />
+        </div>
+      )}
+
       {/* Payment Form */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-medium mb-4">Payment Details</h2>
-        <CheckoutContainer
-          createInitialOrder={createInitialOrder}
-          onSuccess={handlePaymentSuccess}
-          onError={handlePaymentError}
-        />
-      </div>
+      {checkoutStep === 'payment' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-medium mb-4">Payment Details</h2>
+          <CheckoutContainer
+            createInitialOrder={createInitialOrder}
+            onSuccess={handlePaymentSuccess}
+            onError={handlePaymentError}
+          />
+        </div>
+      )}
     </div>
   );
 } 

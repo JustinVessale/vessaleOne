@@ -5,6 +5,7 @@ import type { Schema } from '../../../../amplify/data/resource';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import { formatCurrency } from '@/utils/currency';
 import { format } from 'date-fns';
+import { DeliveryTracking } from '@/features/delivery/components/DeliveryTracking';
 
 const client = generateClient<Schema>();
 
@@ -30,7 +31,20 @@ export function OrderConfirmationPage() {
       const { data, errors } = await client.models.Order.get(
         { id: orderId! },
         {
-          selectionSet: ['id', 'status', 'total', 'createdAt', 'items.*', 'items.menuItem.*']
+          selectionSet: [
+            'id', 
+            'status', 
+            'total', 
+            'createdAt', 
+            'items.*', 
+            'items.menuItem.*',
+            'isDelivery',
+            'deliveryFee',
+            'deliveryAddress',
+            'customerName',
+            'customerPhone',
+            'deliveryInfo.*'
+          ]
         }
       )
 
@@ -94,6 +108,40 @@ export function OrderConfirmationPage() {
               </span>
             </div>
 
+            {/* Delivery Information (if applicable) */}
+            {order.isDelivery && (
+              <div className="mb-6 border-b border-gray-200 pb-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Delivery Information</h3>
+                
+                {order.deliveryInfo?.deliveryId ? (
+                  <DeliveryTracking deliveryId={order.deliveryInfo.deliveryId} />
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-gray-700">
+                      <span className="font-medium">Delivery Address:</span> {order.deliveryAddress}
+                    </p>
+                    {order.customerName && (
+                      <p className="text-gray-700">
+                        <span className="font-medium">Recipient:</span> {order.customerName}
+                      </p>
+                    )}
+                    {order.customerPhone && (
+                      <p className="text-gray-700">
+                        <span className="font-medium">Phone:</span> {order.customerPhone}
+                      </p>
+                    )}
+                    {order.deliveryInfo?.estimatedDeliveryTime && (
+                      <p className="text-gray-700">
+                        <span className="font-medium">Estimated Delivery:</span> {
+                          format(new Date(order.deliveryInfo.estimatedDeliveryTime), 'MMM d, h:mm a')
+                        }
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Order Items */}
             <div className="border-t border-gray-200 pt-4">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Order Items</h3>
@@ -119,7 +167,22 @@ export function OrderConfirmationPage() {
 
             {/* Total */}
             <div className="border-t border-gray-200 mt-6 pt-6">
-              <div className="flex justify-between text-lg font-medium">
+              {/* Subtotal */}
+              <div className="flex justify-between text-gray-700">
+                <span>Subtotal</span>
+                <span>{formatCurrency((order.total ?? 0) - (order.deliveryFee ?? 0))}</span>
+              </div>
+              
+              {/* Delivery Fee (if applicable) */}
+              {order.isDelivery && order.deliveryFee && (
+                <div className="flex justify-between text-gray-700 mt-2">
+                  <span>Delivery Fee</span>
+                  <span>{formatCurrency(order.deliveryFee)}</span>
+                </div>
+              )}
+              
+              {/* Total */}
+              <div className="flex justify-between text-lg font-medium mt-2 pt-2 border-t border-gray-100">
                 <span>Total</span>
                 <span>{formatCurrency(order.total ?? 0)}</span>
               </div>

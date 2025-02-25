@@ -21,6 +21,29 @@ const schema = a.schema({
     currentLocation: a.ref('Location'),
   }),
 
+  // Add delivery-related custom types
+  DeliveryStatus: a.enum([
+    'PENDING', 
+    'CONFIRMED', 
+    'PICKING_UP', 
+    'PICKED_UP', 
+    'DELIVERING', 
+    'COMPLETED', 
+    'CANCELLED', 
+    'FAILED'
+  ]),
+
+  DeliveryInfo: a.customType({
+    deliveryId: a.string(),
+    provider: a.string(),
+    fee: a.float(),
+    estimatedPickupTime: a.string(),
+    estimatedDeliveryTime: a.string(),
+    trackingUrl: a.string(),
+    status: a.ref('DeliveryStatus'),
+    quoteId: a.string(),
+  }),
+
   Restaurant: a
     .model({
       name: a.string(),
@@ -28,7 +51,13 @@ const schema = a.schema({
       description: a.string(),
       imageUrl: a.string(),
       menuCategories: a.hasMany('MenuCategory', 'restaurantId'),
-      orders: a.hasMany('Order', 'restaurantId')
+      orders: a.hasMany('Order', 'restaurantId'),
+      // Add restaurant address fields for delivery
+      address: a.string(),
+      city: a.string(),
+      state: a.string(),
+      zip: a.string(),
+      phone: a.string(),
     })
     .authorization((allow) => [allow.publicApiKey()]),
 
@@ -72,7 +101,13 @@ const schema = a.schema({
         source: a.string(),
         campaignId: a.string(),
         clickId: a.string()
-      })
+      }),
+      // Add delivery-related fields
+      isDelivery: a.boolean(),
+      deliveryFee: a.float(),
+      deliveryInfo: a.ref('DeliveryInfo'),
+      customerName: a.string(),
+      customerPhone: a.string(),
     })
     .authorization((allow) => [allow.publicApiKey()]),
 
