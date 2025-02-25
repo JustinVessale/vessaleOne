@@ -39,6 +39,25 @@ export async function createPaymentIntent(params: CreatePaymentIntentParams): Pr
     }
 
     console.log('Using Real API');
+    
+    // Fetch the order to verify it exists and has the correct total
+    const { data: orderData, errors: orderErrors } = await client.models.Order.get(
+      { id: params.orderId },
+      { selectionSet: ['id', 'total', 'items.*'] }
+    );
+    
+    if (orderErrors || !orderData) {
+      console.error('Failed to fetch order:', orderErrors);
+      throw new Error('Failed to fetch order');
+    }
+    
+    console.log('Order data before payment:', orderData);
+    
+    // Verify the order total matches the payment amount
+    if (orderData.total !== params.total) {
+      console.warn(`Order total (${orderData.total}) doesn't match payment amount (${params.total})`);
+    }
+
     const { data, errors } = await client.models.Order.update({
       id: params.orderId,
       stripePaymentIntentId: 'pending',
@@ -51,6 +70,8 @@ export async function createPaymentIntent(params: CreatePaymentIntentParams): Pr
     }
 
     try {
+      console.log('Making payment API request with params:', params);
+      
       const response = await post({
         apiName: 'payment-api',
         path: 'create-payment-intent', // Remove leading slash

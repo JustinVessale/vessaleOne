@@ -26,12 +26,15 @@ export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: Ch
     async function initializePayment() {
       try {
         // Create the order first
+        console.log('Creating initial order...');
         const newOrder = await createInitialOrder();
         if (!newOrder) {
+          console.error('Failed to create initial order');
           setError('Failed to create order');
           return;
         }
         
+        console.log('Order created successfully:', newOrder);
         setOrder(newOrder);
         
         const params = {
@@ -42,14 +45,20 @@ export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: Ch
         
         console.log('Creating payment intent with params:', params);
         
-        const response = await createPaymentIntent(params);
-        console.log('Payment intent response:', response);
-        
-        if (!response.clientSecret) {
-          throw new Error('No client secret received from payment intent');
+        try {
+          const response = await createPaymentIntent(params);
+          console.log('Payment intent response:', response);
+          
+          if (!response.clientSecret) {
+            throw new Error('No client secret received from payment intent');
+          }
+          
+          setClientSecret(response.clientSecret);
+        } catch (paymentError) {
+          console.error('Payment intent creation failed:', paymentError);
+          setError(paymentError instanceof Error ? paymentError.message : 'Failed to create payment intent');
+          onError(paymentError);
         }
-        
-        setClientSecret(response.clientSecret);
       } catch (error) {
         console.error('Error in payment initialization:', error);
         setError(error instanceof Error ? error.message : 'An unexpected error occurred');

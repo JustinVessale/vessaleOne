@@ -6,6 +6,7 @@ import type { Schema } from '../../../../amplify/data/resource';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { DeliveryCheckout } from '@/features/delivery/components/DeliveryCheckout';
+import { autodispatchOrder } from '@/lib/services/nashService';
 
 const client = generateClient<Schema>();
 
@@ -16,6 +17,7 @@ type DeliveryData = {
   deliveryFee: number;
   quoteId: string;
   estimatedDeliveryTime: string;
+  nashOrderId?: string;
 };
 
 export function CheckoutPage() {
@@ -57,6 +59,17 @@ export function CheckoutPage() {
 
     orderAttemptedRef.current = true;
     try {
+      // Check if cart is empty
+      if (state.items.length === 0) {
+        console.error('Cannot create order with empty cart');
+        toast({
+          title: "Error creating order",
+          description: "Your cart is empty. Please add items before checkout.",
+          variant: "destructive",
+        });
+        return null;
+      }
+
       // Log the input data
       console.log('Creating order with:', {
         total,
@@ -70,6 +83,10 @@ export function CheckoutPage() {
       const orderTotal = isDelivery 
         ? total + (deliveryData?.deliveryFee || 0) 
         : total;
+
+      console.log('Order total:', orderTotal);
+      console.log('Cart total:', total);
+      console.log('Delivery fee:', deliveryData?.deliveryFee || 0);
 
       const { data: newOrder, errors } = await client.models.Order.create({
         total: orderTotal,
@@ -108,21 +125,80 @@ export function CheckoutPage() {
       // Log successful order creation
       console.log('Order created:', newOrder);
 
-      const itemPromises = state.items.map(item => {
-        console.log('Creating order item:', item);
-        return client.models.OrderItem.create({
-          orderId: newOrder.id,
-          menuItemId: item.menuItemId,
-          quantity: item.quantity,
-          specialInstructions: item.specialInstructions || ''
+      // Create order items
+      console.log('Creating order items for order:', newOrder.id);
+      console.log('Cart items:', state.items);
+      
+      try {
+        const itemPromises = state.items.map(item => {
+          console.log('Creating order item:', {
+            orderId: newOrder.id,
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            price: item.price,
+            specialInstructions: item.specialInstructions || '',
+            cartItemName: item.name // Just for logging, not sent to API
+          });
+          
+          return client.models.OrderItem.create({
+            orderId: newOrder.id,
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            specialInstructions: item.specialInstructions || ''
+          });
         });
-      });
 
-      const orderItems = await Promise.all(itemPromises);
-      console.log('Order items created:', orderItems);
+        const orderItemResults = await Promise.all(itemPromises);
+        
+        // Check if any order items failed to create
+        const failedItems = orderItemResults.filter(result => result.errors);
+        if (failedItems.length > 0) {
+          console.error('Some order items failed to create:', failedItems);
+          throw new Error(`Failed to create ${failedItems.length} order items`);
+        }
+        
+        const orderItems = orderItemResults.map(result => result.data);
+        console.log('Order items created successfully:', orderItems);
+        
+        // Verify all items were created
+        if (orderItems.length !== state.items.length) {
+          console.warn(`Created ${orderItems.length} order items but had ${state.items.length} cart items`);
+        }
 
-      setOrder(newOrder);
-      return newOrder;
+        // Fetch the complete order with items to verify
+        const { data: completeOrder, errors: fetchErrors } = await client.models.Order.get(
+          { id: newOrder.id },
+          { selectionSet: ['id', 'total', 'items.*'] }
+        );
+        
+        if (fetchErrors || !completeOrder) {
+          console.error('Failed to fetch complete order:', fetchErrors);
+        } else {
+          console.log('Complete order with items:', completeOrder);
+        }
+
+        setOrder(newOrder);
+        return newOrder;
+      } catch (itemError) {
+        console.error('Error creating order items:', itemError);
+        
+        // Attempt to delete the order since items failed
+        try {
+          console.log('Attempting to delete incomplete order:', newOrder.id);
+          await client.models.Order.delete({ id: newOrder.id });
+          console.log('Incomplete order deleted successfully');
+        } catch (deleteError) {
+          console.error('Failed to delete incomplete order:', deleteError);
+        }
+        
+        toast({
+          title: "Error creating order items",
+          description: "There was a problem with your order items. Please try again.",
+          variant: "destructive",
+        });
+        
+        return null;
+      }
     } catch (error) {
       console.error('Error creating initial order:', error);
       if (error instanceof Error) {
@@ -138,28 +214,81 @@ export function CheckoutPage() {
     }
   }, [total, state.items, toast, isDelivery, deliveryData]);
 
-  const handlePaymentSuccess = async (_paymentIntent: any) => {
+  const handlePaymentSuccess = async (paymentIntentId: string) => {
     try {
       if (!order) {
-        throw new Error('No order found');
+        console.error('No order found for payment success');
+        return;
+      }
+
+      console.log('Payment successful for order:', order.id);
+      console.log('Payment Intent ID:', paymentIntentId);
+
+      // Update order status to PAID
+      const { data: updatedOrder, errors: updateErrors } = await client.models.Order.update({
+        id: order.id,
+        status: 'PAID',
+        // We don't have a dedicated field for payment intent ID
+        // We'll just log it for now
+        updatedAt: new Date().toISOString()
+      });
+
+      if (updateErrors) {
+        console.error('Error updating order status:', updateErrors);
+        toast({
+          title: "Error updating order",
+          description: "There was a problem updating your order status.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Order updated successfully:', updatedOrder);
+
+      // If this is a delivery order and we have a Nash order ID, autodispatch it
+      if (isDelivery && deliveryData?.nashOrderId) {
+        try {
+          console.log('Autodispatching Nash delivery for order:', deliveryData.nashOrderId);
+          const nashResponse = await autodispatchOrder(deliveryData.nashOrderId);
+          
+          // Update the order with the Nash delivery ID if available
+          if (nashResponse.delivery?.id) {
+            // Store the delivery ID in the deliveryInfo field
+            const deliveryInfo = {
+              ...order.deliveryInfo,
+              deliveryId: nashResponse.delivery.id,
+              status: 'CONFIRMED' as const // Use a valid status from the enum
+            };
+            
+            const { data: orderWithDeliveryId, errors: deliveryUpdateErrors } = await client.models.Order.update({
+              id: order.id,
+              deliveryInfo,
+              updatedAt: new Date().toISOString()
+            });
+            
+            if (deliveryUpdateErrors) {
+              console.error('Error updating order with delivery ID:', deliveryUpdateErrors);
+            } else {
+              console.log('Order updated with delivery ID:', orderWithDeliveryId);
+            }
+          }
+        } catch (nashError) {
+          console.error('Error autodispatching Nash delivery:', nashError);
+          // Continue with order confirmation even if Nash dispatch fails
+          // The restaurant can manually dispatch the order if needed
+        }
       }
 
       // Clear the cart
       clearCart();
       
-      // Show success message
-      toast({
-        title: "Order placed successfully!",
-        description: "Your order has been confirmed and is being prepared.",
-      });
-
-      // Redirect to order confirmation
-      navigate(`/orders/${order.id}`);
+      // Navigate to order confirmation page
+      navigate(`/order-confirmation/${order.id}`);
     } catch (error) {
       console.error('Error handling payment success:', error);
       toast({
-        title: "Error completing order",
-        description: "There was a problem completing your order. Please contact support.",
+        title: "Error processing order",
+        description: "There was a problem processing your order after payment.",
         variant: "destructive",
       });
     }

@@ -1,27 +1,22 @@
 import { useState, useEffect } from 'react';
-import { NashQuoteResponse } from '@/lib/services/nashService';
+import { NashOrderResponse, NashQuote } from '@/lib/services/nashService';
 import { formatCurrency } from '@/utils/currency';
 import { format } from 'date-fns';
 
-interface DeliveryQuoteProps {
-  quote: NashQuoteResponse;
+interface QuoteItemProps {
+  quoteItem: NashQuote;
   onSelect: () => void;
   isSelected: boolean;
 }
 
-export function DeliveryQuote({ quote, onSelect, isSelected }: DeliveryQuoteProps) {
-  const [estimatedPickupTime, setEstimatedPickupTime] = useState<Date | null>(null);
+export function QuoteItem({ quoteItem, onSelect, isSelected }: QuoteItemProps) {
   const [estimatedDropoffTime, setEstimatedDropoffTime] = useState<Date | null>(null);
 
   useEffect(() => {
-    if (quote.estimated_pickup_time) {
-      setEstimatedPickupTime(new Date(quote.estimated_pickup_time));
+    if (quoteItem.dropoffEta) {
+      setEstimatedDropoffTime(new Date(quoteItem.dropoffEta));
     }
-    
-    if (quote.estimated_dropoff_time) {
-      setEstimatedDropoffTime(new Date(quote.estimated_dropoff_time));
-    }
-  }, [quote]);
+  }, [quoteItem]);
 
   return (
     <div 
@@ -55,7 +50,7 @@ export function DeliveryQuote({ quote, onSelect, isSelected }: DeliveryQuoteProp
             )}
           </div>
           <div>
-            <h3 className="font-medium">{quote.provider}</h3>
+            <h3 className="font-medium">{quoteItem.providerName}</h3>
             <p className="text-sm text-gray-600">
               {estimatedDropoffTime && (
                 <>Estimated delivery by {format(estimatedDropoffTime, 'h:mm a')}</>
@@ -64,7 +59,7 @@ export function DeliveryQuote({ quote, onSelect, isSelected }: DeliveryQuoteProp
           </div>
         </div>
         <div className="text-right">
-          <p className="font-medium">{formatCurrency(quote.fee)}</p>
+          <p className="font-medium">{formatCurrency(quoteItem.priceCents / 100)}</p>
           <p className="text-sm text-gray-600">Delivery fee</p>
         </div>
       </div>
@@ -73,25 +68,11 @@ export function DeliveryQuote({ quote, onSelect, isSelected }: DeliveryQuoteProp
         <div className="mt-4 pt-4 border-t border-gray-200">
           <div className="flex justify-between text-sm">
             <div>
-              <p className="font-medium">Pickup Time</p>
-              <p className="text-gray-600">
-                {estimatedPickupTime 
-                  ? format(estimatedPickupTime, 'h:mm a') 
-                  : 'Not available'}
-              </p>
-            </div>
-            <div>
               <p className="font-medium">Delivery Time</p>
               <p className="text-gray-600">
                 {estimatedDropoffTime 
                   ? format(estimatedDropoffTime, 'h:mm a') 
                   : 'Not available'}
-              </p>
-            </div>
-            <div>
-              <p className="font-medium">Distance</p>
-              <p className="text-gray-600">
-                {quote.estimated_dropoff_distance.toFixed(1)} mi
               </p>
             </div>
           </div>
@@ -102,7 +83,7 @@ export function DeliveryQuote({ quote, onSelect, isSelected }: DeliveryQuoteProp
 }
 
 interface DeliveryQuotesListProps {
-  quotes: NashQuoteResponse[];
+  quotes: NashOrderResponse[];
   selectedQuoteId: string | null;
   onSelectQuote: (quoteId: string) => void;
   isLoading: boolean;
@@ -122,7 +103,15 @@ export function DeliveryQuotesList({
     );
   }
 
-  if (quotes.length === 0) {
+  // Flatten all quote items from all orders
+  const allQuoteItems: NashQuote[] = [];
+  quotes.forEach(order => {
+    if (order.quotes && order.quotes.length > 0) {
+      allQuoteItems.push(...order.quotes);
+    }
+  });
+
+  if (allQuoteItems.length === 0) {
     return (
       <div className="py-4 text-center">
         <p className="text-gray-600">No delivery options available for this address.</p>
@@ -133,12 +122,12 @@ export function DeliveryQuotesList({
   return (
     <div className="space-y-3">
       <h3 className="font-medium">Select Delivery Option</h3>
-      {quotes.map((quote) => (
-        <DeliveryQuote
-          key={quote.id}
-          quote={quote}
-          isSelected={selectedQuoteId === quote.id}
-          onSelect={() => onSelectQuote(quote.id)}
+      {allQuoteItems.map((quoteItem) => (
+        <QuoteItem
+          key={quoteItem.id}
+          quoteItem={quoteItem}
+          isSelected={selectedQuoteId === quoteItem.id}
+          onSelect={() => onSelectQuote(quoteItem.id)}
         />
       ))}
     </div>
