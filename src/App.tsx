@@ -20,7 +20,11 @@ const queryClient = new QueryClient({
 function AppContent() {
   const location = useLocation();
   const hideCartPaths = ['/checkout', '/orders'];
-  const shouldShowCart = !hideCartPaths.some(path => location.pathname.startsWith(path));
+  
+  // Don't show the cart in App.tsx for restaurant pages (it's included in RestaurantPage)
+  // or for checkout and order pages
+  const isRestaurantPage = /^\/[^/]+$/.test(location.pathname);
+  const shouldShowCart = !hideCartPaths.some(path => location.pathname.startsWith(path)) && !isRestaurantPage;
 
   return (
     <div className="flex flex-col min-h-screen">

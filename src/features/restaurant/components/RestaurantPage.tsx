@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../../../amplify/data/resource';
 import { MenuCategory } from '../../menu/components/MenuCategory';
+import { Cart } from '../../cart/components/Cart';
 
 const client = generateClient<Schema>();
 
@@ -51,7 +52,7 @@ export function RestaurantPage() {
       {/* Content Area */}
       <div className="flex-1 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="flex gap-8">
+          <div className="flex flex-col lg:flex-row gap-8">
             {/* Menu Content - Takes available space */}
             <div className="flex-1">
               <div className="space-y-6">
@@ -63,6 +64,11 @@ export function RestaurantPage() {
                   />
                 ))}
               </div>
+            </div>
+            
+            {/* Desktop Cart - Fixed width, only visible on large screens */}
+            <div className="hidden lg:block w-80 flex-shrink-0 sticky top-24 self-start">
+              <Cart />
             </div>
           </div>
         </div>
