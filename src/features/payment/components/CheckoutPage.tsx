@@ -228,7 +228,7 @@ export function CheckoutPage() {
           <div className="space-y-4">
             <button
               onClick={() => handleDeliveryOptionSelect(false)}
-              className="w-full flex items-center justify-between p-4 border rounded-lg hover:border-primary-500 hover:bg-primary-50"
+              className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 shadow-sm transition-all"
             >
               <div className="flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -239,12 +239,15 @@ export function CheckoutPage() {
                   <p className="text-sm text-gray-600">Pick up your order at the restaurant</p>
                 </div>
               </div>
-              <span className="text-primary-600">Free</span>
+              <div className="text-primary-600 font-medium text-center flex flex-col justify-center min-w-[80px]">
+                <span className="text-xs opacity-0">From</span>
+                <span>Free</span>
+              </div>
             </button>
             
             <button
               onClick={() => handleDeliveryOptionSelect(true)}
-              className="w-full flex items-center justify-between p-4 border rounded-lg hover:border-primary-500 hover:bg-primary-50"
+              className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 shadow-sm transition-all"
             >
               <div className="flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -256,7 +259,10 @@ export function CheckoutPage() {
                   <p className="text-sm text-gray-600">Get your order delivered to your door</p>
                 </div>
               </div>
-              <span className="text-primary-600">From $3.99</span>
+              <div className="text-primary-600 font-medium text-center flex flex-col justify-center min-w-[80px]">
+                <span className="text-xs">From</span>
+                <span>$3.99</span>
+              </div>
             </button>
           </div>
         </div>

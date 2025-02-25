@@ -58,13 +58,16 @@ export function DeliveryForm({ onSubmit, isLoading = false }: DeliveryFormProps)
     onSubmit(formData);
   };
 
+  // Common input class with increased height
+  const inputClass = "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-base py-2.5 px-3";
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Delivery Information</h3>
         
         {/* Contact Information */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <h4 className="text-sm font-medium text-gray-700">Contact Information</h4>
           
           <div>
@@ -78,7 +81,7 @@ export function DeliveryForm({ onSubmit, isLoading = false }: DeliveryFormProps)
               value={formData.contact.name}
               onChange={handleChange}
               required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              className={inputClass}
             />
           </div>
           
@@ -93,7 +96,7 @@ export function DeliveryForm({ onSubmit, isLoading = false }: DeliveryFormProps)
               value={formData.contact.phone}
               onChange={handleChange}
               required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              className={inputClass}
             />
           </div>
           
@@ -107,13 +110,13 @@ export function DeliveryForm({ onSubmit, isLoading = false }: DeliveryFormProps)
               name="contact.email"
               value={formData.contact.email}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              className={inputClass}
             />
           </div>
         </div>
         
         {/* Address Information */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <h4 className="text-sm font-medium text-gray-700">Delivery Address</h4>
           
           <div>
@@ -127,7 +130,7 @@ export function DeliveryForm({ onSubmit, isLoading = false }: DeliveryFormProps)
               value={formData.address.street}
               onChange={handleChange}
               required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              className={inputClass}
             />
           </div>
           
@@ -143,7 +146,7 @@ export function DeliveryForm({ onSubmit, isLoading = false }: DeliveryFormProps)
                 value={formData.address.city}
                 onChange={handleChange}
                 required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                className={inputClass}
               />
             </div>
             
@@ -158,7 +161,7 @@ export function DeliveryForm({ onSubmit, isLoading = false }: DeliveryFormProps)
                 value={formData.address.state}
                 onChange={handleChange}
                 required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                className={inputClass}
               />
             </div>
           </div>
@@ -174,7 +177,7 @@ export function DeliveryForm({ onSubmit, isLoading = false }: DeliveryFormProps)
               value={formData.address.zip}
               onChange={handleChange}
               required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              className={inputClass}
             />
           </div>
           
@@ -188,7 +191,7 @@ export function DeliveryForm({ onSubmit, isLoading = false }: DeliveryFormProps)
               value={formData.address.instructions}
               onChange={handleChange}
               rows={2}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              className={`${inputClass} min-h-[80px]`}
               placeholder="Apartment number, gate code, etc."
             />
           </div>
@@ -198,7 +201,7 @@ export function DeliveryForm({ onSubmit, isLoading = false }: DeliveryFormProps)
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+        className="w-full flex justify-center py-3.5 px-4 border border-primary-700 rounded-lg shadow-sm text-base font-medium text-black bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 transition-colors mt-6"
       >
         {isLoading ? 'Processing...' : 'Continue to Payment'}
       </button>

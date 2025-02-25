@@ -5,8 +5,10 @@
  * Documentation: https://docs.usenash.com/reference/nash-api-overview
  */
 
-// Nash API base URL
-const NASH_API_BASE_URL = 'https://api.usenash.com/v1';
+// Nash API base URL - Use local proxy in development to avoid CORS issues
+const NASH_API_BASE_URL = import.meta.env.DEV 
+  ? '/nash-api' 
+  : 'https://api.usenash.com/v1';
 
 // Nash API credentials - should be stored in environment variables
 const NASH_API_KEY = import.meta.env.VITE_NASH_API_KEY || '';
@@ -133,11 +135,17 @@ async function nashRequest<T>(
 
   const url = `${NASH_API_BASE_URL}${endpoint}`;
   
-  const headers = {
+  // Only include API credentials in headers when not using the proxy
+  // When using the proxy, the credentials are added by the proxy
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-Nash-API-Key': NASH_API_KEY,
-    'X-Nash-Org-ID': NASH_ORG_ID,
   };
+  
+  // Add API credentials to headers only when not in development
+  if (!import.meta.env.DEV) {
+    headers['X-Nash-API-Key'] = NASH_API_KEY;
+    headers['X-Nash-Org-ID'] = NASH_ORG_ID;
+  }
 
   const options: RequestInit = {
     method,
@@ -146,18 +154,35 @@ async function nashRequest<T>(
   };
 
   try {
+    console.log(`Making ${method} request to Nash API: ${url}`);
+    console.log('Request headers:', headers);
+    if (body) {
+      console.log('Request body:', JSON.stringify(body, null, 2));
+    }
+    
     const response = await fetch(url, options);
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        `Nash API error (${response.status}): ${
-          errorData.message || response.statusText
-        }`
-      );
+      let errorMessage = `Nash API error (${response.status}): ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = `Nash API error (${response.status}): ${errorData.message || response.statusText}`;
+        console.error('Nash API error response:', errorData);
+      } catch (parseError) {
+        console.error('Could not parse error response:', parseError);
+        try {
+          const textResponse = await response.text();
+          console.error('Raw error response:', textResponse);
+        } catch (textError) {
+          console.error('Could not get text response:', textError);
+        }
+      }
+      throw new Error(errorMessage);
     }
     
-    return await response.json();
+    const data = await response.json();
+    console.log('Nash API response:', JSON.stringify(data, null, 2));
+    return data;
   } catch (error) {
     console.error('Nash API request failed:', error);
     throw error;

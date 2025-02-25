@@ -235,7 +235,7 @@ export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps
             href={delivery.tracking_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block w-full text-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            className="block w-full text-center py-3 px-4 border border-primary-700 rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
           >
             Track Delivery
           </a>
