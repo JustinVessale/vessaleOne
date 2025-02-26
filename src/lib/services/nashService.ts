@@ -274,6 +274,16 @@ export async function createOrderWithQuotes(
   
   const { firstName: dropoffFirstName, lastName: dropoffLastName } = formatContactName(request.dropoff.contact);
   
+  // Calculate the total order value in cents
+  const totalValueCents = request.items?.reduce((sum, item) => {
+    // item.price is in dollars, so multiply by 100 to get cents
+    const itemTotalCents = item.price ? Math.round(item.price * 100) * item.quantity : 0;
+    return sum + itemTotalCents;
+  }, 0) || 0;
+  
+  // Ensure we have a minimum value for valueCents (at least 100 cents = $1)
+  const minValueCents = Math.max(totalValueCents, 100);
+  
   const orderRequest: NashOrderRequest = {
     pickupAddress,
     pickupPhoneNumber: pickupPhoneNumber || '715-964-4470', // Fallback
@@ -297,6 +307,9 @@ export async function createOrderWithQuotes(
     
     // Add dispatch strategy ID from environment variables
     dispatchStrategyId: NASH_DISPATCH_STRATEGY_ID,
+    
+    // Add the total order value in cents (required by Nash API)
+    valueCents: minValueCents,
     
     // Convert items to Nash format if available
     items: request.items?.map((item, index) => ({
