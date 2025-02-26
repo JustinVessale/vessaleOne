@@ -13,15 +13,12 @@ const NASH_API_BASE_URL = import.meta.env.DEV
 // Nash API credentials - should be stored in environment variables
 const NASH_API_KEY = import.meta.env.VITE_NASH_API_KEY || '';
 const NASH_ORG_ID = import.meta.env.VITE_NASH_ORG_ID || '';
-
-// Check if we should use mock data (default to true in development if not specified)
-const USE_MOCK_DELIVERY = import.meta.env.DEV && 
-  (import.meta.env.VITE_USE_MOCK_DELIVERY !== 'false');
+const NASH_DISPATCH_STRATEGY_ID = import.meta.env.VITE_NASH_DISPATCH_STRATEGY_ID || '';
 
 // Log configuration on startup
 console.log('Nash Service Configuration:');
-console.log('- Using mock data:', USE_MOCK_DELIVERY);
 console.log('- API credentials configured:', !!NASH_API_KEY && !!NASH_ORG_ID);
+console.log('- Dispatch strategy configured:', !!NASH_DISPATCH_STRATEGY_ID);
 console.log('- API base URL:', NASH_API_BASE_URL);
 
 // Nash API endpoints
@@ -150,82 +147,6 @@ export interface NashDeliveryResponse {
 }
 
 /**
- * Creates a mock order response
- */
-function createMockOrderResponse(request: NashOrderRequest): NashOrderResponse {
-  const mockQuotes = [
-    {
-      id: `qot_mock_standard_${Date.now()}`,
-      providerId: 'StandardDelivery',
-      providerName: 'Standard Delivery',
-      providerLogo: 'https://example.com/logo.png',
-      createdTime: new Date().toISOString(),
-      expireTime: new Date(Date.now() + 3600000).toISOString(),
-      priceCents: 399,
-      nashFeeCents: 50,
-      currency: 'USD',
-      dropoffEta: new Date(Date.now() + 45 * 60000).toISOString(),
-      tags: ['autodispatch_preferred_quote']
-    },
-    {
-      id: `qot_mock_express_${Date.now() + 1}`,
-      providerId: 'ExpressDelivery',
-      providerName: 'Express Delivery',
-      providerLogo: 'https://example.com/logo.png',
-      createdTime: new Date().toISOString(),
-      expireTime: new Date(Date.now() + 3600000).toISOString(),
-      priceCents: 599,
-      nashFeeCents: 50,
-      currency: 'USD',
-      dropoffEta: new Date(Date.now() + 30 * 60000).toISOString()
-    },
-    {
-      id: `qot_mock_premium_${Date.now() + 2}`,
-      providerId: 'PremiumDelivery',
-      providerName: 'Premium Delivery',
-      providerLogo: 'https://example.com/logo.png',
-      createdTime: new Date().toISOString(),
-      expireTime: new Date(Date.now() + 3600000).toISOString(),
-      priceCents: 799,
-      nashFeeCents: 50,
-      currency: 'USD',
-      dropoffEta: new Date(Date.now() + 25 * 60000).toISOString()
-    }
-  ];
-
-  return {
-    id: `ord_mock_${Date.now()}`,
-    status: 'CREATED',
-    pickupAddress: request.pickupAddress,
-    dropoffAddress: request.dropoffAddress,
-    publicTrackingUrl: `https://example.com/track/mock-${Date.now()}`,
-    quotes: mockQuotes
-  };
-}
-
-/**
- * Creates a mock autodispatch response
- */
-function createMockAutodispatchResponse(orderId: string, quoteId: string): NashOrderResponse {
-  return {
-    id: orderId,
-    status: 'DISPATCHED',
-    pickupAddress: '123 Restaurant St, City, State 12345',
-    dropoffAddress: '456 Customer Ave, City, State 12345',
-    publicTrackingUrl: `https://example.com/track/${orderId}`,
-    winnerQuote: {
-      id: quoteId,
-      price_cents: 399
-    },
-    delivery: {
-      id: `dlv_mock_${Date.now()}`,
-      type: 'DELIVERY',
-      status: 'CREATED'
-    }
-  };
-}
-
-/**
  * Makes an authenticated request to the Nash API
  */
 async function nashRequest<T>(
@@ -233,29 +154,6 @@ async function nashRequest<T>(
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
   body?: any
 ): Promise<T> {
-  // If we're using mock data in development, return mock responses
-  if (USE_MOCK_DELIVERY) {
-    console.log(`Using mock data for ${method} ${endpoint}`);
-    
-    // Handle different endpoints with appropriate mock responses
-    if (endpoint === ENDPOINTS.CREATE_ORDER && method === 'POST') {
-      return createMockOrderResponse(body) as unknown as T;
-    }
-    
-    if (endpoint.includes('/autodispatch') && method === 'POST') {
-      const orderId = endpoint.split('/')[3];
-      const quoteId = body?.quoteId || 'qot_mock_standard_123';
-      return createMockAutodispatchResponse(orderId, quoteId) as unknown as T;
-    }
-    
-    // For other endpoints, return a basic mock response
-    return {
-      success: true,
-      message: 'This is a mock response',
-      data: body
-    } as unknown as T;
-  }
-
   // Check if API credentials are configured
   if (!NASH_API_KEY || !NASH_ORG_ID) {
     console.error('Nash API credentials not configured. Please set VITE_NASH_API_KEY and VITE_NASH_ORG_ID environment variables.');
@@ -378,7 +276,7 @@ export async function createOrderWithQuotes(
   
   const orderRequest: NashOrderRequest = {
     pickupAddress,
-    pickupPhoneNumber: pickupPhoneNumber || '555-123-4567', // Fallback
+    pickupPhoneNumber: pickupPhoneNumber || '715-964-4470', // Fallback
     pickupBusinessName: request.pickup.contact?.name,
     pickupFirstName,
     pickupLastName,
@@ -396,6 +294,9 @@ export async function createOrderWithQuotes(
     currency: 'USD',
     deliveryMode: 'now',
     externalId: request.externalId,
+    
+    // Add dispatch strategy ID from environment variables
+    dispatchStrategyId: NASH_DISPATCH_STRATEGY_ID,
     
     // Convert items to Nash format if available
     items: request.items?.map((item, index) => ({
@@ -474,90 +375,4 @@ export async function cancelOrder(
     'POST',
     { reason }
   );
-}
-
-/**
- * Test function to verify the proxy configuration
- * This can be called from the browser console to check if the proxy is working
- */
-export async function testNashProxy(): Promise<any> {
-  try {
-    console.log('Testing Nash API proxy...');
-    console.log('API Base URL:', NASH_API_BASE_URL);
-    console.log('API credentials configured:', !!NASH_API_KEY && !!NASH_ORG_ID);
-    console.log('Using mock data:', USE_MOCK_DELIVERY);
-    
-    if (USE_MOCK_DELIVERY) {
-      console.log('Using mock data - no actual API call will be made');
-      return {
-        success: true,
-        mock: true,
-        message: 'Using mock data. To test the actual API, set VITE_USE_MOCK_DELIVERY=false and configure your API credentials.'
-      };
-    }
-    
-    if (!NASH_API_KEY || !NASH_ORG_ID) {
-      console.error('Nash API credentials not configured. Please set VITE_NASH_API_KEY and VITE_NASH_ORG_ID environment variables.');
-      return {
-        success: false,
-        error: 'Nash API credentials not configured. Please set VITE_NASH_API_KEY and VITE_NASH_ORG_ID environment variables.'
-      };
-    }
-    
-    // Make a simple POST request to the Nash API quotes endpoint
-    const url = `${NASH_API_BASE_URL}${ENDPOINTS.CREATE_ORDER}`;
-    console.log('Making test request to:', url);
-    
-    // Set up headers with proper authorization
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${NASH_API_KEY}`,
-      'X-Nash-Org-ID': NASH_ORG_ID
-    };
-    
-    // In development with proxy, we might need to adjust how headers are sent
-    if (import.meta.env.DEV) {
-      console.log('Using development proxy with headers');
-      // If your proxy handles auth differently, adjust this section
-    }
-    
-    // Create a minimal order request based on Nash API documentation
-    const testOrderRequest = {
-      pickupAddress: "123 Main St, San Francisco, CA 94105",
-      pickupPhoneNumber: "555-123-4567",
-      pickupBusinessName: "Test Restaurant",
-      
-      dropoffAddress: "456 Market St, San Francisco, CA 94105",
-      dropoffPhoneNumber: "555-987-6543",
-      dropoffFirstName: "Test",
-      dropoffLastName: "Customer",
-      
-      description: "Food delivery test",
-      itemsCount: 1,
-      currency: "USD",
-      deliveryMode: "now"
-    };
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(testOrderRequest)
-    });
-    
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-    
-    if (!response.ok) {
-      const text = await response.text();
-      console.log('Response text:', text);
-      return { success: false, status: response.status, text };
-    }
-    
-    const data = await response.json();
-    console.log('Response data:', data);
-    return { success: true, data };
-  } catch (error) {
-    console.error('Test failed:', error);
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
-  }
 } 

@@ -42,12 +42,12 @@ export function CheckoutPage() {
   // Mock restaurant data - in a real app, this would come from the restaurant details
   const restaurantData = {
     name: "Sample Restaurant",
-    phone: "555-123-4567",
+    phone: "715-864-4470",
     address: {
       street: "123 Main St",
-      city: "Anytown",
+      city: "Los Angeles",
       state: "CA",
-      zip: "12345"
+      zip: "90034"
     }
   };
 

@@ -6,7 +6,6 @@ import { CartProvider } from './features/cart/context/CartContext';
 import { CheckoutPage } from './features/payment/components/CheckoutPage';
 import { OrderConfirmationPage } from '@/features/orders/components/OrderConfirmationPage';
 import { Cart } from './features/cart/components/Cart';
-import { testNashProxy } from './lib/services/nashService';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,17 +29,6 @@ function AppContent() {
   return (
     <div className="flex flex-col min-h-screen">
       <NavigationBar />
-      {/* Test button for Nash API proxy - only in development */}
-      {import.meta.env.DEV && (
-        <div className="fixed bottom-4 right-4 z-50">
-          <button
-            onClick={() => testNashProxy()}
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-          >
-            Test Nash API
-          </button>
-        </div>
-      )}
       <Routes>
         <Route path="/:slug" element={<RestaurantPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />

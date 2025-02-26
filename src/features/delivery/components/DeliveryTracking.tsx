@@ -55,86 +55,31 @@ export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps
         // Get order details from Nash
         const orderResponse = await getOrder(deliveryId);
         
-        // For demo purposes, convert the Nash order response to our internal format
-        // In a real app, you would use the Nash response directly
         if (isMounted) {
-          // Mock delivery status for development
-          if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK_DELIVERY !== 'false') {
-            const mockDelivery: DeliveryStatus = {
-              status: 'ACTIVE',
-              provider: 'Nash Delivery',
-              fee: 3.99,
-              estimated_pickup_time: new Date(Date.now() + 10 * 60000).toISOString(),
-              estimated_delivery_time: new Date(Date.now() + 30 * 60000).toISOString(),
-              tracking_url: 'https://example.com/track/mock',
-              driver: {
-                name: 'John Driver',
-                phone: '555-123-4567',
-                photo_url: 'https://randomuser.me/api/portraits/men/32.jpg'
-              },
-              dropoff: {
-                address: {
-                  street: '123 Main St',
-                  city: 'Anytown',
-                  state: 'CA',
-                  zip: '12345',
-                  instructions: 'Leave at door'
-                }
+          // Convert Nash order response to our internal format
+          // This is a simplified example - you would need to adapt this to your actual Nash response
+          const deliveryStatus: DeliveryStatus = {
+            status: orderResponse.status,
+            provider: orderResponse.delivery?.type || 'Nash Delivery',
+            fee: orderResponse.winnerQuote?.price_cents ? orderResponse.winnerQuote.price_cents / 100 : 0,
+            estimated_pickup_time: new Date(Date.now() + 10 * 60000).toISOString(), // Placeholder - replace with actual data from Nash when available
+            estimated_delivery_time: new Date(Date.now() + 30 * 60000).toISOString(), // Placeholder - replace with actual data from Nash when available
+            tracking_url: orderResponse.publicTrackingUrl,
+            dropoff: {
+              address: {
+                street: orderResponse.dropoffAddress.split(',')[0] || '',
+                city: orderResponse.dropoffAddress.split(',')[1]?.trim() || '',
+                state: orderResponse.dropoffAddress.split(',')[2]?.split(' ')[1]?.trim() || '',
+                zip: orderResponse.dropoffAddress.split(',')[2]?.split(' ')[2]?.trim() || '',
               }
-            };
-            setDelivery(mockDelivery);
-          } else {
-            // Convert Nash order response to our internal format
-            // This is a simplified example - you would need to adapt this to your actual Nash response
-            const deliveryStatus: DeliveryStatus = {
-              status: orderResponse.status,
-              provider: orderResponse.delivery?.type || 'Nash Delivery',
-              fee: orderResponse.winnerQuote?.price_cents ? orderResponse.winnerQuote.price_cents / 100 : 0,
-              estimated_pickup_time: new Date(Date.now() + 10 * 60000).toISOString(), // Placeholder
-              estimated_delivery_time: new Date(Date.now() + 30 * 60000).toISOString(), // Placeholder
-              tracking_url: orderResponse.publicTrackingUrl,
-              dropoff: {
-                address: {
-                  street: orderResponse.dropoffAddress.split(',')[0] || '',
-                  city: orderResponse.dropoffAddress.split(',')[1]?.trim() || '',
-                  state: orderResponse.dropoffAddress.split(',')[2]?.split(' ')[1]?.trim() || '',
-                  zip: orderResponse.dropoffAddress.split(',')[2]?.split(' ')[2]?.trim() || '',
-                }
-              }
-            };
-            setDelivery(deliveryStatus);
-          }
+            }
+          };
+          setDelivery(deliveryStatus);
         }
       } catch (err) {
         console.error('Error fetching delivery status:', err);
         if (isMounted) {
           setError('Failed to load delivery status. Please try again.');
-          
-          // For demo purposes, set mock data even on error
-          if (import.meta.env.DEV) {
-            const mockDelivery: DeliveryStatus = {
-              status: 'ACTIVE',
-              provider: 'Nash Delivery',
-              fee: 3.99,
-              estimated_pickup_time: new Date(Date.now() + 10 * 60000).toISOString(),
-              estimated_delivery_time: new Date(Date.now() + 30 * 60000).toISOString(),
-              tracking_url: 'https://example.com/track/mock',
-              driver: {
-                name: 'John Driver',
-                phone: '555-123-4567',
-                photo_url: 'https://randomuser.me/api/portraits/men/32.jpg'
-              },
-              dropoff: {
-                address: {
-                  street: '123 Main St',
-                  city: 'Anytown',
-                  state: 'CA',
-                  zip: '12345'
-                }
-              }
-            };
-            setDelivery(mockDelivery);
-          }
         }
       } finally {
         if (isMounted) {
@@ -298,11 +243,11 @@ export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps
       {/* Tracking Link */}
       {delivery.tracking_url && (
         <div className="mb-4">
-          <a
-            href={delivery.tracking_url}
-            target="_blank"
+          <a 
+            href={delivery.tracking_url} 
+            target="_blank" 
             rel="noopener noreferrer"
-            className="block w-full text-center py-3 px-4 border border-primary-700 rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+            className="block w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
           >
             Track Delivery
           </a>
@@ -310,11 +255,11 @@ export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps
       )}
 
       {/* Cancel Button */}
-      {delivery.status !== 'COMPLETED' && delivery.status !== 'CANCELLED' && onCancel && (
+      {delivery.status !== 'COMPLETED' && delivery.status !== 'CANCELLED' && (
         <button
           onClick={handleCancelDelivery}
           disabled={isCancelling}
-          className="block w-full text-center py-3 px-4 border border-red-300 rounded-lg shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-colors"
+          className="block w-full text-center py-2 bg-white border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isCancelling ? 'Cancelling...' : 'Cancel Delivery'}
         </button>
