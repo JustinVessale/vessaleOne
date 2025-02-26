@@ -1,0 +1,116 @@
+---
+description: General project rule
+globs: 
+---
+
+# Your rule content
+
+
+This project uses Amplify Gen 2. DO NOT use amplify Gen 1 commands, practices, or architecture. If you're unsure ask for clarification or for the correct docurmentation to be linked. Here are some key documentation for Gen 2 Amplify. Make sure when you view these sites the selected framework/language is React and the Version in the top left is Gen2
+
+Basic API set up: https://docs.amplify.aws/react/build-a-backend/data/connect-to-API/
+
+Customizing the data mode: https://docs.amplify.aws/react/build-a-backend/data/data-modeling/
+Queries and Mutations: https://docs.amplify.aws/react/build-a-backend/data/custom-business-logic/
+
+
+
+
+
+- You can @ files here
+- You can use markdown but dont have to
+## Tech Stack Summary
+- Frontend: React, TypeScript, Next.js App Router
+- Backend: AWS Amplify Gen 2 (GraphQL)
+- UI Libraries: Shadcn/UI, Radix UI, Framer Motion
+- Styling: Tailwind CSS
+- State Management: React Query, React Hooks
+- Build Tools: GraphQL Codegen
+
+## Architecture
+- Organize by feature/domain instead of type
+- Structure: `/features/[feature]/components`, `/features/[feature]/api`
+- Keep GraphQL operations close to components using them
+- Follow Container/Presentation pattern for components
+- Use index.js files for clean exports
+
+## Component Patterns
+
+### Container Components (Smart)
+- Handle data fetching (GraphQL queries)
+- Manage state and reducers
+- Pass data and callbacks to presentation components
+- Handle business logic and side effects
+
+### Presentation Components (Dumb)
+- Focus purely on UI rendering
+- Accept props for data and callbacks
+- Remain stateless when possible
+- Use TypeScript interfaces for props
+
+## GraphQL Patterns
+- Colocate queries with components 
+- Use fragments for reusable fields
+- Implement optimistic updates
+- Handle loading/error states consistently
+- Enable automatic persisted queries
+- Monitor query performance
+
+## State Management
+- Use React Query for server state
+- Local state with useState/useReducer
+- Avoid redundant state
+- Cache GraphQL results appropriately
+- Implement connection/pagination patterns
+
+## Mobile-First Design
+- Use viewport-relative units
+- Implement pull-to-refresh
+- Add offline support
+- Optimize touch targets (min 44px)
+- Use bottom sheet navigation for cart
+- Implement swipe gestures
+
+UI and Styling
+- Use Shadcn UI, Radix, and Tailwind for components and styling.
+- Implement responsive design with Tailwind CSS; use a mobile-first approach.
+
+### UI Patterns
+- Use skeleton loading states
+- Implement smooth transitions
+- Add touch feedback
+- Use viewport-aware components
+- Implement gesture controls
+
+## TypeScript Usage
+- Use `type` for component props and GraphQL types
+- Define strict types for API responses
+- Leverage GraphQL codegen for type safety
+- Avoid enums; use const objects instead
+- Use interfaces for shared data structures
+
+## Performance
+- Split code by routes and features
+- Implement connection/pagination patterns
+- Use selective query fields
+- Enable automatic persisted queries
+- Monitor and optimize GraphQL performance
+- Use React.memo for expensive renders
+- Implement proper loading states
+
+## File Naming and Structure
+- Use lowercase with dashes for directories
+- Components: PascalCase
+- Utilities: camelCase
+- Types: PascalCase with Type/Interface suffix
+- Group related files in feature folders
+
+## Best Practices
+- Write unit tests for business logic
+- Add error boundaries for fault tolerance
+- Implement proper loading states
+- Use proper semantic HTML
+- Follow accessibility guidelines
+- Document complex components
+- Add proper TypeScript comments
+- Use consistent code formatting

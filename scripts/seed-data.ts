@@ -15,6 +15,11 @@ async function seedData() {
       slug: "world-famous-grill",
       description: "A cozy Mediterranean and Greek restaurant serving delicious authentic dishes with modern flair",
       imageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5",
+      address: "4143 E Florence Ave",
+      city: "Bell",
+      state: "CA",
+      zip: "90201",
+      phone: "323-562-0744",
     });
 
     if (restaurantResponse.data?.id) {

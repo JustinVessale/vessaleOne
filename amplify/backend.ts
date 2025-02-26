@@ -35,7 +35,7 @@ const paymentApi = new RestApi(apiStack, "PaymentApi", {
     allowOrigins: [
       'http://localhost:5173',
       'http://localhost:3000',
-      'https://*.amplifyapp.com'
+      'https://*.amplifyapp.com' // TODO: Change to the production domain
       // ...(process.env.AMPLIFY_ENV === 'prod' 
       //   ? ['https://your-production-domain.com'] 
       //   : ['https://develop.d2g0w15slq5y17.amplifyapp.com', 'https://*.d2g0w15slq5y17.amplifyapp.com'])

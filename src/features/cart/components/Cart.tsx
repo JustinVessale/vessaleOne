@@ -91,47 +91,46 @@ export function Cart() {
     </div>
   );
 
-  // Desktop version
-  if (!state.isOpen) {
-    return (
+  // Desktop version (already rendered in RestaurantPage.tsx)
+  return (
+    <>
+      {/* Desktop version */}
       <div className="bg-white rounded-lg shadow-lg p-4 h-full">
         <div className="flex items-center justify-center mb-4">
           <h2 className="text-xl font-semibold text-gray-900">Your order</h2>
         </div>
         <CartContent />
       </div>
-    );
-  }
 
-  // Mobile version (slide-in panel)
-  return (
-    <div className={`fixed inset-0 z-[100] lg:hidden ${state.isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
-      <div 
-        className={`fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
-          state.isOpen ? 'opacity-100' : 'opacity-0'
-        }`} 
-        onClick={toggleCart} 
-      />
-      <div className="absolute inset-y-0 right-0 max-w-full flex">
+      {/* Mobile version (slide-up panel) */}
+      <div className={`fixed inset-0 z-[100] lg:hidden ${state.isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
         <div 
-          className={`w-full sm:w-96 bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out ${
-            state.isOpen ? 'translate-x-0' : 'translate-x-full'
-          }`}
-        >
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <div className="flex-1 text-center">
-              <h2 className="text-xl font-semibold text-gray-900">Your order</h2>
+          className={`fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
+            state.isOpen ? 'opacity-100' : 'opacity-0'
+          }`} 
+          onClick={toggleCart} 
+        />
+        <div className="absolute inset-x-0 bottom-0 max-h-[80vh] flex">
+          <div 
+            className={`w-full bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out rounded-t-xl ${
+              state.isOpen ? 'translate-y-0' : 'translate-y-full'
+            }`}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div className="flex-1 text-center">
+                <h2 className="text-xl font-semibold text-gray-900">Your order</h2>
+              </div>
+              <button
+                onClick={toggleCart}
+                className="rounded-full p-2 hover:bg-gray-100 transition-colors"
+              >
+                <XMarkIcon className="h-6 w-6 text-gray-400" />
+              </button>
             </div>
-            <button
-              onClick={toggleCart}
-              className="rounded-full p-2 hover:bg-gray-100 transition-colors"
-            >
-              <XMarkIcon className="h-6 w-6 text-gray-400" />
-            </button>
+            <CartContent />
           </div>
-          <CartContent />
         </div>
       </div>
-    </div>
+    </>
   );
 }
