@@ -19,6 +19,7 @@ type DeliveryData = {
   quoteId: string;
   estimatedDeliveryTime: string;
   nashOrderId?: string;
+  externalId: string;
 };
 
 export function CheckoutPage() {
@@ -284,7 +285,20 @@ export function CheckoutPage() {
   };
 
   const handleDeliveryContinue = (data: DeliveryData) => {
-    setDeliveryData(data);
+    if (!order?.id) {
+      console.error('No order ID available for Nash external ID');
+      toast({
+        title: "Error setting up delivery",
+        description: "Could not set up delivery. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDeliveryData({
+      ...data,
+      externalId: order.id // Use our order ID as the external ID
+    });
     setCheckoutStep('payment');
   };
 
@@ -410,6 +424,7 @@ export function CheckoutPage() {
             restaurantAddress={restaurantData.address}
             restaurantName={restaurantData.name}
             restaurantPhone={restaurantData.phone}
+            orderId={order?.id}
             onContinue={handleDeliveryContinue}
           />
         </div>

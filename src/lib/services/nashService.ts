@@ -23,7 +23,7 @@ console.log('- API base URL:', NASH_API_BASE_URL);
 
 // Nash API endpoints
 const ENDPOINTS = {
-  CREATE_ORDER: '/v1/order',
+  CREATE_ORDER_BY_EXTERNAL_ID: (externalId: string) => `/v1/order/external-identifier/${externalId}`,
   GET_ORDER: (orderId: string) => `/v1/order/${orderId}`,
   CANCEL_ORDER: (orderId: string) => `/v1/order/${orderId}/cancel`,
   REFRESH_QUOTES: '/v1/order/refresh_quotes',
@@ -241,7 +241,7 @@ function formatContactName(contact: NashContact): { firstName: string, lastName:
 }
 
 /**
- * Create an order with Nash to get delivery quotes
+ * Create or update an order with Nash using external identifier
  */
 export async function createOrderWithQuotes(
   request: {
@@ -254,7 +254,7 @@ export async function createOrderWithQuotes(
       contact: NashContact;
     };
     items?: NashDeliveryItem[];
-    externalId?: string;
+    externalId: string; // Now required
   }
 ): Promise<NashOrderResponse> {
   // Convert our internal request format to Nash API format
@@ -276,13 +276,16 @@ export async function createOrderWithQuotes(
   
   // Calculate the total order value in cents
   const totalValueCents = request.items?.reduce((sum, item) => {
-    // item.price is in dollars, so multiply by 100 to get cents
     const itemTotalCents = item.price ? Math.round(item.price * 100) * item.quantity : 0;
     return sum + itemTotalCents;
   }, 0) || 0;
   
   // Ensure we have a minimum value for valueCents (at least 100 cents = $1)
   const minValueCents = Math.max(totalValueCents, 100);
+
+  if (!request.externalId) {
+    throw new Error('External ID is required for creating Nash orders');
+  }
   
   const orderRequest: NashOrderRequest = {
     pickupAddress,
@@ -321,7 +324,7 @@ export async function createOrderWithQuotes(
   };
   
   return nashRequest<NashOrderResponse>(
-    ENDPOINTS.CREATE_ORDER,
+    ENDPOINTS.CREATE_ORDER_BY_EXTERNAL_ID(request.externalId),
     'POST',
     orderRequest
   );

@@ -19,12 +19,14 @@ export interface DeliveryCheckoutProps {
   };
   restaurantName: string;
   restaurantPhone: string;
+  orderId?: string;
   onContinue: (deliveryData: {
     address: string;
     deliveryFee: number;
     quoteId: string;
     estimatedDeliveryTime: string;
-    nashOrderId?: string; // Add Nash order ID
+    nashOrderId?: string;
+    externalId: string;
   }) => void;
 }
 
@@ -32,6 +34,7 @@ export function DeliveryCheckout({
   restaurantAddress, 
   restaurantName,
   restaurantPhone,
+  orderId,
   onContinue 
 }: DeliveryCheckoutProps) {
   const [deliveryFormData, setDeliveryFormData] = useState<DeliveryFormData | null>(null);
@@ -71,7 +74,7 @@ export function DeliveryCheckout({
           contact: formData.contact
         },
         items: cartItemsToDeliveryItems(),
-        externalId: `cart-${Date.now()}` // Use a unique ID for tracking
+        externalId: orderId || `temp-${Date.now()}` // Use provided order ID or generate temp ID
       });
       
       setNashOrder(orderResponse);
@@ -156,6 +159,7 @@ export function DeliveryCheckout({
           quoteId: selectedQuote.id,
           estimatedDeliveryTime: selectedQuote.dropoffEta,
           nashOrderId: nashOrder.id,
+          externalId: nashOrder.id // Use Nash order ID as external ID
         });
       } catch (error) {
         console.error('Error selecting quote:', error);
