@@ -7,7 +7,6 @@ import {
   createOrderWithQuotes, 
   selectQuote, 
   NashOrderResponse,
-
 } from '@/lib/services/nashService';
 
 export interface DeliveryCheckoutProps {
@@ -19,7 +18,7 @@ export interface DeliveryCheckoutProps {
   };
   restaurantName: string;
   restaurantPhone: string;
-  orderId?: string; // This will be used as Nash's external ID
+  orderId: string; // Make this required
   onContinue: (deliveryData: {
     address: string;
     deliveryFee: number;
@@ -59,10 +58,6 @@ export function DeliveryCheckout({
     setIsLoadingQuotes(true);
     
     try {
-      if (!orderId) {
-        throw new Error('Order ID is required for Nash delivery');
-      }
-
       // Create an order with Nash to get quotes
       const orderResponse = await createOrderWithQuotes({
         pickup: {
@@ -77,7 +72,7 @@ export function DeliveryCheckout({
           contact: formData.contact
         },
         items: cartItemsToDeliveryItems(),
-        externalId: orderId // Use our order ID as Nash's external ID
+        externalId: orderId
       });
       
       setNashOrder(orderResponse);
