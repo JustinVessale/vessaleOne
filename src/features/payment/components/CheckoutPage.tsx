@@ -309,7 +309,7 @@ export function CheckoutPage() {
       clearCart();
       
       // Navigate to order confirmation page
-      navigate(`/order-confirmation/${order.id}`);
+      navigate(`/orders/${order.id}`);
     } catch (error) {
       console.error('Error handling payment success:', error);
       toast({
