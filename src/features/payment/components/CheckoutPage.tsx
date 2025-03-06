@@ -364,6 +364,7 @@ export function CheckoutPage() {
             restaurantPhone={restaurantData.phone}
             orderId={order.id}
             onContinue={handleDeliveryContinue}
+            onSwitchToPickup={() => handleDeliveryOptionSelect(false)}
           />
         </div>
       )}
