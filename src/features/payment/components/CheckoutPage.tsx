@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { DeliveryCheckout } from '@/features/delivery/components/DeliveryCheckout';
 import { autodispatchOrder } from '@/lib/services/nashService';
+import { useQuery } from '@tanstack/react-query';
 
 const client = generateClient<Schema>();
 
@@ -39,17 +40,40 @@ export function CheckoutPage() {
     };
   }, []);
 
-  // Mock restaurant data - in a real app, this would come from the restaurant details
-  const restaurantData = {
-    name: "Sample Restaurant",
-    phone: "715-864-4470",
-    address: {
-      street: "123 Main St",
-      city: "Los Angeles",
-      state: "CA",
-      zip: "90034"
-    }
-  };
+  // Fetch restaurant data
+  const { data: restaurantData, isLoading: isLoadingRestaurant } = useQuery({
+    queryKey: ['restaurant', state.items[0]?.restaurantId],
+    queryFn: async () => {
+      if (!state.items[0]?.restaurantId) {
+        throw new Error('No restaurant ID found in cart');
+      }
+      
+      const { data, errors } = await client.models.Restaurant.get({
+        id: state.items[0].restaurantId
+      });
+      
+      if (errors) {
+        console.error('Error fetching restaurant:', errors);
+        throw new Error('Failed to fetch restaurant details');
+      }
+      
+      if (!data || !data.name || !data.phone || !data.address || !data.city || !data.state || !data.zip) {
+        throw new Error('Restaurant data is incomplete');
+      }
+      
+      return {
+        name: data.name,
+        phone: data.phone,
+        address: {
+          street: data.address,
+          city: data.city,
+          state: data.state,
+          zip: data.zip
+        }
+      };
+    },
+    enabled: !!state.items[0]?.restaurantId
+  });
 
   const createInitialOrder = useCallback(async () => {
     if (orderAttemptedRef.current) {
@@ -128,83 +152,34 @@ export function CheckoutPage() {
       // Create order items
       console.log('Creating order items for order:', newOrder.id);
       console.log('Cart items:', state.items);
+
+      // Create all order items in parallel
+      const orderItemPromises = state.items.map(item => 
+        client.models.OrderItem.create({
+          orderId: newOrder.id,
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          specialInstructions: item.specialInstructions
+        })
+      );
+
+      const orderItemResults = await Promise.all(orderItemPromises);
       
-      try {
-        const itemPromises = state.items.map(item => {
-          console.log('Creating order item:', {
-            orderId: newOrder.id,
-            menuItemId: item.menuItemId,
-            quantity: item.quantity,
-            price: item.price,
-            specialInstructions: item.specialInstructions || '',
-            cartItemName: item.name // Just for logging, not sent to API
-          });
-          
-          return client.models.OrderItem.create({
-            orderId: newOrder.id,
-            menuItemId: item.menuItemId,
-            quantity: item.quantity,
-            specialInstructions: item.specialInstructions || ''
-          });
-        });
-
-        const orderItemResults = await Promise.all(itemPromises);
-        
-        // Check if any order items failed to create
-        const failedItems = orderItemResults.filter(result => result.errors);
-        if (failedItems.length > 0) {
-          console.error('Some order items failed to create:', failedItems);
-          throw new Error(`Failed to create ${failedItems.length} order items`);
-        }
-        
-        const orderItems = orderItemResults.map(result => result.data);
-        console.log('Order items created successfully:', orderItems);
-        
-        // Verify all items were created
-        if (orderItems.length !== state.items.length) {
-          console.warn(`Created ${orderItems.length} order items but had ${state.items.length} cart items`);
-        }
-
-        // Fetch the complete order with items to verify
-        const { data: completeOrder, errors: fetchErrors } = await client.models.Order.get(
-          { id: newOrder.id },
-          { selectionSet: ['id', 'total', 'items.*'] }
-        );
-        
-        if (fetchErrors || !completeOrder) {
-          console.error('Failed to fetch complete order:', fetchErrors);
-        } else {
-          console.log('Complete order with items:', completeOrder);
-        }
-
-        setOrder(newOrder);
-        return newOrder;
-      } catch (itemError) {
-        console.error('Error creating order items:', itemError);
-        
-        // Attempt to delete the order since items failed
-        try {
-          console.log('Attempting to delete incomplete order:', newOrder.id);
-          await client.models.Order.delete({ id: newOrder.id });
-          console.log('Incomplete order deleted successfully');
-        } catch (deleteError) {
-          console.error('Failed to delete incomplete order:', deleteError);
-        }
-        
-        toast({
-          title: "Error creating order items",
-          description: "There was a problem with your order items. Please try again.",
-          variant: "destructive",
-        });
-        
-        return null;
+      // Check for any errors in creating order items
+      const orderItemErrors = orderItemResults
+        .map(result => result.errors)
+        .filter(Boolean);
+      
+      if (orderItemErrors.length > 0) {
+        console.error('Errors creating order items:', orderItemErrors);
+        throw new Error('Failed to create some order items');
       }
+
+      // Update the local order state
+      setOrder(newOrder);
+      return newOrder;
     } catch (error) {
       console.error('Error creating initial order:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', error.message);
-        console.error('Error stack:', error.stack);
-      }
       toast({
         title: "Error creating order",
         description: "There was a problem creating your order. Please try again.",
@@ -212,7 +187,7 @@ export function CheckoutPage() {
       });
       return null;
     }
-  }, [total, state.items, toast, isDelivery, deliveryData]);
+  }, [state.items, total, isDelivery, deliveryData, toast]);
 
   const handlePaymentSuccess = async (paymentIntentId: string) => {
     try {
@@ -313,6 +288,36 @@ export function CheckoutPage() {
     setCheckoutStep('payment');
   };
 
+  // If we're loading restaurant data and on delivery details step, show loading state
+  if (checkoutStep === 'delivery-details' && isLoadingRestaurant) {
+    return (
+      <div className="max-w-2xl mx-auto p-4">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // If we're on delivery details step and restaurant data failed to load, show error
+  if (checkoutStep === 'delivery-details' && !restaurantData) {
+    return (
+      <div className="max-w-2xl mx-auto p-4">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h2 className="text-red-800 font-medium">Error Loading Restaurant Data</h2>
+          <p className="text-red-600 mt-1">Unable to load restaurant details. Please try again later.</p>
+          <button
+            onClick={() => setCheckoutStep('delivery-option')}
+            className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-8">
       <h1 className="text-2xl font-semibold">Checkout</h1>
@@ -398,7 +403,7 @@ export function CheckoutPage() {
       )}
 
       {/* Delivery Details */}
-      {checkoutStep === 'delivery-details' && (
+      {checkoutStep === 'delivery-details' && restaurantData && (
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-medium mb-4">Delivery Details</h2>
           <DeliveryCheckout
@@ -413,11 +418,11 @@ export function CheckoutPage() {
       {/* Payment Form */}
       {checkoutStep === 'payment' && (
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-medium mb-4">Payment Details</h2>
+          <h2 className="text-xl font-medium mb-4">Payment</h2>
           <CheckoutContainer
-            createInitialOrder={createInitialOrder}
             onSuccess={handlePaymentSuccess}
             onError={handlePaymentError}
+            createInitialOrder={createInitialOrder}
           />
         </div>
       )}

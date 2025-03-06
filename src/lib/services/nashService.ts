@@ -290,13 +290,13 @@ export async function createOrderWithQuotes(
     pickupBusinessName: request.pickup.contact?.name,
     pickupFirstName,
     pickupLastName,
-    pickupInstructions: request.pickup.address.instructions,
+    pickupInstructions: request.pickup.address.instructions || 'Pickup at the restaurant',
     
     dropoffAddress,
     dropoffPhoneNumber: request.dropoff.contact.phone,
     dropoffFirstName,
     dropoffLastName,
-    dropoffInstructions: request.dropoff.address.instructions,
+    dropoffInstructions: request.dropoff.address.instructions || 'Deliver to the customer',
     dropoffEmail: request.dropoff.contact.email,
     
     description: 'Food delivery',
