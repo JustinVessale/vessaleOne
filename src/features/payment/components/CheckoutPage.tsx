@@ -80,6 +80,7 @@ export function CheckoutPage() {
   const handleDeliveryOptionSelect = async (useDelivery: boolean) => {
     setUseDelivery(useDelivery);
     
+    // If switching to delivery and we don't have an order yet, create one
     if (useDelivery && !order) {
       // Create initial order with zero delivery fee
       // We'll update the fee after user selects a delivery option
@@ -92,7 +93,41 @@ export function CheckoutPage() {
         });
         return;
       }
+    } 
+    // If switching to pickup and we already have an order, update it
+    else if (!useDelivery && order) {
+      try {
+        // Update the existing order to be pickup instead of delivery
+        const { data: updatedOrder, errors } = await client.models.Order.update({
+          id: order.id,
+          isDelivery: false,
+          deliveryFee: 0, // Reset delivery fee
+          updatedAt: new Date().toISOString()
+        });
+        
+        if (errors) {
+          console.error('Error updating order to pickup:', errors);
+          toast({
+            title: "Error",
+            description: "Could not update order to pickup. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // Update the local order state
+        setOrder(updatedOrder);
+      } catch (error) {
+        console.error('Error updating order to pickup:', error);
+        toast({
+          title: "Error",
+          description: "Could not update order to pickup. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
+    // If switching to pickup and we don't have an order yet, we'll create it in the payment step
     
     setCheckoutStep(useDelivery ? 'delivery' : 'payment');
   };
@@ -388,6 +423,7 @@ export function CheckoutPage() {
             onSuccess={handlePaymentSuccess}
             onError={handlePaymentError}
             createInitialOrder={createInitialOrder}
+            existingOrder={order}
           />
         </div>
       )}
