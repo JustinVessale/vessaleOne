@@ -19,14 +19,13 @@ export interface DeliveryCheckoutProps {
   };
   restaurantName: string;
   restaurantPhone: string;
-  orderId?: string;
+  orderId?: string; // This will be used as Nash's external ID
   onContinue: (deliveryData: {
     address: string;
     deliveryFee: number;
     quoteId: string;
     estimatedDeliveryTime: string;
     nashOrderId?: string;
-    externalId: string;
   }) => void;
 }
 
@@ -60,6 +59,10 @@ export function DeliveryCheckout({
     setIsLoadingQuotes(true);
     
     try {
+      if (!orderId) {
+        throw new Error('Order ID is required for Nash delivery');
+      }
+
       // Create an order with Nash to get quotes
       const orderResponse = await createOrderWithQuotes({
         pickup: {
@@ -74,7 +77,7 @@ export function DeliveryCheckout({
           contact: formData.contact
         },
         items: cartItemsToDeliveryItems(),
-        externalId: orderId || `temp-${Date.now()}` // Use provided order ID or generate temp ID
+        externalId: orderId // Use our order ID as Nash's external ID
       });
       
       setNashOrder(orderResponse);
@@ -158,8 +161,7 @@ export function DeliveryCheckout({
           deliveryFee: selectedQuote.priceCents / 100,
           quoteId: selectedQuote.id,
           estimatedDeliveryTime: selectedQuote.dropoffEta,
-          nashOrderId: nashOrder.id,
-          externalId: nashOrder.id // Use Nash order ID as external ID
+          nashOrderId: nashOrder.id
         });
       } catch (error) {
         console.error('Error selecting quote:', error);
