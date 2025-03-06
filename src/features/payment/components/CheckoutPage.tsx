@@ -254,7 +254,7 @@ export function CheckoutPage() {
     }
   }, [state.items, total, isDelivery, deliveryData, toast]);
 
-  const handlePaymentSuccess = async (paymentIntentId: string) => {
+  const handlePaymentSuccess = async (_paymentIntentId: string) => {
     try {
       if (!order) {
         console.error('No order found for payment success');

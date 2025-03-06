@@ -133,7 +133,7 @@ export function CheckoutContainer({
 
   return (
     <Elements stripe={stripePromise} options={{ clientSecret }}>
-      <PaymentForm onSuccess={onSuccess} onError={onError} />
+      <PaymentForm onSuccess={onSuccess} onError={onError} order={order} />
     </Elements>
   );
 } 
