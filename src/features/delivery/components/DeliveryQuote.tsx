@@ -87,13 +87,15 @@ interface DeliveryQuotesListProps {
   selectedQuoteId: string | null;
   onSelectQuote: (quoteId: string) => void;
   isLoading: boolean;
+  onSwitchToPickup?: () => void;
 }
 
 export function DeliveryQuotesList({ 
   quotes, 
   selectedQuoteId, 
   onSelectQuote,
-  isLoading 
+  isLoading,
+  onSwitchToPickup 
 }: DeliveryQuotesListProps) {
   if (isLoading) {
     return (
@@ -113,8 +115,23 @@ export function DeliveryQuotesList({
 
   if (allQuoteItems.length === 0) {
     return (
-      <div className="py-4 text-center">
-        <p className="text-gray-600">No delivery options available for this address.</p>
+      <div className="py-8 flex flex-col items-center justify-center text-center bg-gray-50 rounded-lg border border-gray-200">
+        <div className="mb-4 text-gray-400">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No delivery options available</h3>
+        <p className="text-gray-600 mb-6 max-w-md">We're unable to deliver to this address at the moment. You can switch to pickup instead.</p>
+        
+        {onSwitchToPickup && (
+          <button
+            onClick={onSwitchToPickup}
+            className="px-6 py-3 bg-gray-100 text-gray-900 font-medium rounded-lg border border-gray-300 hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 w-full max-w-xs"
+          >
+            Switch to Pickup
+          </button>
+        )}
       </div>
     );
   }

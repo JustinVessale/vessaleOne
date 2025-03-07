@@ -26,6 +26,7 @@ export interface DeliveryCheckoutProps {
     estimatedDeliveryTime: string;
     nashOrderId?: string;
   }) => void;
+  onSwitchToPickup?: () => void; // Add new prop for pickup switch
 }
 
 export function DeliveryCheckout({ 
@@ -33,7 +34,8 @@ export function DeliveryCheckout({
   restaurantName,
   restaurantPhone,
   orderId,
-  onContinue 
+  onContinue,
+  onSwitchToPickup
 }: DeliveryCheckoutProps) {
   const [deliveryFormData, setDeliveryFormData] = useState<DeliveryFormData | null>(null);
   const [nashOrder, setNashOrder] = useState<NashOrderResponse | null>(null);
@@ -206,14 +208,14 @@ export function DeliveryCheckout({
             </div>
           </div>
 
-          {nashOrder && (
-            <DeliveryQuotesList
-              quotes={[nashOrder]}
-              selectedQuoteId={selectedQuoteId}
-              onSelectQuote={handleSelectQuote}
-              isLoading={isLoadingQuotes}
-            />
-          )}
+          {/* Always render the DeliveryQuotesList component */}
+          <DeliveryQuotesList
+            quotes={nashOrder ? [nashOrder] : []}
+            selectedQuoteId={selectedQuoteId}
+            onSelectQuote={handleSelectQuote}
+            isLoading={isLoadingQuotes}
+            onSwitchToPickup={onSwitchToPickup}
+          />
 
           {(nashOrder?.quotes?.length ?? 0) > 0 && (
             <button
