@@ -89,6 +89,9 @@ export interface NashOrderRequest {
   
   // Dispatch strategy
   dispatchStrategyId?: string;
+  
+  // Tags for special behavior
+  tags?: string[];
 }
 
 export interface NashQuote {
@@ -320,7 +323,10 @@ export async function createOrderWithQuotes(
       description: item.name,
       count: item.quantity,
       valueCents: item.price ? Math.round(item.price * 100) : undefined
-    }))
+    })),
+    
+    // Add "quotes_only" tag to get quotes back from Nash
+    tags: ['quotes_only']
   };
   
   return nashRequest<NashOrderResponse>(
