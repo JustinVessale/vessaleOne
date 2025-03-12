@@ -8,6 +8,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { DeliveryCheckout } from '@/features/delivery/components/DeliveryCheckout';
 import { autodispatchOrder } from '@/lib/services/nashService';
 import { useQuery } from '@tanstack/react-query';
+import { handlePaymentSuccess as processPaymentSuccess } from '../api/checkoutService';
 
 const client = generateClient<Schema>();
 
@@ -102,6 +103,8 @@ export function CheckoutPage() {
           id: order.id,
           isDelivery: false,
           deliveryFee: 0, // Reset delivery fee
+          deliveryAddress: '', // Clear delivery address
+          deliveryInfo: null, // Clear delivery info
           updatedAt: new Date().toISOString()
         });
         
@@ -117,6 +120,9 @@ export function CheckoutPage() {
         
         // Update the local order state
         setOrder(updatedOrder);
+        
+        // Clear delivery data
+        setDeliveryData(null);
       } catch (error) {
         console.error('Error updating order to pickup:', error);
         toast({
@@ -144,17 +150,25 @@ export function CheckoutPage() {
     }
 
     try {
-      // Update the order with the selected delivery fee
+      console.log('Setting up delivery with Nash order ID:', data.nashOrderId);
+      
+      // Update the order with the selected delivery fee and Nash order ID
       const { errors } = await client.models.Order.update({
         id: order.id,
         deliveryFee: data.deliveryFee,
         deliveryAddress: data.address,
+        isDelivery: true, // Ensure this is set to true
         updatedAt: new Date().toISOString(),
-        // Add delivery info
+        // Add delivery info with explicit type casting for status
         deliveryInfo: {
+          deliveryId: data.nashOrderId || '',
           quoteId: data.quoteId,
+          provider: 'Nash',
+          fee: data.deliveryFee,
           estimatedDeliveryTime: data.estimatedDeliveryTime,
-          status: 'PENDING'
+          estimatedPickupTime: new Date().toISOString(),
+          trackingUrl: '',
+          status: 'PENDING' as 'PENDING' // Explicit type cast
         }
       });
 
@@ -202,9 +216,11 @@ export function CheckoutPage() {
       }
 
       // Calculate the total with delivery fee if applicable
-      const orderTotal = isDelivery 
+      const orderTotal = useDelivery 
         ? total + (deliveryData?.deliveryFee || 0) 
         : total;
+
+      console.log(`Creating ${useDelivery ? 'delivery' : 'pickup'} order with total: ${orderTotal}`);
 
       const { data: newOrder, errors } = await client.models.Order.create({
         total: orderTotal,
@@ -214,9 +230,22 @@ export function CheckoutPage() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         // Add delivery-related fields if delivery is selected
-        isDelivery,
-        deliveryAddress: deliveryData?.address || '',
-        deliveryFee: deliveryData?.deliveryFee || 0,
+        isDelivery: useDelivery,
+        deliveryAddress: useDelivery ? (deliveryData?.address || '') : '',
+        deliveryFee: useDelivery ? (deliveryData?.deliveryFee || 0) : 0,
+        // Only add deliveryInfo for delivery orders
+        ...(useDelivery && deliveryData ? {
+          deliveryInfo: {
+            deliveryId: deliveryData.nashOrderId || '',
+            quoteId: deliveryData.quoteId || '',
+            provider: 'Nash',
+            fee: deliveryData.deliveryFee,
+            estimatedDeliveryTime: deliveryData.estimatedDeliveryTime,
+            estimatedPickupTime: new Date().toISOString(),
+            trackingUrl: '',
+            status: 'PENDING' as 'PENDING'
+          }
+        } : {})
       });
 
       if (errors) {
@@ -252,7 +281,7 @@ export function CheckoutPage() {
       });
       return null;
     }
-  }, [state.items, total, isDelivery, deliveryData, toast]);
+  }, [state.items, total, useDelivery, deliveryData, toast]);
 
   const handlePaymentSuccess = async (_paymentIntentId: string) => {
     try {
@@ -261,49 +290,13 @@ export function CheckoutPage() {
         return;
       }
 
-      // Update order status to PAID
-      const { data: updatedOrder, errors: updateErrors } = await client.models.Order.update({
-        id: order.id,
-        status: 'PAID',
-        updatedAt: new Date().toISOString()
-      });
-
-      if (updateErrors) {
-        console.error('Error updating order status:', updateErrors);
-        toast({
-          title: "Error updating order",
-          description: "There was a problem updating your order status.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // If this is a delivery order and we have a Nash order ID, autodispatch it
-      if (useDelivery && deliveryData?.nashOrderId) {
-        try {
-          console.log('Autodispatching Nash delivery for order:', deliveryData.nashOrderId);
-          const nashResponse = await autodispatchOrder(deliveryData.nashOrderId);
-          
-          // Update the order with the Nash delivery ID if available
-          if (nashResponse.delivery?.id) {
-            // Store the delivery ID in the deliveryInfo field
-            const deliveryInfo = {
-              ...order.deliveryInfo,
-              deliveryId: nashResponse.delivery.id,
-              status: 'CONFIRMED' as const
-            };
-            
-            await client.models.Order.update({
-              id: order.id,
-              deliveryInfo,
-              updatedAt: new Date().toISOString()
-            });
-          }
-        } catch (nashError) {
-          console.error('Error autodispatching Nash delivery:', nashError);
-          // Continue with order confirmation even if Nash dispatch fails
-        }
-      }
+      // Use the payment success handler from checkoutService
+      // Only pass the Nash order ID if this is a delivery order
+      await processPaymentSuccess(
+        order.id,
+        order.isDelivery && order.deliveryInfo?.deliveryId ? 
+          order.deliveryInfo.deliveryId : undefined
+      );
 
       // Clear the cart
       clearCart();

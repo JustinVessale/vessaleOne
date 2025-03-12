@@ -88,6 +88,14 @@ export function PaymentForm({ onSuccess, onError, order }: PaymentFormProps) {
           </div>
         )}
         
+        {/* Delivery Provider (if applicable) */}
+        {isDelivery && order?.deliveryInfo?.provider && (
+          <div className="flex justify-between text-gray-500 text-sm mt-1">
+            <span>Delivery Provider</span>
+            <span>{order.deliveryInfo.provider}</span>
+          </div>
+        )}
+        
         {/* Total */}
         <div className="flex justify-between text-lg font-medium mt-3 pt-3 border-t border-gray-200">
           <span>Total</span>

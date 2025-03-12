@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getOrder, cancelOrder } from '@/lib/services/nashService';
+import { getOrder, NashOrderResponse } from '@/lib/services/nashService';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -8,36 +8,23 @@ interface DeliveryTrackingProps {
   onCancel?: () => void;
 }
 
-interface DeliveryStatus {
-  status: string;
-  provider: string;
-  fee: number;
-  estimated_pickup_time: string;
-  estimated_delivery_time: string;
-  tracking_url?: string;
-  driver?: {
-    name: string;
-    phone: string;
-    photo_url?: string;
-    location?: {
-      lat: number;
-      lng: number;
-    };
-  };
-  dropoff: {
-    address: {
-      street: string;
-      city: string;
-      state: string;
-      zip: string;
-      instructions?: string;
-    };
-  };
-  tip_amount?: number;
-}
+// Map Nash status to user-friendly status
+const statusMap: Record<string, string> = {
+  'CREATED': 'Order Created',
+  'QUOTES_AVAILABLE': 'Finding Delivery',
+  'QUOTE_SELECTED': 'Delivery Confirmed',
+  'DISPATCHED': 'Finding Driver',
+  'ACTIVE': 'Driver Assigned',
+  'PICKUP_ARRIVED': 'Driver at Restaurant',
+  'PICKUP_COMPLETE': 'Order Picked Up',
+  'DROPOFF_ARRIVED': 'Driver Arrived',
+  'DROPOFF_COMPLETE': 'Delivered',
+  'CANCELLED': 'Cancelled',
+  'FAILED': 'Delivery Failed'
+};
 
 export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps) {
-  const [delivery, setDelivery] = useState<DeliveryStatus | null>(null);
+  const [nashOrder, setNashOrder] = useState<NashOrderResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -56,25 +43,7 @@ export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps
         const orderResponse = await getOrder(deliveryId);
         
         if (isMounted) {
-          // Convert Nash order response to our internal format
-          // This is a simplified example - you would need to adapt this to your actual Nash response
-          const deliveryStatus: DeliveryStatus = {
-            status: orderResponse.status,
-            provider: orderResponse.delivery?.type || 'Nash Delivery',
-            fee: orderResponse.winnerQuote?.price_cents ? orderResponse.winnerQuote.price_cents / 100 : 0,
-            estimated_pickup_time: new Date(Date.now() + 10 * 60000).toISOString(), // Placeholder - replace with actual data from Nash when available
-            estimated_delivery_time: new Date(Date.now() + 30 * 60000).toISOString(), // Placeholder - replace with actual data from Nash when available
-            tracking_url: orderResponse.publicTrackingUrl,
-            dropoff: {
-              address: {
-                street: orderResponse.dropoffAddress.split(',')[0] || '',
-                city: orderResponse.dropoffAddress.split(',')[1]?.trim() || '',
-                state: orderResponse.dropoffAddress.split(',')[2]?.split(' ')[1]?.trim() || '',
-                zip: orderResponse.dropoffAddress.split(',')[2]?.split(' ')[2]?.trim() || '',
-              }
-            }
-          };
-          setDelivery(deliveryStatus);
+          setNashOrder(orderResponse);
         }
       } catch (err) {
         console.error('Error fetching delivery status:', err);
@@ -101,7 +70,7 @@ export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps
 
   // Handle delivery cancellation
   const handleCancelDelivery = async () => {
-    if (!delivery || !deliveryId) return;
+    if (!nashOrder || !deliveryId) return;
     
     if (!window.confirm('Are you sure you want to cancel this delivery?')) {
       return;
@@ -110,7 +79,9 @@ export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps
     setIsCancelling(true);
     
     try {
-      await cancelOrder(deliveryId, 'Customer requested cancellation');
+      await import('@/lib/services/nashService').then(({ cancelOrder }) => 
+        cancelOrder(deliveryId, 'Customer requested cancellation')
+      );
       
       toast({
         title: 'Delivery Cancelled',
@@ -140,7 +111,7 @@ export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps
     );
   }
 
-  if (error || !delivery) {
+  if (error || !nashOrder) {
     return (
       <div className="p-4 text-center">
         <p className="text-red-500">{error || 'Failed to load delivery information'}</p>
@@ -154,55 +125,62 @@ export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps
     );
   }
 
-  // Format times
-  const estimatedPickupTime = new Date(delivery.estimated_pickup_time);
-  const estimatedDeliveryTime = new Date(delivery.estimated_delivery_time);
+  // Get the user-friendly status
+  const displayStatus = statusMap[nashOrder.status] || nashOrder.status;
+  
+  // Get delivery information
+  const deliveryProvider = nashOrder.delivery?.type || 'Nash Delivery';
+  const deliveryFee = nashOrder.winnerQuote?.price_cents ? nashOrder.winnerQuote.price_cents / 100 : 0;
+  
+  // Parse address from Nash response
+  const dropoffAddress = {
+    street: nashOrder.dropoffAddress.split(',')[0] || '',
+    city: nashOrder.dropoffAddress.split(',')[1]?.trim() || '',
+    state: nashOrder.dropoffAddress.split(',')[2]?.split(' ')[1]?.trim() || '',
+    zip: nashOrder.dropoffAddress.split(',')[2]?.split(' ')[2]?.trim() || '',
+  };
+
+  // Determine if the order is in a state that can be cancelled
+  const canCancel = !['DROPOFF_COMPLETE', 'CANCELLED', 'FAILED'].includes(nashOrder.status);
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-4">
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-medium text-lg">Delivery Status</h3>
         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          delivery.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-          delivery.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-          delivery.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
+          nashOrder.status === 'ACTIVE' || nashOrder.status === 'PICKUP_COMPLETE' ? 'bg-green-100 text-green-800' :
+          nashOrder.status === 'CREATED' || nashOrder.status === 'QUOTES_AVAILABLE' ? 'bg-yellow-100 text-yellow-800' :
+          nashOrder.status === 'DROPOFF_COMPLETE' ? 'bg-blue-100 text-blue-800' :
+          nashOrder.status === 'CANCELLED' || nashOrder.status === 'FAILED' ? 'bg-red-100 text-red-800' :
           'bg-gray-100 text-gray-800'
         }`}>
-          {delivery.status}
+          {displayStatus}
         </span>
       </div>
 
-      {/* Estimated Times */}
-      <div className="mb-4">
-        <div className="flex justify-between mb-2">
-          <span className="text-gray-600">Estimated Pickup</span>
-          <span>{format(estimatedPickupTime, 'h:mm a')}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-600">Estimated Delivery</span>
-          <span className="font-medium">{format(estimatedDeliveryTime, 'h:mm a')}</span>
+      {/* Delivery Progress */}
+      <div className="mb-6">
+        <div className="relative">
+          <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
+            <div 
+              className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary-500"
+              style={{ 
+                width: 
+                  nashOrder.status === 'CREATED' || nashOrder.status === 'QUOTES_AVAILABLE' ? '10%' :
+                  nashOrder.status === 'QUOTE_SELECTED' || nashOrder.status === 'DISPATCHED' ? '25%' :
+                  nashOrder.status === 'ACTIVE' || nashOrder.status === 'PICKUP_ARRIVED' ? '50%' :
+                  nashOrder.status === 'PICKUP_COMPLETE' || nashOrder.status === 'DROPOFF_ARRIVED' ? '75%' :
+                  nashOrder.status === 'DROPOFF_COMPLETE' ? '100%' :
+                  '0%'
+              }}
+            ></div>
+          </div>
         </div>
       </div>
 
-      {/* Driver Information */}
-      {delivery.driver && (
-        <div className="border-t border-gray-200 pt-4 mb-4">
-          <h4 className="font-medium mb-2">Driver</h4>
-          <div className="flex items-center">
-            {delivery.driver.photo_url && (
-              <img 
-                src={delivery.driver.photo_url} 
-                alt={delivery.driver.name}
-                className="w-10 h-10 rounded-full mr-3"
-              />
-            )}
-            <div>
-              <p className="font-medium">{delivery.driver.name}</p>
-              <p className="text-sm text-gray-600">{delivery.driver.phone}</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Driver Information - Will be populated from webhook data */}
+      {/* Driver information is not available in the initial Nash response */}
+      {/* We'll need to update this component when we implement the webhook handler */}
 
       {/* Delivery Details */}
       <div className="border-t border-gray-200 pt-4 mb-4">
@@ -210,41 +188,30 @@ export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps
         <div className="space-y-2">
           <div className="flex justify-between">
             <span className="text-gray-600">Provider</span>
-            <span>{delivery.provider}</span>
+            <span>{deliveryProvider}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Delivery Fee</span>
-            <span>${delivery.fee.toFixed(2)}</span>
+            <span>${deliveryFee.toFixed(2)}</span>
           </div>
-          {delivery.tip_amount && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Tip</span>
-              <span>${delivery.tip_amount.toFixed(2)}</span>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Delivery Address */}
       <div className="border-t border-gray-200 pt-4 mb-4">
         <h4 className="font-medium mb-2">Delivery Address</h4>
-        <p>{delivery.dropoff.address.street}</p>
+        <p>{dropoffAddress.street}</p>
         <p>
-          {delivery.dropoff.address.city}, {delivery.dropoff.address.state}{' '}
-          {delivery.dropoff.address.zip}
+          {dropoffAddress.city}, {dropoffAddress.state}{' '}
+          {dropoffAddress.zip}
         </p>
-        {delivery.dropoff.address.instructions && (
-          <p className="text-sm text-gray-600 mt-1">
-            Instructions: {delivery.dropoff.address.instructions}
-          </p>
-        )}
       </div>
 
       {/* Tracking Link */}
-      {delivery.tracking_url && (
+      {nashOrder.publicTrackingUrl && (
         <div className="mb-4">
           <a 
-            href={delivery.tracking_url} 
+            href={nashOrder.publicTrackingUrl} 
             target="_blank" 
             rel="noopener noreferrer"
             className="block w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
@@ -255,7 +222,7 @@ export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps
       )}
 
       {/* Cancel Button */}
-      {delivery.status !== 'COMPLETED' && delivery.status !== 'CANCELLED' && (
+      {canCancel && (
         <button
           onClick={handleCancelDelivery}
           disabled={isCancelling}

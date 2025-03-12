@@ -53,7 +53,8 @@ export function CheckoutContainer({
         const params = {
           orderId: orderToUse.id,
           total: orderToUse.total ?? 0,
-          restaurantId: orderToUse.restaurantId ?? ''
+          restaurantId: orderToUse.restaurantId ?? '',
+          nashOrderId: orderToUse.deliveryInfo?.deliveryId || undefined
         };
         
         console.log('Creating payment intent with params:', params);
