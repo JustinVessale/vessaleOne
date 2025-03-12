@@ -3,6 +3,9 @@ import { NashOrderResponse, NashQuote } from '@/lib/services/nashService';
 import { formatCurrency } from '@/utils/currency';
 import { format } from 'date-fns';
 
+// Remove debug mode for production
+const DEBUG_MODE = false;
+
 interface QuoteItemProps {
   quoteItem: NashQuote;
   onSelect: () => void;
@@ -19,58 +22,41 @@ export function QuoteItem({ quoteItem, onSelect, isSelected }: QuoteItemProps) {
   }, [quoteItem]);
 
   return (
-    <div 
-      className={`border rounded-lg p-4 cursor-pointer transition-all ${
+    <label 
+      className={`block border rounded-lg p-4 cursor-pointer transition-all ${
         isSelected 
           ? 'border-primary-500 bg-primary-50' 
           : 'border-gray-200 hover:border-primary-300'
       }`}
-      onClick={onSelect}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          onSelect();
-        }
-      }}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start space-x-3">
-          <div className={`w-5 h-5 rounded-full border flex-shrink-0 mt-1 ${
-            isSelected 
-              ? 'border-primary-500 bg-primary-500' 
-              : 'border-gray-300'
-          }`}>
-            {isSelected && (
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                viewBox="0 0 20 20" 
-                fill="white" 
-                className="w-5 h-5"
-              >
-                <path 
-                  fillRule="evenodd" 
-                  d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" 
-                  clipRule="evenodd" 
-                />
-              </svg>
-            )}
+          <div className="flex-shrink-0 mt-1">
+            <input
+              type="radio"
+              name="delivery-quote"
+              checked={isSelected}
+              onChange={onSelect}
+              className="h-5 w-5 text-primary-500 focus:ring-primary-500 cursor-pointer"
+            />
           </div>
           <div>
-            <h3 className="font-medium">{quoteItem.providerName}</h3>
-            <p className="text-sm text-gray-600 mt-1">
+            <span className="font-medium block">
+              {quoteItem.providerName}
+            </span>
+            <span className="text-sm text-gray-600 block mt-1">
               {estimatedDropoffTime && (
                 <>Estimated delivery by {format(estimatedDropoffTime, 'h:mm a')}</>
               )}
-            </p>
+            </span>
           </div>
         </div>
         <div className="text-right ml-4 flex-shrink-0">
-          <p className="font-medium">{formatCurrency(quoteItem.priceCents / 100)}</p>
-          <p className="text-sm text-gray-600">Delivery fee</p>
+          <span className="font-medium block">{formatCurrency(quoteItem.priceCents / 100)}</span>
+          <span className="text-sm text-gray-600 block">Delivery fee</span>
         </div>
       </div>
-    </div>
+    </label>
   );
 }
 
@@ -131,14 +117,17 @@ export function DeliveryQuotesList({
   return (
     <div className="space-y-3">
       <h3 className="font-medium">Select Delivery Option</h3>
-      {allQuoteItems.map((quoteItem) => (
-        <QuoteItem
-          key={quoteItem.id}
-          quoteItem={quoteItem}
-          isSelected={selectedQuoteId === quoteItem.id}
-          onSelect={() => onSelectQuote(quoteItem.id)}
-        />
-      ))}
+      <div className="space-y-3">
+        {allQuoteItems.map((quoteItem) => (
+          <QuoteItem
+            key={quoteItem.id}
+            quoteItem={quoteItem}
+            isSelected={selectedQuoteId === quoteItem.id}
+            onSelect={() => onSelectQuote(quoteItem.id)}
+          />
+        ))}
+      </div>
     </div>
   );
-} 
+}
+

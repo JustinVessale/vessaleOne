@@ -354,6 +354,7 @@ export async function selectQuote(
   orderId: string,
   quoteId: string
 ): Promise<NashOrderResponse> {
+  console.log(`Selecting quote ${quoteId} for order ${orderId}`);
   return nashRequest<NashOrderResponse>(
     ENDPOINTS.SELECT_QUOTE(orderId),
     'POST',

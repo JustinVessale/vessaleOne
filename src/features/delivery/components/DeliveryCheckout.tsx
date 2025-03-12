@@ -3,6 +3,7 @@ import { DeliveryForm, DeliveryFormData } from './DeliveryForm';
 import { DeliveryQuotesList } from './DeliveryQuote';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/features/cart/context/CartContext';
+import { formatCurrency } from '@/utils/currency';
 import { 
   createOrderWithQuotes, 
   selectQuote, 
@@ -98,6 +99,17 @@ export function DeliveryCheckout({
   // Handle quote selection
   const handleSelectQuote = (quoteId: string) => {
     setSelectedQuoteId(quoteId);
+    
+    // Find the selected quote for feedback
+    const selectedQuote = nashOrder?.quotes?.find(q => q.id === quoteId);
+    
+    if (selectedQuote) {
+      toast({
+        title: "Delivery Option Selected",
+        description: `${selectedQuote.providerName} delivery for ${formatCurrency(selectedQuote.priceCents / 100)}`,
+        variant: "default",
+      });
+    }
   };
 
   // Handle continue to payment
