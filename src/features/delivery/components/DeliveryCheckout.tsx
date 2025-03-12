@@ -7,7 +7,6 @@ import {
   createOrderWithQuotes, 
   selectQuote, 
   NashOrderResponse,
-
 } from '@/lib/services/nashService';
 
 export interface DeliveryCheckoutProps {
@@ -19,20 +18,24 @@ export interface DeliveryCheckoutProps {
   };
   restaurantName: string;
   restaurantPhone: string;
+  orderId: string; // Make this required
   onContinue: (deliveryData: {
     address: string;
     deliveryFee: number;
     quoteId: string;
     estimatedDeliveryTime: string;
-    nashOrderId?: string; // Add Nash order ID
+    nashOrderId?: string;
   }) => void;
+  onSwitchToPickup?: () => void; // Add new prop for pickup switch
 }
 
 export function DeliveryCheckout({ 
   restaurantAddress, 
   restaurantName,
   restaurantPhone,
-  onContinue 
+  orderId,
+  onContinue,
+  onSwitchToPickup
 }: DeliveryCheckoutProps) {
   const [deliveryFormData, setDeliveryFormData] = useState<DeliveryFormData | null>(null);
   const [nashOrder, setNashOrder] = useState<NashOrderResponse | null>(null);
@@ -71,7 +74,7 @@ export function DeliveryCheckout({
           contact: formData.contact
         },
         items: cartItemsToDeliveryItems(),
-        externalId: `cart-${Date.now()}` // Use a unique ID for tracking
+        externalId: orderId
       });
       
       setNashOrder(orderResponse);
@@ -155,7 +158,7 @@ export function DeliveryCheckout({
           deliveryFee: selectedQuote.priceCents / 100,
           quoteId: selectedQuote.id,
           estimatedDeliveryTime: selectedQuote.dropoffEta,
-          nashOrderId: nashOrder.id,
+          nashOrderId: nashOrder.id
         });
       } catch (error) {
         console.error('Error selecting quote:', error);
@@ -205,20 +208,20 @@ export function DeliveryCheckout({
             </div>
           </div>
 
-          {nashOrder && (
-            <DeliveryQuotesList
-              quotes={[nashOrder]}
-              selectedQuoteId={selectedQuoteId}
-              onSelectQuote={handleSelectQuote}
-              isLoading={isLoadingQuotes}
-            />
-          )}
+          {/* Always render the DeliveryQuotesList component */}
+          <DeliveryQuotesList
+            quotes={nashOrder ? [nashOrder] : []}
+            selectedQuoteId={selectedQuoteId}
+            onSelectQuote={handleSelectQuote}
+            isLoading={isLoadingQuotes}
+            onSwitchToPickup={onSwitchToPickup}
+          />
 
           {(nashOrder?.quotes?.length ?? 0) > 0 && (
             <button
               onClick={handleContinue}
               disabled={isProcessingQuote}
-              className="w-full flex justify-center py-3.5 px-4 border border-primary-700 rounded-lg shadow-sm text-base font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 transition-colors mt-6"
+              className="w-full flex justify-center py-3.5 px-4 border border-primary-700 rounded-lg shadow-sm text-base font-medium text-black bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 transition-colors mt-6"
             >
               {isProcessingQuote ? 'Processing...' : 'Continue to Payment'}
             </button>

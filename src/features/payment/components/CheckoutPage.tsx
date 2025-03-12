@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { DeliveryCheckout } from '@/features/delivery/components/DeliveryCheckout';
 import { autodispatchOrder } from '@/lib/services/nashService';
+import { useQuery } from '@tanstack/react-query';
 
 const client = generateClient<Schema>();
 
@@ -27,7 +28,9 @@ export function CheckoutPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [isDelivery, setIsDelivery] = useState(false);
   const [deliveryData, setDeliveryData] = useState<DeliveryData | null>(null);
-  const [checkoutStep, setCheckoutStep] = useState<'delivery-option' | 'delivery-details' | 'payment'>('delivery-option');
+  const [checkoutStep, setCheckoutStep] = useState<'delivery-option' | 'delivery' | 'payment'>('delivery-option');
+  const [useDelivery, setUseDelivery] = useState(false);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const orderAttemptedRef = useRef(false);
 
   // Reset the ref when component mounts
@@ -39,18 +42,146 @@ export function CheckoutPage() {
     };
   }, []);
 
-  // Mock restaurant data - in a real app, this would come from the restaurant details
-  const restaurantData = {
-    name: "Sample Restaurant",
-    phone: "715-864-4470",
-    address: {
-      street: "123 Main St",
-      city: "Los Angeles",
-      state: "CA",
-      zip: "90034"
+  // Fetch restaurant data
+  const { data: restaurantData, isLoading: isLoadingRestaurant } = useQuery({
+    queryKey: ['restaurant', state.items[0]?.restaurantId],
+    queryFn: async () => {
+      if (!state.items[0]?.restaurantId) {
+        throw new Error('No restaurant ID found in cart');
+      }
+      
+      const { data, errors } = await client.models.Restaurant.get({
+        id: state.items[0].restaurantId
+      });
+      
+      if (errors) {
+        console.error('Error fetching restaurant:', errors);
+        throw new Error('Failed to fetch restaurant details');
+      }
+      
+      if (!data || !data.name || !data.phone || !data.address || !data.city || !data.state || !data.zip) {
+        throw new Error('Restaurant data is incomplete');
+      }
+      
+      return {
+        name: data.name,
+        phone: data.phone,
+        address: {
+          street: data.address,
+          city: data.city,
+          state: data.state,
+          zip: data.zip
+        }
+      };
+    },
+    enabled: !!state.items[0]?.restaurantId
+  });
+
+  const handleDeliveryOptionSelect = async (useDelivery: boolean) => {
+    setUseDelivery(useDelivery);
+    
+    // If switching to delivery and we don't have an order yet, create one
+    if (useDelivery && !order) {
+      // Create initial order with zero delivery fee
+      // We'll update the fee after user selects a delivery option
+      const newOrder = await createInitialOrder();
+      if (!newOrder) {
+        toast({
+          title: "Error",
+          description: "Could not create order. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } 
+    // If switching to pickup and we already have an order, update it
+    else if (!useDelivery && order) {
+      try {
+        // Update the existing order to be pickup instead of delivery
+        const { data: updatedOrder, errors } = await client.models.Order.update({
+          id: order.id,
+          isDelivery: false,
+          deliveryFee: 0, // Reset delivery fee
+          updatedAt: new Date().toISOString()
+        });
+        
+        if (errors) {
+          console.error('Error updating order to pickup:', errors);
+          toast({
+            title: "Error",
+            description: "Could not update order to pickup. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // Update the local order state
+        setOrder(updatedOrder);
+      } catch (error) {
+        console.error('Error updating order to pickup:', error);
+        toast({
+          title: "Error",
+          description: "Could not update order to pickup. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    // If switching to pickup and we don't have an order yet, we'll create it in the payment step
+    
+    setCheckoutStep(useDelivery ? 'delivery' : 'payment');
+  };
+
+  const handleDeliveryContinue = async (data: DeliveryData) => {
+    if (!order?.id) {
+      console.error('No order ID available for Nash delivery');
+      toast({
+        title: "Error setting up delivery",
+        description: "Could not set up delivery. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Update the order with the selected delivery fee
+      const { errors } = await client.models.Order.update({
+        id: order.id,
+        deliveryFee: data.deliveryFee,
+        deliveryAddress: data.address,
+        updatedAt: new Date().toISOString(),
+        // Add delivery info
+        deliveryInfo: {
+          quoteId: data.quoteId,
+          estimatedDeliveryTime: data.estimatedDeliveryTime,
+          status: 'PENDING'
+        }
+      });
+
+      if (errors) {
+        console.error('Error updating order with delivery info:', errors);
+        toast({
+          title: "Error",
+          description: "Could not update order with delivery information.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Store Nash order ID in the component state
+      setDeliveryData(data);
+      setCheckoutStep('payment');
+    } catch (error) {
+      console.error('Error updating order with delivery info:', error);
+      toast({
+        title: "Error",
+        description: "Could not update order with delivery information.",
+        variant: "destructive",
+      });
     }
   };
 
+  // Create an initial order to get an order ID
   const createInitialOrder = useCallback(async () => {
     if (orderAttemptedRef.current) {
       console.log('Order creation already attempted in this session');
@@ -70,23 +201,10 @@ export function CheckoutPage() {
         return null;
       }
 
-      // Log the input data
-      console.log('Creating order with:', {
-        total,
-        restaurantId: state.items[0]?.restaurantId || '',
-        itemsCount: state.items.length,
-        isDelivery,
-        deliveryData
-      });
-
       // Calculate the total with delivery fee if applicable
       const orderTotal = isDelivery 
         ? total + (deliveryData?.deliveryFee || 0) 
         : total;
-
-      console.log('Order total:', orderTotal);
-      console.log('Cart total:', total);
-      console.log('Delivery fee:', deliveryData?.deliveryFee || 0);
 
       const { data: newOrder, errors } = await client.models.Order.create({
         total: orderTotal,
@@ -99,20 +217,8 @@ export function CheckoutPage() {
         isDelivery,
         deliveryAddress: deliveryData?.address || '',
         deliveryFee: deliveryData?.deliveryFee || 0,
-        // If we have customer info from delivery form
-        customerName: deliveryData ? 'Customer Name' : '',
-        customerPhone: deliveryData ? 'Customer Phone' : '',
-        // Add delivery info if available
-        ...(deliveryData && {
-          deliveryInfo: {
-            quoteId: deliveryData.quoteId,
-            estimatedDeliveryTime: deliveryData.estimatedDeliveryTime,
-            status: 'PENDING'
-          }
-        })
       });
 
-      // Log any GraphQL errors
       if (errors) {
         console.error('GraphQL Errors:', errors);
       }
@@ -122,89 +228,23 @@ export function CheckoutPage() {
         throw new Error('Failed to create initial order');
       }
 
-      // Log successful order creation
-      console.log('Order created:', newOrder);
-
       // Create order items
-      console.log('Creating order items for order:', newOrder.id);
-      console.log('Cart items:', state.items);
+      const orderItemPromises = state.items.map(item => 
+        client.models.OrderItem.create({
+          orderId: newOrder.id,
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          specialInstructions: item.specialInstructions
+        })
+      );
+
+      await Promise.all(orderItemPromises);
       
-      try {
-        const itemPromises = state.items.map(item => {
-          console.log('Creating order item:', {
-            orderId: newOrder.id,
-            menuItemId: item.menuItemId,
-            quantity: item.quantity,
-            price: item.price,
-            specialInstructions: item.specialInstructions || '',
-            cartItemName: item.name // Just for logging, not sent to API
-          });
-          
-          return client.models.OrderItem.create({
-            orderId: newOrder.id,
-            menuItemId: item.menuItemId,
-            quantity: item.quantity,
-            specialInstructions: item.specialInstructions || ''
-          });
-        });
-
-        const orderItemResults = await Promise.all(itemPromises);
-        
-        // Check if any order items failed to create
-        const failedItems = orderItemResults.filter(result => result.errors);
-        if (failedItems.length > 0) {
-          console.error('Some order items failed to create:', failedItems);
-          throw new Error(`Failed to create ${failedItems.length} order items`);
-        }
-        
-        const orderItems = orderItemResults.map(result => result.data);
-        console.log('Order items created successfully:', orderItems);
-        
-        // Verify all items were created
-        if (orderItems.length !== state.items.length) {
-          console.warn(`Created ${orderItems.length} order items but had ${state.items.length} cart items`);
-        }
-
-        // Fetch the complete order with items to verify
-        const { data: completeOrder, errors: fetchErrors } = await client.models.Order.get(
-          { id: newOrder.id },
-          { selectionSet: ['id', 'total', 'items.*'] }
-        );
-        
-        if (fetchErrors || !completeOrder) {
-          console.error('Failed to fetch complete order:', fetchErrors);
-        } else {
-          console.log('Complete order with items:', completeOrder);
-        }
-
-        setOrder(newOrder);
-        return newOrder;
-      } catch (itemError) {
-        console.error('Error creating order items:', itemError);
-        
-        // Attempt to delete the order since items failed
-        try {
-          console.log('Attempting to delete incomplete order:', newOrder.id);
-          await client.models.Order.delete({ id: newOrder.id });
-          console.log('Incomplete order deleted successfully');
-        } catch (deleteError) {
-          console.error('Failed to delete incomplete order:', deleteError);
-        }
-        
-        toast({
-          title: "Error creating order items",
-          description: "There was a problem with your order items. Please try again.",
-          variant: "destructive",
-        });
-        
-        return null;
-      }
+      // Update the local order state
+      setOrder(newOrder);
+      return newOrder;
     } catch (error) {
       console.error('Error creating initial order:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', error.message);
-        console.error('Error stack:', error.stack);
-      }
       toast({
         title: "Error creating order",
         description: "There was a problem creating your order. Please try again.",
@@ -212,24 +252,19 @@ export function CheckoutPage() {
       });
       return null;
     }
-  }, [total, state.items, toast, isDelivery, deliveryData]);
+  }, [state.items, total, isDelivery, deliveryData, toast]);
 
-  const handlePaymentSuccess = async (paymentIntentId: string) => {
+  const handlePaymentSuccess = async (_paymentIntentId: string) => {
     try {
       if (!order) {
         console.error('No order found for payment success');
         return;
       }
 
-      console.log('Payment successful for order:', order.id);
-      console.log('Payment Intent ID:', paymentIntentId);
-
       // Update order status to PAID
       const { data: updatedOrder, errors: updateErrors } = await client.models.Order.update({
         id: order.id,
         status: 'PAID',
-        // We don't have a dedicated field for payment intent ID
-        // We'll just log it for now
         updatedAt: new Date().toISOString()
       });
 
@@ -243,10 +278,8 @@ export function CheckoutPage() {
         return;
       }
 
-      console.log('Order updated successfully:', updatedOrder);
-
       // If this is a delivery order and we have a Nash order ID, autodispatch it
-      if (isDelivery && deliveryData?.nashOrderId) {
+      if (useDelivery && deliveryData?.nashOrderId) {
         try {
           console.log('Autodispatching Nash delivery for order:', deliveryData.nashOrderId);
           const nashResponse = await autodispatchOrder(deliveryData.nashOrderId);
@@ -257,25 +290,18 @@ export function CheckoutPage() {
             const deliveryInfo = {
               ...order.deliveryInfo,
               deliveryId: nashResponse.delivery.id,
-              status: 'CONFIRMED' as const // Use a valid status from the enum
+              status: 'CONFIRMED' as const
             };
             
-            const { data: orderWithDeliveryId, errors: deliveryUpdateErrors } = await client.models.Order.update({
+            await client.models.Order.update({
               id: order.id,
               deliveryInfo,
               updatedAt: new Date().toISOString()
             });
-            
-            if (deliveryUpdateErrors) {
-              console.error('Error updating order with delivery ID:', deliveryUpdateErrors);
-            } else {
-              console.log('Order updated with delivery ID:', orderWithDeliveryId);
-            }
           }
         } catch (nashError) {
           console.error('Error autodispatching Nash delivery:', nashError);
           // Continue with order confirmation even if Nash dispatch fails
-          // The restaurant can manually dispatch the order if needed
         }
       }
 
@@ -283,7 +309,7 @@ export function CheckoutPage() {
       clearCart();
       
       // Navigate to order confirmation page
-      navigate(`/order-confirmation/${order.id}`);
+      navigate(`/orders/${order.id}`);
     } catch (error) {
       console.error('Error handling payment success:', error);
       toast({
@@ -303,121 +329,101 @@ export function CheckoutPage() {
     });
   };
 
-  const handleDeliveryOptionSelect = (useDelivery: boolean) => {
-    setIsDelivery(useDelivery);
-    setCheckoutStep(useDelivery ? 'delivery-details' : 'payment');
-  };
-
-  const handleDeliveryContinue = (data: DeliveryData) => {
-    setDeliveryData(data);
-    setCheckoutStep('payment');
-  };
-
-  return (
-    <div className="max-w-2xl mx-auto p-4 space-y-8">
-      <h1 className="text-2xl font-semibold">Checkout</h1>
-      
-      {/* Order Summary */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-medium mb-4">Order Summary</h2>
-        <div className="space-y-4">
-          {state.items.map((item) => (
-            <div key={item.id} className="flex justify-between">
-              <div>
-                <span className="font-medium">{item.quantity}x </span>
-                {item.name}
-              </div>
-              <div>${(item.price * item.quantity).toFixed(2)}</div>
-            </div>
-          ))}
-          
-          {/* Show delivery fee if applicable */}
-          {isDelivery && deliveryData && (
-            <div className="flex justify-between text-gray-700">
-              <span>Delivery Fee</span>
-              <span>${deliveryData.deliveryFee.toFixed(2)}</span>
-            </div>
-          )}
-          
-          <div className="border-t pt-4">
-            <div className="flex justify-between font-medium">
-              <span>Total</span>
-              <span>
-                ${(total + (isDelivery && deliveryData ? deliveryData.deliveryFee : 0)).toFixed(2)}
-              </span>
-            </div>
+  // If we're loading restaurant data and on delivery step, show loading state
+  if (checkoutStep === 'delivery' && isLoadingRestaurant) {
+    return (
+      <div className="max-w-2xl mx-auto p-4">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-medium mb-4">Delivery Details</h2>
+          <div className="flex justify-center items-center p-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            <p className="ml-3">Loading restaurant information...</p>
           </div>
         </div>
       </div>
+    );
+  }
 
+  // If we're on delivery step and restaurant data failed to load, show error
+  if (checkoutStep === 'delivery' && !restaurantData) {
+    return (
+      <div className="max-w-2xl mx-auto p-4">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-medium mb-4">Delivery Details</h2>
+          <div className="p-4 text-center">
+            <p className="text-red-600 mb-4">Failed to load restaurant information</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto p-4">
       {/* Delivery Option Selection */}
       {checkoutStep === 'delivery-option' && (
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-medium mb-4">Delivery Options</h2>
+          <h2 className="text-xl font-medium mb-4">Choose Delivery Option</h2>
           <div className="space-y-4">
             <button
-              onClick={() => handleDeliveryOptionSelect(false)}
-              className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 shadow-sm transition-all"
-            >
-              <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                </svg>
-                <div className="text-left">
-                  <h3 className="font-medium">Pickup</h3>
-                  <p className="text-sm text-gray-600">Pick up your order at the restaurant</p>
-                </div>
-              </div>
-              <div className="text-primary-600 font-medium text-center flex flex-col justify-center min-w-[80px]">
-                <span className="text-xs opacity-0">From</span>
-                <span>Free</span>
-              </div>
-            </button>
-            
-            <button
               onClick={() => handleDeliveryOptionSelect(true)}
-              className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 shadow-sm transition-all"
+              className="w-full p-4 border rounded-lg hover:bg-gray-50 flex items-center"
             >
-              <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
-                </svg>
-                <div className="text-left">
-                  <h3 className="font-medium">Delivery</h3>
-                  <p className="text-sm text-gray-600">Get your order delivered to your door</p>
-                </div>
-              </div>
-              <div className="text-primary-600 font-medium text-center flex flex-col justify-center min-w-[80px]">
-                <span className="text-xs">From</span>
-                <span>$3.99</span>
-              </div>
+              <span className="flex-1 text-left">Delivery</span>
+              <span className="text-gray-500">→</span>
+            </button>
+            <button
+              onClick={() => handleDeliveryOptionSelect(false)}
+              className="w-full p-4 border rounded-lg hover:bg-gray-50 flex items-center"
+            >
+              <span className="flex-1 text-left">Pickup</span>
+              <span className="text-gray-500">→</span>
             </button>
           </div>
         </div>
       )}
 
       {/* Delivery Details */}
-      {checkoutStep === 'delivery-details' && (
+      {checkoutStep === 'delivery' && restaurantData && order?.id && (
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-medium mb-4">Delivery Details</h2>
           <DeliveryCheckout
             restaurantAddress={restaurantData.address}
             restaurantName={restaurantData.name}
             restaurantPhone={restaurantData.phone}
+            orderId={order.id}
             onContinue={handleDeliveryContinue}
+            onSwitchToPickup={() => handleDeliveryOptionSelect(false)}
           />
+        </div>
+      )}
+
+      {/* Show loading state if we're on delivery step but don't have an order ID yet */}
+      {checkoutStep === 'delivery' && restaurantData && !order?.id && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-medium mb-4">Delivery Details</h2>
+          <div className="flex justify-center items-center p-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            <p className="ml-3">Creating your order...</p>
+          </div>
         </div>
       )}
 
       {/* Payment Form */}
       {checkoutStep === 'payment' && (
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-medium mb-4">Payment Details</h2>
+          <h2 className="text-xl font-medium mb-4">Payment</h2>
           <CheckoutContainer
-            createInitialOrder={createInitialOrder}
             onSuccess={handlePaymentSuccess}
             onError={handlePaymentError}
+            createInitialOrder={createInitialOrder}
+            existingOrder={order}
           />
         </div>
       )}

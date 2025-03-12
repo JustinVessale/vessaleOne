@@ -13,11 +13,17 @@ type CheckoutContainerProps = {
   onSuccess: (paymentIntent: any) => Promise<void>;
   onError: (error: any) => void;
   createInitialOrder: () => Promise<Order | null>;
+  existingOrder?: Order | null;
 };
 
-export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: CheckoutContainerProps) {
+export function CheckoutContainer({ 
+  onSuccess, 
+  onError, 
+  createInitialOrder,
+  existingOrder 
+}: CheckoutContainerProps) {
   const [clientSecret, setClientSecret] = useState<string>('');
-  const [order, setOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<Order | null>(existingOrder || null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const initializationPromiseRef = useRef<Promise<void> | null>(null);
@@ -25,22 +31,29 @@ export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: Ch
   useEffect(() => {
     async function initializePayment() {
       try {
-        // Create the order first
-        console.log('Creating initial order...');
-        const newOrder = await createInitialOrder();
-        if (!newOrder) {
-          console.error('Failed to create initial order');
-          setError('Failed to create order');
-          return;
+        let orderToUse = order;
+        
+        // If we don't have an order yet (either from props or state), create one
+        if (!orderToUse) {
+          console.log('Creating initial order...');
+          const newOrder = await createInitialOrder();
+          if (!newOrder) {
+            console.error('Failed to create initial order');
+            setError('Failed to create order');
+            return;
+          }
+          
+          console.log('Order created successfully:', newOrder);
+          orderToUse = newOrder;
+          setOrder(newOrder);
+        } else {
+          console.log('Using existing order:', orderToUse);
         }
         
-        console.log('Order created successfully:', newOrder);
-        setOrder(newOrder);
-        
         const params = {
-          orderId: newOrder.id,
-          total: newOrder.total ?? 0,
-          restaurantId: newOrder.restaurantId ?? ''
+          orderId: orderToUse.id,
+          total: orderToUse.total ?? 0,
+          restaurantId: orderToUse.restaurantId ?? ''
         };
         
         console.log('Creating payment intent with params:', params);
@@ -77,7 +90,7 @@ export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: Ch
       // Cleanup can stay empty as we want to keep the promise ref
       // until component is fully unmounted
     };
-  }, [createInitialOrder, onError]);
+  }, [createInitialOrder, onError, order]);
 
   if (isLoading) {
     return (
@@ -120,7 +133,7 @@ export function CheckoutContainer({ onSuccess, onError, createInitialOrder }: Ch
 
   return (
     <Elements stripe={stripePromise} options={{ clientSecret }}>
-      <PaymentForm onSuccess={onSuccess} onError={onError} />
+      <PaymentForm onSuccess={onSuccess} onError={onError} order={order} />
     </Elements>
   );
 } 
