@@ -221,7 +221,7 @@ export function DeliveryCheckout({
             <button
               onClick={handleContinue}
               disabled={isProcessingQuote}
-              className="w-full flex justify-center py-3.5 px-4 border border-primary-700 rounded-lg shadow-sm text-base font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 transition-colors mt-6"
+              className="w-full flex justify-center py-3.5 px-4 border border-primary-700 rounded-lg shadow-sm text-base font-medium text-black bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 transition-colors mt-6"
             >
               {isProcessingQuote ? 'Processing...' : 'Continue to Payment'}
             </button>

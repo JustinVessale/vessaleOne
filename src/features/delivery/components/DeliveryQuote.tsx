@@ -26,10 +26,17 @@ export function QuoteItem({ quoteItem, onSelect, isSelected }: QuoteItemProps) {
           : 'border-gray-200 hover:border-primary-300'
       }`}
       onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          onSelect();
+        }
+      }}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className={`w-5 h-5 rounded-full border ${
+      <div className="flex items-start justify-between">
+        <div className="flex items-start space-x-3">
+          <div className={`w-5 h-5 rounded-full border flex-shrink-0 mt-1 ${
             isSelected 
               ? 'border-primary-500 bg-primary-500' 
               : 'border-gray-300'
@@ -51,33 +58,18 @@ export function QuoteItem({ quoteItem, onSelect, isSelected }: QuoteItemProps) {
           </div>
           <div>
             <h3 className="font-medium">{quoteItem.providerName}</h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 mt-1">
               {estimatedDropoffTime && (
                 <>Estimated delivery by {format(estimatedDropoffTime, 'h:mm a')}</>
               )}
             </p>
           </div>
         </div>
-        <div className="text-right">
+        <div className="text-right ml-4 flex-shrink-0">
           <p className="font-medium">{formatCurrency(quoteItem.priceCents / 100)}</p>
           <p className="text-sm text-gray-600">Delivery fee</p>
         </div>
       </div>
-      
-      {isSelected && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <div className="flex justify-between text-sm">
-            <div>
-              <p className="font-medium">Delivery Time</p>
-              <p className="text-gray-600">
-                {estimatedDropoffTime 
-                  ? format(estimatedDropoffTime, 'h:mm a') 
-                  : 'Not available'}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
