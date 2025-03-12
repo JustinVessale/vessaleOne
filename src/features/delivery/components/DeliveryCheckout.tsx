@@ -4,6 +4,7 @@ import { DeliveryQuotesList } from './DeliveryQuote';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/features/cart/context/CartContext';
 import { formatCurrency } from '@/utils/currency';
+import { useErrorHandler, ErrorMessages } from '@/utils/error-handler';
 import { 
   createOrderWithQuotes, 
   selectQuote, 
@@ -44,6 +45,7 @@ export function DeliveryCheckout({
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [isProcessingQuote, setIsProcessingQuote] = useState(false);
   const { toast } = useToast();
+  const { handleApiError, showErrorToast } = useErrorHandler();
   const { state } = useCart();
 
   // Convert cart items to Nash delivery items format expected by the API
@@ -86,11 +88,7 @@ export function DeliveryCheckout({
       }
     } catch (error) {
       console.error('Error creating Nash order:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to get delivery quotes. Please try again.',
-        variant: 'destructive',
-      });
+      handleApiError(error, ErrorMessages.DELIVERY.QUOTES_FETCH_FAILED);
     } finally {
       setIsLoadingQuotes(false);
     }
@@ -115,21 +113,13 @@ export function DeliveryCheckout({
   // Handle continue to payment
   const handleContinue = async () => {
     if (!deliveryFormData) {
-      toast({
-        title: 'Error',
-        description: 'Please enter delivery information',
-        variant: 'destructive',
-      });
+      showErrorToast('Please enter delivery information');
       return;
     }
 
     // If we have quotes but none selected, show error
     if (nashOrder?.quotes && nashOrder.quotes.length > 0 && !selectedQuoteId) {
-      toast({
-        title: 'Error',
-        description: 'Please select a delivery option',
-        variant: 'destructive',
-      });
+      showErrorToast('Please select a delivery option');
       return;
     }
 
@@ -137,20 +127,12 @@ export function DeliveryCheckout({
     const selectedQuote = nashOrder?.quotes?.find(q => q.id === selectedQuoteId);
       
     if (nashOrder?.quotes && nashOrder.quotes.length > 0 && !selectedQuote) {
-      toast({
-        title: 'Error',
-        description: 'Invalid delivery option selected',
-        variant: 'destructive',
-      });
+      showErrorToast('Invalid delivery option selected');
       return;
     }
 
     if (!selectedQuote) {
-      toast({
-        title: 'No Delivery Option Selected',
-        description: 'Please select a delivery option to continue.',
-        variant: 'destructive',
-      });
+      showErrorToast('Please select a delivery option to continue.');
       return;
     }
 
@@ -174,21 +156,29 @@ export function DeliveryCheckout({
         });
       } catch (error) {
         console.error('Error selecting quote:', error);
-        toast({
-          title: 'Delivery Selection Failed',
-          description: 'Failed to select delivery option. Please try again.',
-          variant: 'destructive',
-        });
+        handleApiError(error, ErrorMessages.DELIVERY.QUOTE_SELECTION_FAILED);
+        
+        // Offer option to switch to pickup if available
+        if (onSwitchToPickup) {
+          toast({
+            title: 'Switch to Pickup?',
+            description: 'Delivery is currently unavailable. Would you like to switch to pickup instead?',
+            action: (
+              <button 
+                onClick={onSwitchToPickup}
+                className="px-3 py-1 rounded-md bg-primary-500 text-white hover:bg-primary-600 transition-colors"
+              >
+                Switch to Pickup
+              </button>
+            ),
+          });
+        }
       } finally {
         setIsProcessingQuote(false);
       }
     } else {
       setIsProcessingQuote(false);
-      toast({
-        title: 'Delivery Setup Failed',
-        description: 'Unable to set up delivery. Please try again or contact support.',
-        variant: 'destructive',
-      });
+      showErrorToast(ErrorMessages.DELIVERY.DELIVERY_SETUP_FAILED);
     }
   };
 
