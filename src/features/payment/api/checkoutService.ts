@@ -45,7 +45,7 @@ export async function createPaymentIntent(params: CreatePaymentIntentParams): Pr
     // Fetch the order to verify it exists and has the correct total
     const { data: orderData, errors: orderErrors } = await client.models.Order.get(
       { id: params.orderId },
-      { selectionSet: ['id', 'total', 'items.*'] }
+      { selectionSet: ['id', 'total', 'isDelivery', 'deliveryFee', 'items.*'] }
     );
     
     if (orderErrors || !orderData) {
@@ -55,15 +55,23 @@ export async function createPaymentIntent(params: CreatePaymentIntentParams): Pr
     
     console.log('Order data before payment:', orderData);
     
-    // Verify the order total matches the payment amount
-    if (orderData.total !== params.total) {
-      console.warn(`Order total (${orderData.total}) doesn't match payment amount (${params.total})`);
-    }
+    // Calculate the correct total by adding the subtotal and delivery fee
+    const correctTotal = orderData.isDelivery 
+      ? (params.total + (orderData.deliveryFee || 0)) 
+      : params.total;
+    
+    // Update the params with the correct total
+    // Convert to a clean number with exactly 2 decimal places to avoid floating-point precision issues
+    params.total = parseFloat((Math.round(correctTotal * 100) / 100).toFixed(2));
+    
+    console.log(`Calculated total for payment: ${params.total} (includes delivery fee: ${orderData.deliveryFee || 0})`);
 
     const { data, errors } = await client.models.Order.update({
       id: params.orderId,
       stripePaymentIntentId: 'pending',
-      status: 'PAYMENT_PROCESSING'
+      status: 'PAYMENT_PROCESSING',
+      // Also update the order total to ensure it includes the delivery fee
+      total: params.total
     });
 
     if (errors || !data) {

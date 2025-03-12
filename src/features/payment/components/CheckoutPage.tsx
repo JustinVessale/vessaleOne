@@ -182,6 +182,26 @@ export function CheckoutPage() {
         return;
       }
 
+      // Fetch the updated order to ensure we have the latest data
+      const { data: updatedOrder, errors: fetchErrors } = await client.models.Order.get({
+        id: order.id
+      });
+      
+      if (fetchErrors || !updatedOrder) {
+        console.error('Error fetching updated order:', fetchErrors);
+        toast({
+          title: "Error",
+          description: "Could not fetch updated order information.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log('Updated order with delivery fee:', updatedOrder);
+      
+      // Update the local order state with the latest data
+      setOrder(updatedOrder);
+
       // Store Nash order ID in the component state
       setDeliveryData(data);
       setCheckoutStep('payment');
@@ -220,7 +240,7 @@ export function CheckoutPage() {
         ? total + (deliveryData?.deliveryFee || 0) 
         : total;
 
-      console.log(`Creating ${useDelivery ? 'delivery' : 'pickup'} order with total: ${orderTotal}`);
+      console.log(`Creating ${useDelivery ? 'delivery' : 'pickup'} order with total: ${orderTotal} (subtotal: ${total}, delivery fee: ${deliveryData?.deliveryFee || 0})`);
 
       const { data: newOrder, errors } = await client.models.Order.create({
         total: orderTotal,

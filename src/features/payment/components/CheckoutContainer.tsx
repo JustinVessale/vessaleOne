@@ -50,6 +50,15 @@ export function CheckoutContainer({
           console.log('Using existing order:', orderToUse);
         }
         
+        // Log detailed order information for debugging
+        console.log('Order details before payment:', {
+          id: orderToUse.id,
+          total: orderToUse.total,
+          isDelivery: orderToUse.isDelivery,
+          deliveryFee: orderToUse.deliveryFee,
+          deliveryInfo: orderToUse.deliveryInfo
+        });
+        
         const params = {
           orderId: orderToUse.id,
           total: orderToUse.total ?? 0,
