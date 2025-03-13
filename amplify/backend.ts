@@ -9,17 +9,21 @@ import {
   RestApi,
 } from "aws-cdk-lib/aws-apigateway";
 import { stripePayment } from "./functions/stripe-payment/resource";
+import { nashWebhook } from "./functions/nash-webhook/resource";
 import { secret } from '@aws-amplify/backend';
 
 export const backend = defineBackend({
   auth,
   data,
-  stripePayment
+  stripePayment,
+  nashWebhook
 });
 
-// Add secrets to the Lambda function
+// Add secrets to the Lambda functions
 backend.stripePayment.addEnvironment('STRIPE_SECRET_KEY', secret('STRIPE_SECRET_KEY'));
 backend.stripePayment.addEnvironment('STRIPE_WEBHOOK_SECRET', secret('STRIPE_WEBHOOK_SECRET'));
+backend.nashWebhook.addEnvironment('NASH_WEBHOOK_SECRET', secret('NASH_WEBHOOK_SECRET'));
+backend.nashWebhook.addEnvironment('API_KEY', secret('AMPLIFY_API_KEY'));
 
 // Create API stack
 const apiStack = backend.createStack("api-stack");
@@ -47,26 +51,41 @@ const paymentApi = new RestApi(apiStack, "PaymentApi", {
       'Authorization',
       'X-Api-Key',
       'X-Amz-Security-Token',
-      'stripe-signature'
+      'stripe-signature',
+      'svix-id',
+      'svix-timestamp',
+      'svix-signature'
     ],
     allowCredentials: true
   },
 });
 
-// Create Lambda integration
+// Create Lambda integrations
 const paymentIntegration = new LambdaIntegration(
   backend.stripePayment.resources.lambda
+);
+
+const nashWebhookIntegration = new LambdaIntegration(
+  backend.nashWebhook.resources.lambda
 );
 
 // Add payment endpoint
 const paymentPath = paymentApi.root.addResource("create-payment-intent");
 paymentPath.addMethod("POST", paymentIntegration);
 
-// Add webhook endpoint
+// Add webhook endpoints
 const webhookRoot = paymentApi.root.addResource("webhook");
+
+// Stripe webhook
 const stripeWebhook = webhookRoot.addResource("stripe");
 stripeWebhook.addMethod("POST", paymentIntegration, {
   apiKeyRequired: false // Stripe needs to call this endpoint directly
+});
+
+// Nash webhook
+const nashWebhookPath = webhookRoot.addResource("nash");
+nashWebhookPath.addMethod("POST", nashWebhookIntegration, {
+  apiKeyRequired: false // Nash needs to call this endpoint directly
 });
 
 // Add outputs to configuration

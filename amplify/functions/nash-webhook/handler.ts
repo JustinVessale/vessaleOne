@@ -1,38 +1,109 @@
-import { NextResponse } from 'next/server';
-import { generateServerClient } from '@/lib/amplify-utils';
 import { Webhook } from 'svix';
+import { createClient } from './client';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
-// Nash webhook secret - should be stored in environment variables
+// Define types for Nash webhook data
+interface NashWebhookData {
+  type: string;
+  event: string;
+  data?: {
+    id?: string;
+    portalUrl?: string;
+    jobConfigurations?: Array<{
+      tasks?: Array<{
+        delivery?: {
+          id?: string;
+          pickupEta?: string;
+          dropoffEta?: string;
+          courierName?: string;
+          courierPhoneNumber?: string;
+          courierLocation?: {
+            lat: number;
+            lng: number;
+          };
+        };
+      }>;
+    }>;
+  };
+}
+
+// Define types based on the Amplify schema
+type OrderStatus = 'PENDING' | 'PAYMENT_PROCESSING' | 'PAID' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED' | null;
+type DeliveryStatus = 'PENDING' | 'CONFIRMED' | 'PICKING_UP' | 'PICKED_UP' | 'DELIVERING' | 'COMPLETED' | 'CANCELLED' | 'FAILED' | null;
+
+interface OrderDriver {
+  id: string;
+  name: string;
+  phone: string;
+  currentLocation: {
+    lat: number;
+    lng: number;
+  } | null;
+}
+
+interface DeliveryInfo {
+  deliveryId: string;
+  provider: string;
+  status: DeliveryStatus;
+  quoteId?: string;
+  fee?: number;
+  estimatedPickupTime?: string;
+  estimatedDeliveryTime?: string;
+  trackingUrl?: string;
+}
+
+interface Order {
+  id: string;
+  status: OrderStatus;
+  deliveryInfo?: DeliveryInfo;
+  driver?: OrderDriver;
+}
+
+// Nash webhook secret from environment variables
 const NASH_WEBHOOK_SECRET = process.env.NASH_WEBHOOK_SECRET || '';
 
-export async function POST(req: Request) {
+export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    const body = await req.text();
+    console.log('Received webhook event:', JSON.stringify(event));
     
-    // Get Svix headers for verification from the request
-    const svixId = req.headers.get('svix-id') || '';
-    const svixTimestamp = req.headers.get('svix-timestamp') || '';
-    const svixSignature = req.headers.get('svix-signature') || '';
+    // Parse the request body
+    const body = event.body;
+    const parsedBody = typeof body === 'string' ? body : JSON.stringify(body);
+    const headers = event.headers || {};
     
-    // Verify webhook signature using Svix
+    // Convert headers to lowercase for consistency
+    const normalizedHeaders: Record<string, string> = Object.keys(headers).reduce((acc, key) => {
+      acc[key.toLowerCase()] = headers[key] as string;
+      return acc;
+    }, {} as Record<string, string>);
+    
+    // Verify the webhook signature
     if (NASH_WEBHOOK_SECRET) {
       try {
         const wh = new Webhook(NASH_WEBHOOK_SECRET);
-        const payload = wh.verify(body, {
-          'svix-id': svixId,
-          'svix-timestamp': svixTimestamp,
-          'svix-signature': svixSignature
+        const payload = wh.verify(parsedBody, {
+          'svix-id': normalizedHeaders['svix-id'],
+          'svix-timestamp': normalizedHeaders['svix-timestamp'],
+          'svix-signature': normalizedHeaders['svix-signature']
         });
-        console.log('Nash webhook signature verified:', payload);
+        
+        console.log('Webhook signature verified:', payload);
       } catch (err) {
-        console.error('Nash webhook signature verification failed:', err);
-        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+        console.error('Webhook signature verification failed:', err);
+        return {
+          statusCode: 401,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ error: 'Invalid signature' })
+        };
       }
     } else {
       console.warn('NASH_WEBHOOK_SECRET not configured, skipping signature verification');
     }
 
-    const data = JSON.parse(body);
+    // Parse the webhook data
+    const data: NashWebhookData = JSON.parse(parsedBody);
     console.log('Nash webhook received:', data);
 
     // Extract the webhook type and event
@@ -44,13 +115,33 @@ export async function POST(req: Request) {
 
     if (!nashOrderId) {
       console.error('No order ID in webhook payload');
-      return NextResponse.json({ error: 'Missing order ID' }, { status: 400 });
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ error: 'Missing order ID' })
+      };
     }
 
-    const client = generateServerClient();
+    // Initialize Amplify client
+    const client = createClient();
 
     // Find the order in our database that has this Nash order ID
-    const { data: orders } = await client.models.Order.list({});
+    // Note: With Amplify Gen 2, we can't directly filter on nested fields,
+    // so we need to get all orders and filter them in memory
+    const { data: orders, errors } = await client.models.Order.list({});
+
+    if (errors) {
+      console.error('Error fetching orders:', errors);
+      return {
+        statusCode: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ error: 'Failed to fetch orders' })
+      };
+    }
 
     // Find the order with the matching Nash order ID
     const matchingOrders = orders?.filter(order => 
@@ -59,7 +150,13 @@ export async function POST(req: Request) {
 
     if (!matchingOrders.length) {
       console.warn(`No order found with Nash order ID: ${nashOrderId}`);
-      return NextResponse.json({ message: 'Order not found' }, { status: 200 });
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: 'Order not found' })
+      };
     }
 
     const order = matchingOrders[0];
@@ -75,18 +172,32 @@ export async function POST(req: Request) {
       console.log(`Unhandled Nash webhook type: ${webhookType}, event: ${webhookEvent}`);
     }
 
-    return NextResponse.json({ success: true });
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ success: true })
+    };
   } catch (err) {
     console.error('Error processing Nash webhook:', err);
-    return NextResponse.json(
-      { error: 'Failed to process webhook' },
-      { status: 500 }
-    );
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ error: 'Failed to process webhook' })
+    };
   }
-}
+};
 
 // Helper function to process delivery events
-async function processDeliveryEvent(client: any, order: any, webhookEvent: string, data: any) {
+async function processDeliveryEvent(
+  client: ReturnType<typeof createClient>, 
+  order: any, // Using any for now to avoid type errors with the Amplify client
+  webhookEvent: string, 
+  data: NashWebhookData
+) {
   // Map Nash event to our delivery status
   const deliveryStatus = mapNashEventToDeliveryStatus(webhookEvent);
   const orderStatus = mapDeliveryStatusToOrderStatus(deliveryStatus);
@@ -99,7 +210,7 @@ async function processDeliveryEvent(client: any, order: any, webhookEvent: strin
     id: order.id,
     status: orderStatus,
     deliveryInfo: {
-      deliveryId: order.deliveryInfo.deliveryId,
+      deliveryId: order.deliveryInfo?.deliveryId || '',
       provider: 'Nash',
       status: deliveryStatus,
       quoteId: order.deliveryInfo?.quoteId || '',
@@ -127,7 +238,11 @@ async function processDeliveryEvent(client: any, order: any, webhookEvent: strin
 }
 
 // Helper function to process courier location updates
-async function processCourierLocationUpdate(client: any, order: any, data: any) {
+async function processCourierLocationUpdate(
+  client: ReturnType<typeof createClient>, 
+  order: any, // Using any for now to avoid type errors with the Amplify client
+  data: NashWebhookData
+) {
   const location = data.data?.jobConfigurations?.[0]?.tasks?.[0]?.delivery?.courierLocation;
   
   if (location) {
@@ -145,7 +260,7 @@ async function processCourierLocationUpdate(client: any, order: any, data: any) 
 }
 
 // Helper function to map Nash event to our DeliveryStatus enum
-function mapNashEventToDeliveryStatus(nashEvent: string): string {
+function mapNashEventToDeliveryStatus(nashEvent: string): DeliveryStatus {
   switch (nashEvent) {
     case 'created':
       return 'PENDING';
@@ -173,7 +288,7 @@ function mapNashEventToDeliveryStatus(nashEvent: string): string {
 }
 
 // Helper function to map DeliveryStatus to OrderStatus
-function mapDeliveryStatusToOrderStatus(deliveryStatus: string): string {
+function mapDeliveryStatusToOrderStatus(deliveryStatus: DeliveryStatus): OrderStatus {
   switch (deliveryStatus) {
     case 'PENDING':
     case 'CONFIRMED':

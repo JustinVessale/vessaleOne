@@ -114,7 +114,10 @@ export function OrderConfirmationPage() {
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Delivery Information</h3>
                 
                 {order.deliveryInfo?.deliveryId ? (
-                  <DeliveryTracking deliveryId={order.deliveryInfo.deliveryId} />
+                  <DeliveryTracking 
+                    deliveryId={order.deliveryInfo.deliveryId} 
+                    orderId={order.id} 
+                  />
                 ) : (
                   <div className="space-y-2">
                     <p className="text-gray-700">
