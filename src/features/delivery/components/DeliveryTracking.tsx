@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
-import { getOrder, NashOrderResponse } from '@/lib/services/nashService';
+import { useState, useEffect, useRef } from 'react';
+import { getOrder } from '@/lib/services/nashService';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { generateClient } from 'aws-amplify/api';
-import type { Schema } from '../../../amplify/data/resource';
+import type { Schema } from '../../../../amplify/data/resource';
 
 interface DeliveryTrackingProps {
-  deliveryId: string;
-  orderId: string; // Add orderId prop to fetch order from database
+  deliveryId?: string;
+  orderId: string;
   onCancel?: () => void;
 }
 
@@ -23,166 +23,134 @@ const statusMap: Record<string, string> = {
   'FAILED': 'Delivery Failed'
 };
 
+const client = generateClient<Schema>();
+
 export function DeliveryTracking({ deliveryId, orderId, onCancel }: DeliveryTrackingProps) {
   const [order, setOrder] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isCancelling, setIsCancelling] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const isFetchingRef = useRef(false);
   const { toast } = useToast();
   
-  // Initialize Amplify client
-  const client = generateClient<Schema>();
+  const fetchOrder = async () => {
+    if (isFetchingRef.current) return;
+    
+    try {
+      isFetchingRef.current = true;
+      setIsLoading(true);
+      setHasError(false);
+      
+      // Fetch order from database with a specific selection set
+      const { data: orderData, errors } = await client.models.Order.get(
+        { id: orderId },
+        { 
+          selectionSet: [
+            'id', 
+            'status',
+            'deliveryInfo.status',
+            'deliveryInfo.estimatedDeliveryTime',
+            'deliveryInfo.trackingUrl',
+            'driver.name',
+            'driver.phone',
+            'driver.currentLocation.lat',
+            'driver.currentLocation.lng'
+          ] 
+        }
+      );
+      
+      if (errors) {
+        console.error("GraphQL errors:", errors);
+        throw new Error("Failed to fetch order data");
+      }
+      
+      if (orderData) {
+        setOrder(orderData);
+        setRetryCount(0); // Reset retry count on success
+      } else {
+        // Increment retry count if order not found
+        setRetryCount(prev => prev + 1);
+        if (retryCount >= 2) {
+          setHasError(true);
+          toast({
+            title: "Error",
+            description: "Unable to fetch delivery status after multiple attempts.",
+            variant: "destructive"
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching order:", error);
+      // Increment retry count on error
+      setRetryCount(prev => prev + 1);
+      if (retryCount >= 2) {
+        setHasError(true);
+        toast({
+          title: "Error",
+          description: "Unable to fetch delivery status. Please try again later.",
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setIsLoading(false);
+      isFetchingRef.current = false;
+    }
+  };
 
-  // Fetch order from database
+  // Initial fetch only - no polling since we're using webhooks now
   useEffect(() => {
-    let isMounted = true;
-    let subscription: { unsubscribe: () => void } | null = null;
-    
-    const fetchOrder = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Get order details from database
-        const { data: orderData, errors } = await client.models.Order.get({
-          id: orderId
-        });
-        
-        if (errors) {
-          throw new Error('Failed to fetch order');
-        }
-        
-        if (isMounted && orderData) {
-          setOrder(orderData);
-          setIsLoading(false);
-        }
-      } catch (err) {
-        console.error('Error fetching order:', err);
-        if (isMounted) {
-          setError('Failed to load delivery status. Please try again.');
-          setIsLoading(false);
-        }
-      }
-    };
-    
-    // Subscribe to real-time updates
-    const setupSubscription = async () => {
-      try {
-        // Use the onUpdate subscription instead of observeQuery
-        subscription = client.models.Order.onCreate({
-          filter: { id: { eq: orderId } }
-        }).subscribe({
-          next: (data) => {
-            if (data && isMounted) {
-              setOrder(data);
-              setIsLoading(false);
-            }
-          },
-          error: (err: Error) => {
-            console.error('Subscription error:', err);
-            if (isMounted) {
-              setError('Failed to receive real-time updates. Please refresh.');
-            }
-          }
-        });
-        
-        // Also subscribe to updates
-        const updateSubscription = client.models.Order.onUpdate({
-          filter: { id: { eq: orderId } }
-        }).subscribe({
-          next: (data) => {
-            if (data && isMounted) {
-              setOrder(data);
-              setIsLoading(false);
-            }
-          },
-          error: (err: Error) => {
-            console.error('Update subscription error:', err);
-          }
-        });
-        
-        // Combine subscriptions
-        const originalUnsubscribe = subscription.unsubscribe;
-        subscription.unsubscribe = () => {
-          originalUnsubscribe.call(subscription);
-          updateSubscription.unsubscribe();
-        };
-      } catch (err) {
-        console.error('Error setting up subscription:', err);
-      }
-    };
-    
     fetchOrder();
-    setupSubscription();
-    
-    return () => {
-      isMounted = false;
-      if (subscription) {
-        subscription.unsubscribe();
-      }
-    };
-  }, [orderId, client.models.Order]);
+  }, [orderId]);
 
-  // Handle delivery cancellation
-  const handleCancelDelivery = async () => {
-    if (!order || !deliveryId) return;
+  // Set up subscription to order updates
+  useEffect(() => {
+    if (!orderId) return;
+
+    // This will be updated by the webhook through database updates
+    // No need to poll as the webhook will update the database in real-time
     
-    if (!window.confirm('Are you sure you want to cancel this delivery?')) {
+    // We could add a subscription here in the future if needed
+    // For now, we rely on manual refresh if the user wants the latest data
+    
+  }, [orderId]);
+
+  const handleCancelDelivery = async () => {
+    if (!onCancel) {
       return;
     }
     
-    setIsCancelling(true);
-    
     try {
-      await import('@/lib/services/nashService').then(({ cancelOrder }) => 
-        cancelOrder(deliveryId, 'Customer requested cancellation')
-      );
-      
-      // Update order status in database
-      await client.models.Order.update({
-        id: orderId,
-        status: 'CANCELLED',
-        deliveryInfo: {
-          ...order.deliveryInfo,
-          status: 'CANCELLED'
-        }
-      });
-      
+      onCancel();
       toast({
         title: 'Delivery Cancelled',
         description: 'Your delivery has been cancelled successfully.',
       });
-      
-      if (onCancel) {
-        onCancel();
-      }
-    } catch (err) {
-      console.error('Error cancelling delivery:', err);
+    } catch (error) {
+      console.error('Error cancelling delivery:', error);
       toast({
-        title: 'Cancellation Failed',
-        description: 'Failed to cancel delivery. Please try again or contact support.',
+        title: 'Error',
+        description: 'Failed to cancel delivery. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsCancelling(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="p-4 flex justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
+  const handleRefresh = () => {
+    setRetryCount(0); // Reset retry count on manual refresh
+    fetchOrder();
+  };
+
+  if (isLoading && !order) {
+    return <div className="flex justify-center items-center p-8">Loading delivery status...</div>;
   }
 
-  if (error || !order || !order.deliveryInfo) {
+  if (hasError) {
     return (
-      <div className="p-4 text-center">
-        <p className="text-red-500">{error || 'Failed to load delivery information'}</p>
+      <div className="flex flex-col justify-center items-center p-8">
+        <p className="text-red-500 mb-4">Unable to load delivery status</p>
         <button 
-          onClick={() => window.location.reload()}
-          className="mt-2 px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+          onClick={handleRefresh}
+          className="px-4 py-2 bg-primary text-white rounded-md"
         >
           Retry
         </button>
@@ -190,140 +158,52 @@ export function DeliveryTracking({ deliveryId, orderId, onCancel }: DeliveryTrac
     );
   }
 
-  // Get delivery information from the order
-  const deliveryInfo = order.deliveryInfo;
-  const deliveryStatus = deliveryInfo.status;
-  const displayStatus = statusMap[deliveryStatus] || deliveryStatus;
-  const deliveryProvider = deliveryInfo.provider || 'Nash Delivery';
-  const deliveryFee = deliveryInfo.fee || 0;
-  const trackingUrl = deliveryInfo.trackingUrl;
-  
-  // Parse address from order
-  const dropoffAddress = order.deliveryAddress || '';
-  const addressParts = dropoffAddress.split(',');
-  const formattedAddress = {
-    street: addressParts[0] || '',
-    city: addressParts[1]?.trim() || '',
-    state: addressParts[2]?.split(' ')[0]?.trim() || '',
-    zip: addressParts[2]?.split(' ')[1]?.trim() || '',
-  };
-
-  // Determine if the order is in a state that can be cancelled
-  const canCancel = !['COMPLETED', 'CANCELLED', 'FAILED'].includes(deliveryStatus);
-
-  // Get driver information if available
-  const driver = order.driver;
+  if (!order || !order.deliveryInfo) {
+    return <div className="p-4">No delivery information available</div>;
+  }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-medium text-lg">Delivery Status</h3>
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          deliveryStatus === 'PICKING_UP' || deliveryStatus === 'PICKED_UP' ? 'bg-green-100 text-green-800' :
-          deliveryStatus === 'PENDING' || deliveryStatus === 'CONFIRMED' ? 'bg-yellow-100 text-yellow-800' :
-          deliveryStatus === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
-          deliveryStatus === 'CANCELLED' || deliveryStatus === 'FAILED' ? 'bg-red-100 text-red-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
-          {displayStatus}
-        </span>
-      </div>
-
-      {/* Delivery Progress */}
-      <div className="mb-6">
-        <div className="relative">
-          <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
-            <div 
-              className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary-500"
-              style={{ 
-                width: 
-                  deliveryStatus === 'PENDING' ? '10%' :
-                  deliveryStatus === 'CONFIRMED' ? '25%' :
-                  deliveryStatus === 'PICKING_UP' ? '50%' :
-                  deliveryStatus === 'PICKED_UP' ? '75%' :
-                  deliveryStatus === 'DELIVERING' ? '90%' :
-                  deliveryStatus === 'COMPLETED' ? '100%' :
-                  '0%'
-              }}
-            ></div>
-          </div>
-        </div>
-      </div>
-
-      {/* Driver Information */}
-      {driver && (
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-          <h4 className="font-medium mb-2">Driver Information</h4>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Name</span>
-              <span>{driver.name}</span>
-            </div>
-            {driver.phone && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Phone</span>
-                <a href={`tel:${driver.phone}`} className="text-blue-500">{driver.phone}</a>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Delivery Details */}
-      <div className="border-t border-gray-200 pt-4 mb-4">
-        <h4 className="font-medium mb-2">Delivery Details</h4>
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Provider</span>
-            <span>{deliveryProvider}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Delivery Fee</span>
-            <span>${deliveryFee.toFixed(2)}</span>
-          </div>
-          {deliveryInfo.estimatedDeliveryTime && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Estimated Delivery</span>
-              <span>{new Date(deliveryInfo.estimatedDeliveryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Delivery Address */}
-      <div className="border-t border-gray-200 pt-4 mb-4">
-        <h4 className="font-medium mb-2">Delivery Address</h4>
-        <p>{formattedAddress.street}</p>
-        <p>
-          {formattedAddress.city}, {formattedAddress.state}{' '}
-          {formattedAddress.zip}
+    <div className="p-4 border rounded-lg shadow-sm">
+      <h3 className="text-lg font-semibold mb-4">Delivery Status: {statusMap[order.deliveryInfo.status] || order.deliveryInfo.status}</h3>
+      
+      {order.deliveryInfo.estimatedDeliveryTime && (
+        <p className="mb-2">
+          Estimated delivery: {format(new Date(order.deliveryInfo.estimatedDeliveryTime), 'h:mm a')}
         </p>
-      </div>
-
-      {/* Tracking Link */}
-      {trackingUrl && (
+      )}
+      
+      {order.driver && (
         <div className="mb-4">
-          <a 
-            href={trackingUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="block w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-          >
-            Track Delivery
-          </a>
+          <p className="font-medium">Courier Information</p>
+          <p>{order.driver.name}</p>
+          <p>{order.driver.phone}</p>
         </div>
       )}
-
-      {/* Cancel Button */}
-      {canCancel && (
+      
+      {order.driver?.currentLocation && (
+        <div className="mb-4">
+          <p className="font-medium">Current Location</p>
+          <p>
+            {order.driver.currentLocation.lat}, {order.driver.currentLocation.lng}
+          </p>
+        </div>
+      )}
+      
+      <button 
+        onClick={handleRefresh}
+        className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md text-sm mt-2"
+      >
+        Refresh Status
+      </button>
+      
+      {onCancel && (
         <button
           onClick={handleCancelDelivery}
-          disabled={isCancelling}
-          className="block w-full text-center py-2 bg-white border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="block w-full text-center py-2 bg-white border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4"
         >
-          {isCancelling ? 'Cancelling...' : 'Cancel Delivery'}
+          Cancel Delivery
         </button>
       )}
     </div>
   );
-} 
+}

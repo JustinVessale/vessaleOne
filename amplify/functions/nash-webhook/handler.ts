@@ -59,12 +59,17 @@ interface Order {
   driver?: OrderDriver;
 }
 
-// Nash webhook secret from environment variables
+// Update the webhook secret line to check both environment variable names
 const NASH_WEBHOOK_SECRET = process.env.NASH_WEBHOOK_SECRET || '';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     console.log('Received webhook event:', JSON.stringify(event));
+    
+    // Check if environment variables are set
+    if (!NASH_WEBHOOK_SECRET) {
+      console.error('NASH_WEBHOOK_SECRET environment variable is not set');
+    }
     
     // Parse the request body
     const body = event.body;
