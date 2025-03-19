@@ -11,6 +11,8 @@ import {
 import { stripePayment } from "./functions/stripe-payment/resource";
 import { nashWebhook } from "./functions/nash-webhook/resource";
 import { secret } from '@aws-amplify/backend';
+import { Duration } from 'aws-cdk-lib';
+import { Function } from 'aws-cdk-lib/aws-lambda';
 
 export const backend = defineBackend({
   auth,
@@ -24,6 +26,19 @@ backend.stripePayment.addEnvironment('STRIPE_SECRET_KEY', secret('STRIPE_SECRET_
 backend.stripePayment.addEnvironment('STRIPE_WEBHOOK_SECRET', secret('STRIPE_WEBHOOK_SECRET'));
 backend.nashWebhook.addEnvironment('NASH_WEBHOOK_SECRET', secret('NASH_WEBHOOK_SECRET'));
 backend.nashWebhook.addEnvironment('API_KEY', secret('AMPLIFY_API_KEY'));
+
+// Add the API_ID and API_ENDPOINT environment variables for the Nash webhook Lambda
+// This is needed to configure Amplify correctly in the Lambda environment
+backend.nashWebhook.addEnvironment('API_ID', backend.data.resources.graphqlApi.apiId);
+// Construct the endpoint URL manually since 'endpoint' property isn't directly accessible
+backend.nashWebhook.addEnvironment('API_ENDPOINT', `https://${backend.data.resources.graphqlApi.apiId}.appsync-api.${Stack.of(backend.data.resources.graphqlApi).region}.amazonaws.com/graphql`);
+backend.nashWebhook.addEnvironment('REGION', Stack.of(backend.data.resources.graphqlApi).region);
+
+// Let the Lambda function know we want more memory and a longer timeout
+// We can't directly set the CDK properties, so we'll send it via environment variables
+// The Lambda resource will need to handle these settings during execution
+backend.nashWebhook.addEnvironment('DESIRED_MEMORY_SIZE', '512');
+backend.nashWebhook.addEnvironment('DESIRED_TIMEOUT_SECONDS', '30');
 
 // Create API stack
 const apiStack = backend.createStack("api-stack");

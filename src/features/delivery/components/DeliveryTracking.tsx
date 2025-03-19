@@ -172,6 +172,20 @@ export function DeliveryTracking({ deliveryId, orderId, onCancel }: DeliveryTrac
         </p>
       )}
       
+      {/* Nash Portal URL */}
+      {order.deliveryInfo.trackingUrl && (
+        <div className="mb-4">
+          <a 
+            href={order.deliveryInfo.trackingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Track Delivery on Nash Portal
+          </a>
+        </div>
+      )}
+      
       {order.driver && (
         <div className="mb-4">
           <p className="font-medium">Courier Information</p>
