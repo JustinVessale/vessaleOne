@@ -1,6 +1,10 @@
 import { Webhook } from 'svix';
-import { createClient } from './client';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { Amplify } from 'aws-amplify';
+import { generateClient } from 'aws-amplify/data';
+import type { Schema } from '../../data/resource';
+import { getAmplifyDataClientConfig } from '@aws-amplify/backend-function/lib/runtime';
+import { env } from '$amplify/env/nash-webhook';
 
 // Define types for Nash webhook data
 interface NashWebhookData {
@@ -67,8 +71,19 @@ interface Order {
 // Get the webhook secret from environment variable
 const NASH_WEBHOOK_SECRET = process.env.NASH_WEBHOOK_SECRET || '';
 
+// Initialize client outside the handler for reuse across invocations
+let client: ReturnType<typeof generateClient<Schema>>;
+
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
+    // Initialize Amplify and client if not already done
+    if (!client) {
+      const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
+      Amplify.configure(resourceConfig, libraryOptions);
+      client = generateClient<Schema>();
+      console.log('Amplify client initialized');
+    }
+    
     console.log('Received webhook event:', JSON.stringify(event));
     
     // Check if environment variables are set
@@ -190,26 +205,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     console.log('Using Nash order ID:', nashOrderId);
 
-    // Initialize Amplify client
-    console.log('Initializing Amplify client');
-    let client;
-    try {
-      client = createClient();
-      console.log('Amplify client initialized successfully');
-    } catch (error) {
-      console.error('Failed to initialize Amplify client:', error);
-      return {
-        statusCode: 500,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ error: 'Failed to initialize Amplify client' })
-      };
-    }
-
     // Find the order in our database that has this Nash order ID
-    // Note: With Amplify Gen 2, we can't directly filter on nested fields,
-    // so we need to get all orders and filter them in memory
     console.log('Fetching orders to find matching Nash order ID:', nashOrderId);
     let orders, errors;
     try {
@@ -221,7 +217,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ error: 'Failed to fetch orders' })
+        body: JSON.stringify({ error: 'Failed to fetch orders: ' + error })
       };
     }
 
@@ -326,7 +322,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
 // Helper function to process job events
 async function processJobEvent(
-  client: ReturnType<typeof createClient>, 
+  client: ReturnType<typeof generateClient<Schema>>, 
   order: any, // Using any for now to avoid type errors with the Amplify client
   webhookEvent: string,
   data: NashWebhookData
@@ -359,7 +355,7 @@ async function processJobEvent(
 
 // Helper function to process delivery events
 async function processDeliveryEvent(
-  client: ReturnType<typeof createClient>, 
+  client: ReturnType<typeof generateClient<Schema>>, 
   order: any, // Using any for now to avoid type errors with the Amplify client
   webhookEvent: string, 
   data: NashWebhookData
@@ -435,7 +431,7 @@ async function processDeliveryEvent(
 
 // Helper function to process courier location updates
 async function processCourierLocationUpdate(
-  client: ReturnType<typeof createClient>, 
+  client: ReturnType<typeof generateClient<Schema>>, 
   order: any, // Using any for now to avoid type errors with the Amplify client
   data: NashWebhookData
 ) {

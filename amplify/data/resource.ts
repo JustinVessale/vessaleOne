@@ -1,4 +1,5 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
+import { nashWebhook } from '../functions/nash-webhook/resource';
 
 /*== STEP 1 ===============================================================
 The section below creates a Todo database table with a "content" field. Try
@@ -59,7 +60,9 @@ const schema = a.schema({
       zip: a.string(),
       phone: a.string(),
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [
+      allow.publicApiKey()
+    ]),
 
   MenuCategory: a
     .model({
@@ -69,7 +72,9 @@ const schema = a.schema({
       restaurantId: a.string(),
       restaurant: a.belongsTo('Restaurant', 'restaurantId')
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [
+      allow.publicApiKey()
+    ]),
 
   MenuItem: a
     .model({
@@ -81,7 +86,9 @@ const schema = a.schema({
       category: a.belongsTo('MenuCategory', 'categoryId'),
       orderItems: a.hasMany('OrderItem', 'menuItemId')
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [
+      allow.publicApiKey()
+    ]),
 
   Order: a
     .model({
@@ -109,7 +116,9 @@ const schema = a.schema({
       customerName: a.string(),
       customerPhone: a.string(),
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [
+      allow.publicApiKey()
+    ]),
 
   OrderItem: a
     .model({
@@ -120,8 +129,12 @@ const schema = a.schema({
       orderId: a.string(),
       order: a.belongsTo('Order', 'orderId')
     })
-    .authorization((allow) => [allow.publicApiKey()])
-});
+    .authorization((allow) => [
+      allow.publicApiKey()
+    ])
+})
+.authorization(allow => [allow.resource(nashWebhook)]); // allow query and subscription operations but not mutations
+
 
 export type Schema = ClientSchema<typeof schema>;
 

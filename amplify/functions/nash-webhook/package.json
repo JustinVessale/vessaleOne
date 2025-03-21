@@ -4,12 +4,13 @@
   "description": "Lambda function to handle Nash delivery webhooks",
   "main": "index.js",
   "dependencies": {
-    "svix": "^1.15.0",
-    "aws-lambda": "^1.0.7",
+    "@aws-amplify/api": "^6.0.0",
     "aws-amplify": "^6.0.0",
-    "@aws-amplify/api": "^6.0.0"
+    "aws-lambda": "^1.0.7",
+    "aws-sdk": "^2.1692.0",
+    "svix": "^1.15.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.130"
   }
-} 
+}
