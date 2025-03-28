@@ -410,7 +410,7 @@ async function processCourierLocationUpdate(
 // Helper function to map Nash event to our DeliveryStatus enum
 function mapNashEventToDeliveryStatus(nashEvent: string): DeliveryStatus {
   console.log('Mapping Nash event to delivery status:', nashEvent);
-  
+  //TODO need to check that these events are correct for our statuses.
   switch (nashEvent) {
     case 'created':
       return 'PENDING';

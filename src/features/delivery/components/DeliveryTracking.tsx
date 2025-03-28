@@ -106,13 +106,36 @@ export function DeliveryTracking({ deliveryId, orderId, onCancel }: DeliveryTrac
   useEffect(() => {
     if (!orderId) return;
 
-    // This will be updated by the webhook through database updates
-    // No need to poll as the webhook will update the database in real-time
-    
-    // We could add a subscription here in the future if needed
-    // For now, we rely on manual refresh if the user wants the latest data
-    
-  }, [orderId]);
+    const sub = client.models.Order.onUpdate({
+      filter: { id: { eq: orderId } }
+    }).subscribe({
+      next: (event: any) => {
+        const updatedOrder = event.data;
+        if (updatedOrder) {
+          setOrder(updatedOrder);
+          if (updatedOrder.deliveryInfo?.status) {
+            toast({
+              title: "Delivery Status Updated",
+              description: `Status: ${statusMap[updatedOrder.deliveryInfo.status] || updatedOrder.deliveryInfo.status}`,
+              variant: "default",
+            });
+          }
+        }
+      },
+      error: (error) => {
+        console.error('Subscription error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to receive delivery updates",
+          variant: "destructive",
+        });
+      }
+    });
+
+    return () => {
+      sub.unsubscribe();
+    };
+  }, [orderId, toast]);
 
   const handleCancelDelivery = async () => {
     if (!onCancel) {

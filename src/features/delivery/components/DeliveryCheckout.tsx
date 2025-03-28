@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DeliveryForm, DeliveryFormData } from './DeliveryForm';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/features/cart/context/CartContext';
@@ -9,6 +9,10 @@ import {
   NashOrderResponse,
   findPreferredQuote
 } from '@/lib/services/nashService';
+import { generateClient } from 'aws-amplify/api';
+import type { Schema } from '../../../../amplify/data/resource';
+
+const client = generateClient<Schema>();
 
 export interface DeliveryCheckoutProps {
   restaurantAddress: {
@@ -91,8 +95,6 @@ export function DeliveryCheckout({
             ? preferredQuote.totalPriceCents / 100 
             : preferredQuote.priceCents / 100;
           
-          console.log('Selected quote:', preferredQuote);
-          console.log(`Using delivery fee: $${deliveryFee} (${preferredQuote.totalPriceCents ? 'totalPriceCents' : 'priceCents'})`);
           
           // Continue to payment with the delivery details
           onContinue({
