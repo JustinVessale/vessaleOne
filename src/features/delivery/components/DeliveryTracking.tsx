@@ -14,7 +14,7 @@ interface DeliveryTrackingProps {
 // Map Nash status to user-friendly status
 const statusMap: Record<string, string> = {
   'PENDING': 'Order Created',
-  'CONFIRMED': 'Finding Driver',
+  'CONFIRMED': 'Driver Assigned',
   'PICKING_UP': 'Driver at Restaurant',
   'PICKED_UP': 'Order Picked Up',
   'DELIVERING': 'Driver Arrived',
@@ -172,19 +172,6 @@ export function DeliveryTracking({ deliveryId, orderId, onCancel }: DeliveryTrac
         </p>
       )}
       
-      {/* Nash Portal URL */}
-      {order.deliveryInfo.trackingUrl && (
-        <div className="mb-4">
-          <a 
-            href={order.deliveryInfo.trackingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Track Delivery on Nash Portal
-          </a>
-        </div>
-      )}
       
       {order.driver && (
         <div className="mb-4">

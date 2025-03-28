@@ -101,17 +101,9 @@ export function OrderConfirmationPage() {
               </p>
             </div>
 
-            {/* Status Badge */}
-            <div className="mb-6">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${order.status ? statusColors[order.status] : ''}`}>
-                {order.status || 'UNKNOWN'}
-              </span>
-            </div>
-
             {/* Delivery Information (if applicable) */}
             {order.isDelivery && (
               <div className="mb-6 border-b border-gray-200 pb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Delivery Information</h3>
                 
                 {order.deliveryInfo?.deliveryId ? (
                   <DeliveryTracking 
