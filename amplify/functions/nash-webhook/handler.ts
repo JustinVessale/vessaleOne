@@ -2,9 +2,9 @@ import { Webhook } from 'svix';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { Amplify } from 'aws-amplify';
 import { generateClient } from 'aws-amplify/data';
-import type { Schema } from '../../data/resource';
-import { getAmplifyDataClientConfig } from '@aws-amplify/backend-function/lib/runtime';
-import { env } from '$amplify/env/nash-webhook';
+import type { Schema } from '../../data/resource.js';
+import { getAmplifyDataClientConfig } from '@aws-amplify/backend/function/runtime';
+import { env } from '$amplify/env/nash-webhook.js';
 
 // Define types for Nash webhook data
 interface NashWebhookData {
