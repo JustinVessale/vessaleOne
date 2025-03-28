@@ -237,25 +237,49 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Find the order with the matching Nash order ID in the deliveryInfo.deliveryId field
     // or matching any other reference field that might contain the Nash ID
     const matchingOrders = orders?.filter(order => {
+      // Log the order we're checking for debugging
+      console.log('Checking order:', {
+        orderId: order.id,
+        deliveryInfo: order.deliveryInfo,
+        nashOrderId
+      });
+
       // Check if the Nash order ID matches the deliveryInfo.deliveryId
       const matchesDeliveryId = order.deliveryInfo?.deliveryId === nashOrderId;
       
+      // Also check if the Nash ID is contained within the deliveryId (for job_ prefix cases)
+      const containsNashId = order.deliveryInfo?.deliveryId?.includes(nashOrderId) || 
+                            nashOrderId.includes(order.deliveryInfo?.deliveryId || '');
+      
       // Use a type-safe approach to check other possible reference fields
-      // This avoids TypeScript errors while still checking all potential fields
       const orderAsAny = order as any;
       let matchesOtherRef = false;
       
       // Check various fields that might contain the order reference
-      const possibleRefFields = ['externalId', 'orderReference', 'referenceId', 'reference'];
+      const possibleRefFields = ['externalId', 'orderReference', 'referenceId', 'reference', 'nashId'];
       for (const field of possibleRefFields) {
-        if (orderAsAny[field] === nashOrderId) {
+        if (orderAsAny[field] === nashOrderId || 
+            (typeof orderAsAny[field] === 'string' && 
+             (orderAsAny[field].includes(nashOrderId) || nashOrderId.includes(orderAsAny[field])))) {
           console.log(`Found match in ${field} field`);
           matchesOtherRef = true;
           break;
         }
       }
       
-      return matchesDeliveryId || matchesOtherRef;
+      const isMatch = matchesDeliveryId || matchesOtherRef || containsNashId;
+      if (isMatch) {
+        console.log('Found matching order:', {
+          orderId: order.id,
+          matchType: {
+            matchesDeliveryId,
+            matchesOtherRef,
+            containsNashId
+          }
+        });
+      }
+      
+      return isMatch;
     }) || [];
 
     console.log(`Found ${matchingOrders.length} matching orders`);
