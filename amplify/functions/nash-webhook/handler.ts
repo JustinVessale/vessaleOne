@@ -127,11 +127,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const svixTimestamp = normalizedHeaders['svix-timestamp'] || normalizedHeaders['x-svix-timestamp'];
         const svixSignature = normalizedHeaders['svix-signature'] || normalizedHeaders['x-svix-signature'];
         
-        console.log('Verifying webhook signature with:');
-        console.log('- svix-id:', svixId);
-        console.log('- svix-timestamp:', svixTimestamp);
-        console.log('- svix-signature:', svixSignature?.slice(0, 10) + '...');
-        
         if (!svixId || !svixTimestamp || !svixSignature) {
           console.warn('Missing one or more Svix headers, skipping signature verification');
         } else {
@@ -157,9 +152,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     let data: NashWebhookData;
     try {
       data = JSON.parse(parsedBody);
-      console.log('Nash webhook data (parsed):', JSON.stringify(data).length > 1000 ? 
-        JSON.stringify(data).substring(0, 1000) + '...' : 
-        JSON.stringify(data));
     } catch (error) {
       console.error('Failed to parse webhook data:', error);
       return {
@@ -172,41 +164,27 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Extract the webhook type and event
-    const webhookType = data.type; // 'delivery', 'task', or 'courier_location'
-    const webhookEvent = data.event; // specific event within the type
+    const webhookType = data.type;
+    const webhookEvent = data.event;
     
-    console.log(`Processing webhook type: ${webhookType}, event: ${webhookEvent}`);
     
-    // For delivery events, the order ID can be in different places depending on the payload
-    let nashOrderId = data.data?.id;
-    
-    // If the ID isn't directly in data.id, check jobMetadata for nash_order_id
-    if (!nashOrderId && data.data?.jobMetadata?.nash_order_id) {
-      nashOrderId = data.data.jobMetadata.nash_order_id;
-      console.log('Found Nash order ID in jobMetadata:', nashOrderId);
-    }
-    
-    // If the ID still isn't found, try to find it in externalIdentifier
-    if (!nashOrderId && data.data?.externalIdentifier) {
-      nashOrderId = data.data.externalIdentifier;
-      console.log('Using externalIdentifier as Nash order ID:', nashOrderId);
-    }
+    // Only use externalIdentifier for Nash order ID
+    const nashOrderId = data.data?.externalIdentifier;
 
     if (!nashOrderId) {
-      console.error('No order ID found in webhook payload');
+      console.error('No externalIdentifier found in webhook payload');
       return {
         statusCode: 400,
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ error: 'Missing order ID' })
+        body: JSON.stringify({ error: 'Missing externalIdentifier in webhook payload' })
       };
     }
 
-    console.log('Using Nash order ID:', nashOrderId);
+    console.log('Using Nash order ID from externalIdentifier:', nashOrderId);
 
     // Find the order in our database that has this Nash order ID
-    console.log('Fetching orders to find matching Nash order ID:', nashOrderId);
     let orders, errors;
     try {
       ({ data: orders, errors } = await client.models.Order.list({}));
@@ -234,81 +212,32 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     console.log(`Fetched ${orders?.length || 0} orders from database`);
 
-    // Find the order with the matching Nash order ID in the deliveryInfo.deliveryId field
-    // or matching any other reference field that might contain the Nash ID
-    const matchingOrders = orders?.filter(order => {
-      // Log the order we're checking for debugging
-      console.log('Checking order:', {
-        orderId: order.id,
-        deliveryInfo: order.deliveryInfo,
-        nashOrderId
-      });
+    // Find the order with the matching Nash order ID in the order.id field
+    const matchingOrder = orders?.find(order => order.id === nashOrderId);
 
-      // Check if the Nash order ID matches the deliveryInfo.deliveryId
-      const matchesDeliveryId = order.deliveryInfo?.deliveryId === nashOrderId;
-      
-      // Also check if the Nash ID is contained within the deliveryId (for job_ prefix cases)
-      const containsNashId = order.deliveryInfo?.deliveryId?.includes(nashOrderId) || 
-                            nashOrderId.includes(order.deliveryInfo?.deliveryId || '');
-      
-      // Use a type-safe approach to check other possible reference fields
-      const orderAsAny = order as any;
-      let matchesOtherRef = false;
-      
-      // Check various fields that might contain the order reference
-      const possibleRefFields = ['externalId', 'orderReference', 'referenceId', 'reference', 'nashId'];
-      for (const field of possibleRefFields) {
-        if (orderAsAny[field] === nashOrderId || 
-            (typeof orderAsAny[field] === 'string' && 
-             (orderAsAny[field].includes(nashOrderId) || nashOrderId.includes(orderAsAny[field])))) {
-          console.log(`Found match in ${field} field`);
-          matchesOtherRef = true;
-          break;
-        }
-      }
-      
-      const isMatch = matchesDeliveryId || matchesOtherRef || containsNashId;
-      if (isMatch) {
-        console.log('Found matching order:', {
-          orderId: order.id,
-          matchType: {
-            matchesDeliveryId,
-            matchesOtherRef,
-            containsNashId
-          }
-        });
-      }
-      
-      return isMatch;
-    }) || [];
-
-    console.log(`Found ${matchingOrders.length} matching orders`);
-
-    if (!matchingOrders.length) {
-      console.warn(`No order found with Nash order ID: ${nashOrderId}`);
+    if (!matchingOrder) {
+      console.error(`No order found with Nash order ID: ${nashOrderId}`);
       return {
-        statusCode: 200,
+        statusCode: 404,
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ message: 'Order not found' })
+        body: JSON.stringify({ error: `No order found with externalIdentifier: ${nashOrderId}` })
       };
     }
 
-    const order = matchingOrders[0];
-    console.log('Found matching order:', order.id);
+    console.log('Found matching order:', matchingOrder.id);
     
     // Process the webhook based on type and event
     try {
       if (webhookType === 'delivery') {
-        // Handle delivery events
-        await processDeliveryEvent(client, order, webhookEvent, data);
+        await processDeliveryEvent(client, matchingOrder, webhookEvent, data);
       } else if (webhookType === 'courier_location' && webhookEvent === 'updated') {
         // Handle courier location updates
-        await processCourierLocationUpdate(client, order, data);
+        await processCourierLocationUpdate(client, matchingOrder, data);
       } else if (webhookType === 'job') {
         // Handle job events which include the portal URL
-        await processJobEvent(client, order, webhookEvent, data);
+        await processJobEvent(client, matchingOrder, webhookEvent, data);
       } else {
         console.log(`Unhandled Nash webhook type: ${webhookType}, event: ${webhookEvent}`);
       }
@@ -351,19 +280,15 @@ async function processJobEvent(
   webhookEvent: string,
   data: NashWebhookData
 ) {
-  console.log('Processing job event:', webhookEvent);
   
   // Extract portal URL and public tracking URL from the data
   const portalUrl = data.data?.portalUrl;
   const publicTrackingUrl = data.data?.publicTrackingUrl;
   const trackingUrl = publicTrackingUrl || portalUrl;
   
-  console.log('Portal URL:', portalUrl);
-  console.log('Public tracking URL:', publicTrackingUrl);
   
   if (trackingUrl) {
-    // Update the order with the tracking URL
-    console.log('Updating order with tracking URL:', trackingUrl);
+    // Update the order with the tracking URL;
     
     const updateResult = await client.models.Order.update({
       id: order.id,
@@ -399,11 +324,6 @@ async function processDeliveryEvent(
   const portalUrl = data.data?.portalUrl;
   const publicTrackingUrl = data.data?.publicTrackingUrl;
   const trackingUrl = publicTrackingUrl || portalUrl || order.deliveryInfo?.trackingUrl;
-  
-  console.log('Portal URL:', portalUrl);
-  console.log('Public tracking URL:', publicTrackingUrl);
-  console.log('Using tracking URL:', trackingUrl);
-  
   // Prepare the updated delivery info
   const updatedDeliveryInfo = {
     deliveryId: order.deliveryInfo?.deliveryId || '',
@@ -519,8 +439,7 @@ function mapNashEventToDeliveryStatus(nashEvent: string): DeliveryStatus {
 
 // Helper function to map DeliveryStatus to OrderStatus
 function mapDeliveryStatusToOrderStatus(deliveryStatus: DeliveryStatus): OrderStatus {
-  console.log('Mapping delivery status to order status:', deliveryStatus);
-  
+
   switch (deliveryStatus) {
     case 'PENDING':
     case 'CONFIRMED':
@@ -535,6 +454,6 @@ function mapDeliveryStatusToOrderStatus(deliveryStatus: DeliveryStatus): OrderSt
     case 'FAILED':
       return 'CANCELLED';
     default:
-      return 'PREPARING';
+      return 'CANCELLED';
   }
 } 
