@@ -22,10 +22,11 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "$amplify/*": [".amplify/generated/*"]
     }
   },
   "include": ["src"],
-  "exclude": ["amplify/**/*"],
+  "exclude": ["amplify/**/*", "node_modules", "dist"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
