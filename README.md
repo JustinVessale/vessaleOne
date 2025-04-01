@@ -1,5 +1,7 @@
 # Vessale Restaurant Ordering System
 
+> **⚠️ IMPORTANT: This project uses AWS Amplify Gen 2 exclusively. All commands, patterns, and solutions MUST follow Gen 2 paradigms. Do NOT use Gen 1 commands like `amplify push` - only use Gen 2 commands like `npx ampx push` or `npx ampx sandbox`.**
+
 A modern, responsive web application for restaurant menu browsing and online ordering, built with React, TypeScript, and AWS Amplify Gen 2.
 
 ## Features
