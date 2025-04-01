@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { getOrder } from '@/lib/services/nashService';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { generateClient } from 'aws-amplify/api';
@@ -9,6 +8,7 @@ interface DeliveryTrackingProps {
   deliveryId?: string;
   orderId: string;
   onCancel?: () => void;
+  onSwitchToPickup?: () => Promise<void>;
 }
 
 // Map Nash status to user-friendly status
@@ -25,11 +25,14 @@ const statusMap: Record<string, string> = {
 
 const client = generateClient<Schema>();
 
-export function DeliveryTracking({ deliveryId, orderId, onCancel }: DeliveryTrackingProps) {
-  const [order, setOrder] = useState<any>(null);
+type OrderType = Schema['Order']['type'];
+
+export function DeliveryTracking({ deliveryId, orderId, onCancel, onSwitchToPickup }: DeliveryTrackingProps) {
+  const [order, setOrder] = useState<OrderType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [isSwitchingToPickup, setIsSwitchingToPickup] = useState(false);
   const isFetchingRef = useRef(false);
   const { toast } = useToast();
   
@@ -65,7 +68,7 @@ export function DeliveryTracking({ deliveryId, orderId, onCancel }: DeliveryTrac
       }
       
       if (orderData) {
-        setOrder(orderData);
+        setOrder(orderData as OrderType);
         setRetryCount(0); // Reset retry count on success
       } else {
         // Increment retry count if order not found
@@ -112,7 +115,7 @@ export function DeliveryTracking({ deliveryId, orderId, onCancel }: DeliveryTrac
       next: (event: any) => {
         const updatedOrder = event.data;
         if (updatedOrder) {
-          setOrder(updatedOrder);
+          setOrder(updatedOrder as OrderType);
           if (updatedOrder.deliveryInfo?.status) {
             toast({
               title: "Delivery Status Updated",
@@ -158,6 +161,41 @@ export function DeliveryTracking({ deliveryId, orderId, onCancel }: DeliveryTrac
     }
   };
 
+  const handleSwitchToPickup = async () => {
+    if (!onSwitchToPickup || !order) return;
+    
+    setIsSwitchingToPickup(true);
+    try {
+      // Update order to remove delivery info and set status to PAID
+      await client.models.Order.update({
+        id: order.id,
+        isDelivery: false,
+        deliveryInfo: null,
+        deliveryFee: 0,
+        deliveryAddress: '',
+        status: 'PAID',
+        updatedAt: new Date().toISOString()
+      });
+
+      await onSwitchToPickup();
+      
+      toast({
+        title: "Order Updated",
+        description: "Successfully switched to pickup",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error('Error switching to pickup:', error);
+      toast({
+        title: "Error",
+        description: "Failed to switch to pickup. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSwitchingToPickup(false);
+    }
+  };
+
   const handleRefresh = () => {
     setRetryCount(0); // Reset retry count on manual refresh
     fetchOrder();
@@ -181,20 +219,25 @@ export function DeliveryTracking({ deliveryId, orderId, onCancel }: DeliveryTrac
     );
   }
 
-  if (!order || !order.deliveryInfo) {
+  if (!order?.deliveryInfo?.status) {
     return <div className="p-4">No delivery information available</div>;
   }
 
+  const deliveryStatus = order.deliveryInfo.status;
+  const isDeliveryFailed = deliveryStatus === 'CANCELLED' || deliveryStatus === 'FAILED';
+  const canCancel = !['CANCELLED', 'FAILED', 'COMPLETED'].includes(deliveryStatus);
+
   return (
     <div className="p-4 border rounded-lg shadow-sm">
-      <h3 className="text-lg font-semibold mb-4">Delivery Status: {statusMap[order.deliveryInfo.status] || order.deliveryInfo.status}</h3>
+      <h3 className="text-lg font-semibold mb-4">
+        Delivery Status: {statusMap[deliveryStatus] || deliveryStatus}
+      </h3>
       
       {order.deliveryInfo.estimatedDeliveryTime && (
         <p className="mb-2">
           Estimated delivery: {format(new Date(order.deliveryInfo.estimatedDeliveryTime), 'h:mm a')}
         </p>
       )}
-      
       
       {order.driver && (
         <div className="mb-4">
@@ -212,6 +255,22 @@ export function DeliveryTracking({ deliveryId, orderId, onCancel }: DeliveryTrac
           </p>
         </div>
       )}
+
+      {/* Show switch to pickup option if delivery failed or was cancelled */}
+      {onSwitchToPickup && isDeliveryFailed && (
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+          <p className="text-sm text-yellow-800 mb-2">
+            Delivery {deliveryStatus.toLowerCase()}. Would you like to switch to pickup instead?
+          </p>
+          <button
+            onClick={handleSwitchToPickup}
+            disabled={isSwitchingToPickup}
+            className="w-full px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSwitchingToPickup ? 'Switching to Pickup...' : 'Switch to Pickup'}
+          </button>
+        </div>
+      )}
       
       <button 
         onClick={handleRefresh}
@@ -220,7 +279,7 @@ export function DeliveryTracking({ deliveryId, orderId, onCancel }: DeliveryTrac
         Refresh Status
       </button>
       
-      {onCancel && (
+      {onCancel && canCancel && (
         <button
           onClick={handleCancelDelivery}
           className="block w-full text-center py-2 bg-white border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4"
