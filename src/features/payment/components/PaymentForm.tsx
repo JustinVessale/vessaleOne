@@ -20,6 +20,15 @@ export function PaymentForm({ onSuccess, onError, order }: PaymentFormProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const { state, total } = useCart();
 
+  // Log order details for debugging
+  console.log('PaymentForm order details:', {
+    id: order?.id,
+    total: order?.total,
+    isDelivery: order?.isDelivery,
+    deliveryFee: order?.deliveryFee,
+    deliveryInfo: order?.deliveryInfo
+  });
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -50,7 +59,18 @@ export function PaymentForm({ onSuccess, onError, order }: PaymentFormProps) {
   const deliveryFee = order?.deliveryFee || 0;
   const isDelivery = order?.isDelivery || false;
   const subtotal = total;
-  const orderTotal = subtotal + deliveryFee;
+  
+  // Calculate the total by adding the subtotal and delivery fee
+  // Use toFixed(2) and parseFloat to avoid floating-point precision issues
+  const orderTotal = parseFloat((subtotal + deliveryFee).toFixed(2));
+  
+  // Log calculated totals for debugging
+  console.log('PaymentForm calculated totals:', {
+    subtotal,
+    deliveryFee,
+    orderTotal,
+    orderTotalFromOrder: order?.total
+  });
 
   return (
     <div className="space-y-6">

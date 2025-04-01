@@ -1,13 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DeliveryForm, DeliveryFormData } from './DeliveryForm';
-import { DeliveryQuotesList } from './DeliveryQuote';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/features/cart/context/CartContext';
+import { formatCurrency } from '@/utils/currency';
+import { useErrorHandler, ErrorMessages } from '@/utils/error-handler';
 import { 
   createOrderWithQuotes, 
-  selectQuote, 
   NashOrderResponse,
+  findPreferredQuote
 } from '@/lib/services/nashService';
+import { generateClient } from 'aws-amplify/api';
+import type { Schema } from '../../../../amplify/data/resource';
+
+const client = generateClient<Schema>();
 
 export interface DeliveryCheckoutProps {
   restaurantAddress: {
@@ -38,11 +43,9 @@ export function DeliveryCheckout({
   onSwitchToPickup
 }: DeliveryCheckoutProps) {
   const [deliveryFormData, setDeliveryFormData] = useState<DeliveryFormData | null>(null);
-  const [nashOrder, setNashOrder] = useState<NashOrderResponse | null>(null);
-  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
-  const [isProcessingQuote, setIsProcessingQuote] = useState(false);
   const { toast } = useToast();
+  const { handleApiError, showErrorToast } = useErrorHandler();
   const { state } = useCart();
 
   // Convert cart items to Nash delivery items format expected by the API
@@ -77,105 +80,68 @@ export function DeliveryCheckout({
         externalId: orderId
       });
       
-      setNashOrder(orderResponse);
-      
-      // If we have quotes, select the first one by default
+      // Check if we have quotes
       if (orderResponse.quotes && orderResponse.quotes.length > 0) {
-        setSelectedQuoteId(orderResponse.quotes[0].id);
+        // Find the preferred quote (with autodispatch_preferred_quote tag)
+        const preferredQuote = findPreferredQuote(orderResponse.quotes);
+        
+        if (preferredQuote && orderResponse.id) {
+          // We no longer need to select the quote here since we'll autodispatch after payment
+          // Just format the address for display
+          const formattedAddress = `${formData.address.street}, ${formData.address.city}, ${formData.address.state} ${formData.address.zip}`;
+          
+          // Use totalPriceCents instead of priceCents for the delivery fee
+          const deliveryFee = preferredQuote.totalPriceCents 
+            ? preferredQuote.totalPriceCents / 100 
+            : preferredQuote.priceCents / 100;
+          
+          
+          // Continue to payment with the delivery details
+          onContinue({
+            address: formattedAddress,
+            deliveryFee: deliveryFee,
+            quoteId: preferredQuote.id,
+            estimatedDeliveryTime: preferredQuote.dropoffEta,
+            nashOrderId: orderResponse.id || ''
+          });
+          
+          // Show confirmation toast
+          toast({
+            title: "Delivery Option Confirmed",
+            description: `${preferredQuote.providerName} delivery for ${formatCurrency(deliveryFee)}`,
+            variant: "default",
+          });
+        } else {
+          showErrorToast('No delivery options available for this address');
+          offerPickupSwitch();
+        }
+      } else {
+        showErrorToast('No delivery options available for this address');
+        offerPickupSwitch();
       }
     } catch (error) {
       console.error('Error creating Nash order:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to get delivery quotes. Please try again.',
-        variant: 'destructive',
-      });
+      handleApiError(error, ErrorMessages.DELIVERY.QUOTES_FETCH_FAILED);
+      offerPickupSwitch();
     } finally {
       setIsLoadingQuotes(false);
     }
   };
 
-  // Handle quote selection
-  const handleSelectQuote = (quoteId: string) => {
-    setSelectedQuoteId(quoteId);
-  };
-
-  // Handle continue to payment
-  const handleContinue = async () => {
-    if (!deliveryFormData) {
+  // Helper function to offer pickup switch
+  const offerPickupSwitch = () => {
+    if (onSwitchToPickup) {
       toast({
-        title: 'Error',
-        description: 'Please enter delivery information',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // If we have quotes but none selected, show error
-    if (nashOrder?.quotes && nashOrder.quotes.length > 0 && !selectedQuoteId) {
-      toast({
-        title: 'Error',
-        description: 'Please select a delivery option',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Find the selected quote
-    const selectedQuote = nashOrder?.quotes?.find(q => q.id === selectedQuoteId);
-      
-    if (nashOrder?.quotes && nashOrder.quotes.length > 0 && !selectedQuote) {
-      toast({
-        title: 'Error',
-        description: 'Invalid delivery option selected',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!selectedQuote) {
-      toast({
-        title: 'No Delivery Option Selected',
-        description: 'Please select a delivery option to continue.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsProcessingQuote(true);
-
-    // Format the address for display
-    const formattedAddress = `${deliveryFormData.address.street}, ${deliveryFormData.address.city}, ${deliveryFormData.address.state} ${deliveryFormData.address.zip}`;
-
-    if (nashOrder && nashOrder.id && selectedQuote) {
-      try {
-        // Select the quote with Nash
-        await selectQuote(nashOrder.id, selectedQuote.id);
-        
-        // Continue to payment with the delivery details
-        onContinue({
-          address: formattedAddress,
-          deliveryFee: selectedQuote.priceCents / 100,
-          quoteId: selectedQuote.id,
-          estimatedDeliveryTime: selectedQuote.dropoffEta,
-          nashOrderId: nashOrder.id
-        });
-      } catch (error) {
-        console.error('Error selecting quote:', error);
-        toast({
-          title: 'Delivery Selection Failed',
-          description: 'Failed to select delivery option. Please try again.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsProcessingQuote(false);
-      }
-    } else {
-      setIsProcessingQuote(false);
-      toast({
-        title: 'Delivery Setup Failed',
-        description: 'Unable to set up delivery. Please try again or contact support.',
-        variant: 'destructive',
+        title: 'Switch to Pickup?',
+        description: 'Delivery is currently unavailable. Would you like to switch to pickup instead?',
+        action: (
+          <button 
+            onClick={onSwitchToPickup}
+            className="px-3 py-1 rounded-md bg-primary-500 text-white hover:bg-primary-600 transition-colors"
+          >
+            Switch to Pickup
+          </button>
+        ),
       });
     }
   };
@@ -208,23 +174,12 @@ export function DeliveryCheckout({
             </div>
           </div>
 
-          {/* Always render the DeliveryQuotesList component */}
-          <DeliveryQuotesList
-            quotes={nashOrder ? [nashOrder] : []}
-            selectedQuoteId={selectedQuoteId}
-            onSelectQuote={handleSelectQuote}
-            isLoading={isLoadingQuotes}
-            onSwitchToPickup={onSwitchToPickup}
-          />
-
-          {(nashOrder?.quotes?.length ?? 0) > 0 && (
-            <button
-              onClick={handleContinue}
-              disabled={isProcessingQuote}
-              className="w-full flex justify-center py-3.5 px-4 border border-primary-700 rounded-lg shadow-sm text-base font-medium text-black bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 transition-colors mt-6"
-            >
-              {isProcessingQuote ? 'Processing...' : 'Continue to Payment'}
-            </button>
+          {/* Show loading state */}
+          {isLoadingQuotes && (
+            <div className="py-8 flex flex-col items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
+              <p className="text-gray-600">Finding delivery options...</p>
+            </div>
           )}
         </div>
       )}

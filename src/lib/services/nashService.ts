@@ -109,6 +109,13 @@ export interface NashQuote {
   tags?: string[];
   costSplitCustomerCents?: number;
   costSplitBusinessCents?: number;
+  totalPriceCents?: number;
+  taxAmountCents?: number;
+  tollFeeCents?: number;
+  insuranceFeeCents?: number;
+  totalPriceBreakdown?: {
+    priceCents: number;
+  };
 }
 
 export interface NashOrderResponse {
@@ -354,6 +361,7 @@ export async function selectQuote(
   orderId: string,
   quoteId: string
 ): Promise<NashOrderResponse> {
+  console.log(`Selecting quote ${quoteId} for order ${orderId}`);
   return nashRequest<NashOrderResponse>(
     ENDPOINTS.SELECT_QUOTE(orderId),
     'POST',
@@ -362,11 +370,30 @@ export async function selectQuote(
 }
 
 /**
+ * Helper function to find the preferred quote from a list of quotes
+ * Looks for a quote with the 'autodispatch_preferred_quote' tag
+ */
+export function findPreferredQuote(quotes: NashQuote[] | undefined): NashQuote | undefined {
+  if (!quotes || quotes.length === 0) {
+    return undefined;
+  }
+  
+  // First try to find a quote with the 'autodispatch_preferred_quote' tag
+  const preferredQuote = quotes.find(quote => 
+    quote.tags && quote.tags.includes('autodispatch_preferred_quote')
+  );
+  
+  // If no preferred quote is found, return the first quote as fallback
+  return preferredQuote || quotes[0];
+}
+
+/**
  * Autodispatch an order to the selected provider
  */
 export async function autodispatchOrder(
   orderId: string
 ): Promise<NashOrderResponse> {
+  console.log(`Autodispatching order ${orderId}`);
   return nashRequest<NashOrderResponse>(
     ENDPOINTS.AUTODISPATCH(orderId),
     'POST'

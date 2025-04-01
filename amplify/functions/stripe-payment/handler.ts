@@ -10,7 +10,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const { total, orderId, restaurantId } = JSON.parse(event.body || '{}');
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: total * 100, // Stripe expects amount in cents
+      amount: Math.round(total * 100), // Stripe expects amount in cents as an integer
       currency: 'usd',
       metadata: {
         orderId,

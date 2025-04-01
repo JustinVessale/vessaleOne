@@ -1,152 +1,217 @@
-import { useState, useEffect } from 'react';
-import { getOrder, cancelOrder } from '@/lib/services/nashService';
+import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { generateClient } from 'aws-amplify/api';
+import type { Schema } from '../../../../amplify/data/resource';
 
 interface DeliveryTrackingProps {
-  deliveryId: string;
+  deliveryId?: string;
+  orderId: string;
   onCancel?: () => void;
+  onSwitchToPickup?: () => Promise<void>;
 }
 
-interface DeliveryStatus {
-  status: string;
-  provider: string;
-  fee: number;
-  estimated_pickup_time: string;
-  estimated_delivery_time: string;
-  tracking_url?: string;
-  driver?: {
-    name: string;
-    phone: string;
-    photo_url?: string;
-    location?: {
-      lat: number;
-      lng: number;
-    };
-  };
-  dropoff: {
-    address: {
-      street: string;
-      city: string;
-      state: string;
-      zip: string;
-      instructions?: string;
-    };
-  };
-  tip_amount?: number;
-}
+// Map Nash status to user-friendly status
+const statusMap: Record<string, string> = {
+  'PENDING': 'Order Created',
+  'CONFIRMED': 'Driver Assigned',
+  'PICKING_UP': 'Driver at Restaurant',
+  'PICKED_UP': 'Order Picked Up',
+  'DELIVERING': 'Driver Arrived',
+  'COMPLETED': 'Delivered',
+  'CANCELLED': 'Cancelled',
+  'FAILED': 'Delivery Failed'
+};
 
-export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps) {
-  const [delivery, setDelivery] = useState<DeliveryStatus | null>(null);
+const client = generateClient<Schema>();
+
+type OrderType = Schema['Order']['type'];
+
+export function DeliveryTracking({ deliveryId, orderId, onCancel, onSwitchToPickup }: DeliveryTrackingProps) {
+  const [order, setOrder] = useState<OrderType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isCancelling, setIsCancelling] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isSwitchingToPickup, setIsSwitchingToPickup] = useState(false);
+  const isFetchingRef = useRef(false);
   const { toast } = useToast();
-
-  // Fetch delivery status
-  useEffect(() => {
-    let isMounted = true;
+  
+  const fetchOrder = async () => {
+    if (isFetchingRef.current) return;
     
-    const fetchDeliveryStatus = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Get order details from Nash
-        const orderResponse = await getOrder(deliveryId);
-        
-        if (isMounted) {
-          // Convert Nash order response to our internal format
-          // This is a simplified example - you would need to adapt this to your actual Nash response
-          const deliveryStatus: DeliveryStatus = {
-            status: orderResponse.status,
-            provider: orderResponse.delivery?.type || 'Nash Delivery',
-            fee: orderResponse.winnerQuote?.price_cents ? orderResponse.winnerQuote.price_cents / 100 : 0,
-            estimated_pickup_time: new Date(Date.now() + 10 * 60000).toISOString(), // Placeholder - replace with actual data from Nash when available
-            estimated_delivery_time: new Date(Date.now() + 30 * 60000).toISOString(), // Placeholder - replace with actual data from Nash when available
-            tracking_url: orderResponse.publicTrackingUrl,
-            dropoff: {
-              address: {
-                street: orderResponse.dropoffAddress.split(',')[0] || '',
-                city: orderResponse.dropoffAddress.split(',')[1]?.trim() || '',
-                state: orderResponse.dropoffAddress.split(',')[2]?.split(' ')[1]?.trim() || '',
-                zip: orderResponse.dropoffAddress.split(',')[2]?.split(' ')[2]?.trim() || '',
-              }
-            }
-          };
-          setDelivery(deliveryStatus);
+    try {
+      isFetchingRef.current = true;
+      setIsLoading(true);
+      setHasError(false);
+      
+      // Fetch order from database with a specific selection set
+      const { data: orderData, errors } = await client.models.Order.get(
+        { id: orderId },
+        { 
+          selectionSet: [
+            'id', 
+            'status',
+            'deliveryInfo.status',
+            'deliveryInfo.estimatedDeliveryTime',
+            'deliveryInfo.trackingUrl',
+            'driver.name',
+            'driver.phone',
+            'driver.currentLocation.lat',
+            'driver.currentLocation.lng'
+          ] 
         }
-      } catch (err) {
-        console.error('Error fetching delivery status:', err);
-        if (isMounted) {
-          setError('Failed to load delivery status. Please try again.');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
+      );
+      
+      if (errors) {
+        console.error("GraphQL errors:", errors);
+        throw new Error("Failed to fetch order data");
+      }
+      
+      if (orderData) {
+        setOrder(orderData as OrderType);
+        setRetryCount(0); // Reset retry count on success
+      } else {
+        // Increment retry count if order not found
+        setRetryCount(prev => prev + 1);
+        if (retryCount >= 2) {
+          setHasError(true);
+          toast({
+            title: "Error",
+            description: "Unable to fetch delivery status after multiple attempts.",
+            variant: "destructive"
+          });
         }
       }
-    };
-    
-    fetchDeliveryStatus();
-    
-    // Set up polling for status updates
-    const intervalId = setInterval(fetchDeliveryStatus, 30000); // Poll every 30 seconds
-    
-    return () => {
-      isMounted = false;
-      clearInterval(intervalId);
-    };
-  }, [deliveryId]);
+    } catch (error) {
+      console.error("Error fetching order:", error);
+      // Increment retry count on error
+      setRetryCount(prev => prev + 1);
+      if (retryCount >= 2) {
+        setHasError(true);
+        toast({
+          title: "Error",
+          description: "Unable to fetch delivery status. Please try again later.",
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setIsLoading(false);
+      isFetchingRef.current = false;
+    }
+  };
 
-  // Handle delivery cancellation
+  // Initial fetch only - no polling since we're using webhooks now
+  useEffect(() => {
+    fetchOrder();
+  }, [orderId]);
+
+  // Set up subscription to order updates
+  useEffect(() => {
+    if (!orderId) return;
+
+    const sub = client.models.Order.onUpdate({
+      filter: { id: { eq: orderId } }
+    }).subscribe({
+      next: (event: any) => {
+        const updatedOrder = event.data;
+        if (updatedOrder) {
+          setOrder(updatedOrder as OrderType);
+          if (updatedOrder.deliveryInfo?.status) {
+            toast({
+              title: "Delivery Status Updated",
+              description: `Status: ${statusMap[updatedOrder.deliveryInfo.status] || updatedOrder.deliveryInfo.status}`,
+              variant: "default",
+            });
+          }
+        }
+      },
+      error: (error) => {
+        console.error('Subscription error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to receive delivery updates",
+          variant: "destructive",
+        });
+      }
+    });
+
+    return () => {
+      sub.unsubscribe();
+    };
+  }, [orderId, toast]);
+
   const handleCancelDelivery = async () => {
-    if (!delivery || !deliveryId) return;
-    
-    if (!window.confirm('Are you sure you want to cancel this delivery?')) {
+    if (!onCancel) {
       return;
     }
     
-    setIsCancelling(true);
-    
     try {
-      await cancelOrder(deliveryId, 'Customer requested cancellation');
-      
+      onCancel();
       toast({
         title: 'Delivery Cancelled',
         description: 'Your delivery has been cancelled successfully.',
       });
-      
-      if (onCancel) {
-        onCancel();
-      }
-    } catch (err) {
-      console.error('Error cancelling delivery:', err);
+    } catch (error) {
+      console.error('Error cancelling delivery:', error);
       toast({
-        title: 'Cancellation Failed',
-        description: 'Failed to cancel delivery. Please try again or contact support.',
+        title: 'Error',
+        description: 'Failed to cancel delivery. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setIsCancelling(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="p-4 flex justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    );
+  const handleSwitchToPickup = async () => {
+    if (!onSwitchToPickup || !order) return;
+    
+    setIsSwitchingToPickup(true);
+    try {
+      // Update order to remove delivery info and set status to PAID
+      await client.models.Order.update({
+        id: order.id,
+        isDelivery: false,
+        deliveryInfo: null,
+        deliveryFee: 0,
+        deliveryAddress: '',
+        status: 'PAID',
+        updatedAt: new Date().toISOString()
+      });
+
+      await onSwitchToPickup();
+      
+      toast({
+        title: "Order Updated",
+        description: "Successfully switched to pickup",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error('Error switching to pickup:', error);
+      toast({
+        title: "Error",
+        description: "Failed to switch to pickup. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSwitchingToPickup(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    setRetryCount(0); // Reset retry count on manual refresh
+    fetchOrder();
+  };
+
+  if (isLoading && !order) {
+    return <div className="flex justify-center items-center p-8">Loading delivery status...</div>;
   }
 
-  if (error || !delivery) {
+  if (hasError) {
     return (
-      <div className="p-4 text-center">
-        <p className="text-red-500">{error || 'Failed to load delivery information'}</p>
+      <div className="flex flex-col justify-center items-center p-8">
+        <p className="text-red-500 mb-4">Unable to load delivery status</p>
         <button 
-          onClick={() => window.location.reload()}
-          className="mt-2 px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+          onClick={handleRefresh}
+          className="px-4 py-2 bg-primary text-white rounded-md"
         >
           Retry
         </button>
@@ -154,116 +219,74 @@ export function DeliveryTracking({ deliveryId, onCancel }: DeliveryTrackingProps
     );
   }
 
-  // Format times
-  const estimatedPickupTime = new Date(delivery.estimated_pickup_time);
-  const estimatedDeliveryTime = new Date(delivery.estimated_delivery_time);
+  if (!order?.deliveryInfo?.status) {
+    return <div className="p-4">No delivery information available</div>;
+  }
+
+  const deliveryStatus = order.deliveryInfo.status;
+  const isDeliveryFailed = deliveryStatus === 'CANCELLED' || deliveryStatus === 'FAILED';
+  const canCancel = !['CANCELLED', 'FAILED', 'COMPLETED'].includes(deliveryStatus);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-medium text-lg">Delivery Status</h3>
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          delivery.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-          delivery.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-          delivery.status === 'COMPLETED' ? 'bg-blue-100 text-blue-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
-          {delivery.status}
-        </span>
-      </div>
-
-      {/* Estimated Times */}
-      <div className="mb-4">
-        <div className="flex justify-between mb-2">
-          <span className="text-gray-600">Estimated Pickup</span>
-          <span>{format(estimatedPickupTime, 'h:mm a')}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-600">Estimated Delivery</span>
-          <span className="font-medium">{format(estimatedDeliveryTime, 'h:mm a')}</span>
-        </div>
-      </div>
-
-      {/* Driver Information */}
-      {delivery.driver && (
-        <div className="border-t border-gray-200 pt-4 mb-4">
-          <h4 className="font-medium mb-2">Driver</h4>
-          <div className="flex items-center">
-            {delivery.driver.photo_url && (
-              <img 
-                src={delivery.driver.photo_url} 
-                alt={delivery.driver.name}
-                className="w-10 h-10 rounded-full mr-3"
-              />
-            )}
-            <div>
-              <p className="font-medium">{delivery.driver.name}</p>
-              <p className="text-sm text-gray-600">{delivery.driver.phone}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delivery Details */}
-      <div className="border-t border-gray-200 pt-4 mb-4">
-        <h4 className="font-medium mb-2">Delivery Details</h4>
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Provider</span>
-            <span>{delivery.provider}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Delivery Fee</span>
-            <span>${delivery.fee.toFixed(2)}</span>
-          </div>
-          {delivery.tip_amount && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Tip</span>
-              <span>${delivery.tip_amount.toFixed(2)}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Delivery Address */}
-      <div className="border-t border-gray-200 pt-4 mb-4">
-        <h4 className="font-medium mb-2">Delivery Address</h4>
-        <p>{delivery.dropoff.address.street}</p>
-        <p>
-          {delivery.dropoff.address.city}, {delivery.dropoff.address.state}{' '}
-          {delivery.dropoff.address.zip}
+    <div className="p-4 border rounded-lg shadow-sm">
+      <h3 className="text-lg font-semibold mb-4">
+        Delivery Status: {statusMap[deliveryStatus] || deliveryStatus}
+      </h3>
+      
+      {order.deliveryInfo.estimatedDeliveryTime && (
+        <p className="mb-2">
+          Estimated delivery: {format(new Date(order.deliveryInfo.estimatedDeliveryTime), 'h:mm a')}
         </p>
-        {delivery.dropoff.address.instructions && (
-          <p className="text-sm text-gray-600 mt-1">
-            Instructions: {delivery.dropoff.address.instructions}
-          </p>
-        )}
-      </div>
-
-      {/* Tracking Link */}
-      {delivery.tracking_url && (
+      )}
+      
+      {order.driver && (
         <div className="mb-4">
-          <a 
-            href={delivery.tracking_url} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="block w-full text-center py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-          >
-            Track Delivery
-          </a>
+          <p className="font-medium">Courier Information</p>
+          <p>{order.driver.name}</p>
+          <p>{order.driver.phone}</p>
+        </div>
+      )}
+      
+      {order.driver?.currentLocation && (
+        <div className="mb-4">
+          <p className="font-medium">Current Location</p>
+          <p>
+            {order.driver.currentLocation.lat}, {order.driver.currentLocation.lng}
+          </p>
         </div>
       )}
 
-      {/* Cancel Button */}
-      {delivery.status !== 'COMPLETED' && delivery.status !== 'CANCELLED' && (
+      {/* Show switch to pickup option if delivery failed or was cancelled */}
+      {onSwitchToPickup && isDeliveryFailed && (
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+          <p className="text-sm text-yellow-800 mb-2">
+            Delivery {deliveryStatus.toLowerCase()}. Would you like to switch to pickup instead?
+          </p>
+          <button
+            onClick={handleSwitchToPickup}
+            disabled={isSwitchingToPickup}
+            className="w-full px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSwitchingToPickup ? 'Switching to Pickup...' : 'Switch to Pickup'}
+          </button>
+        </div>
+      )}
+      
+      <button 
+        onClick={handleRefresh}
+        className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md text-sm mt-2"
+      >
+        Refresh Status
+      </button>
+      
+      {onCancel && canCancel && (
         <button
           onClick={handleCancelDelivery}
-          disabled={isCancelling}
-          className="block w-full text-center py-2 bg-white border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="block w-full text-center py-2 bg-white border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4"
         >
-          {isCancelling ? 'Cancelling...' : 'Cancel Delivery'}
+          Cancel Delivery
         </button>
       )}
     </div>
   );
-} 
+}
