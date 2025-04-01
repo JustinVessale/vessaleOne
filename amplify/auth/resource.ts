@@ -6,6 +6,14 @@ import { defineAuth } from '@aws-amplify/backend';
  */
 export const auth = defineAuth({
   loginWith: {
-    email: true,
+    email: true, // Use default email configuration for simplicity
   },
+  // Optional: Configure email sender options
+  senders: {
+    email: {
+      fromEmail: 'noreply@yourdomain.com',
+      fromName: 'Restaurant Portal',
+      replyTo: 'support@yourdomain.com'
+    }
+  }
 });
