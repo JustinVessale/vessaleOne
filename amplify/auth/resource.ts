@@ -8,12 +8,15 @@ export const auth = defineAuth({
   loginWith: {
     email: true, // Use default email configuration for simplicity
   },
-  // Optional: Configure email sender options
+  // Disable MFA
+  multifactor: {
+    mode: 'OFF'
+  },
+  // Basic email sender configuration
   senders: {
     email: {
-      fromEmail: 'noreply@yourdomain.com',
+      fromEmail: 'noreply@example.com',
       fromName: 'Restaurant Portal',
-      replyTo: 'support@yourdomain.com'
     }
   }
 });
