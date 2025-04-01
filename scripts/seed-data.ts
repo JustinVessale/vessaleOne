@@ -2,6 +2,7 @@ import { generateClient } from "aws-amplify/api";
 import { type Schema } from "../amplify/data/resource";
 import outputs from "../amplify_outputs.json";
 import { Amplify } from "aws-amplify";
+import { signUp } from 'aws-amplify/auth';
 
 Amplify.configure(outputs);
 
@@ -9,7 +10,27 @@ const client = generateClient<Schema>();
 
 async function seedData() {
   try {
-    // Create Restaurant
+    // Create test restaurant owner account
+    const ownerEmail = "owner@worldfamousgrill.com";
+    
+    try {
+      await signUp({
+        username: ownerEmail,
+        password: "Test123!", // You should change this in production
+        options: {
+          userAttributes: {
+            email: ownerEmail,
+            given_name: "John",
+            family_name: "Smith"
+          }
+        }
+      });
+      console.log("✅ Restaurant owner account created");
+    } catch (error) {
+      console.log("Owner might already exist, continuing...");
+    }
+
+    // Create Restaurant with owner
     const restaurantResponse = await client.models.Restaurant.create({
       name: "World Famous Grill",
       slug: "world-famous-grill",
@@ -20,15 +41,41 @@ async function seedData() {
       state: "CA",
       zip: "90201",
       phone: "323-562-0744",
+      ownerEmail: ownerEmail,
+      isActive: true,
+      printerConfig: {
+        printerType: "EPSON",
+        ipAddress: "192.168.1.100",
+        port: 9100,
+        isEnabled: true
+      }
     });
 
-    if (restaurantResponse.data?.id) {
-      var restaurantId = restaurantResponse.data.id; 
-    } else {
-      // Handle the case where id is missing
+    if (!restaurantResponse.data?.id) {
       throw new Error("Restaurant ID is missing from the response.");
     }
-    
+    const restaurantId = restaurantResponse.data.id;
+
+    // Create staff members
+    await Promise.all([
+      client.models.RestaurantStaff.create({
+        email: "manager@worldfamousgrill.com",
+        restaurantId: restaurantId,
+        role: "MANAGER",
+        firstName: "Jane",
+        lastName: "Doe",
+        isActive: true
+      }),
+      client.models.RestaurantStaff.create({
+        email: "staff@worldfamousgrill.com",
+        restaurantId: restaurantId,
+        role: "STAFF",
+        firstName: "Bob",
+        lastName: "Wilson",
+        isActive: true
+      })
+    ]);
+
     // Create Menu Categories
     const categories = await Promise.all([
       client.models.MenuCategory.create({
@@ -152,7 +199,6 @@ async function seedData() {
   } catch (error) {
     console.error("❌ Error creating seed data:", error);
   }
-
 }
 
 // Run the seed function
