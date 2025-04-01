@@ -11,6 +11,16 @@ const client = generateClient<Schema>({
   authMode: 'apiKey'
 });
 
+/**
+ * Run this script to seed the database with initial data for a restaurant.
+ * This will create:
+ * - A restaurant record
+ * - Staff members (including the owner with email justin@thevessale.com)
+ * - Menu categories and items
+ * 
+ * Execute from the project root with:
+ * npx tsx scripts/seed-data.ts
+ */
 async function seedData() {
   try {
     // Define owner email for reference

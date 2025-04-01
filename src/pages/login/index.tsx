@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { signIn } from 'aws-amplify/auth';
+import { signIn, fetchAuthSession } from 'aws-amplify/auth';
 import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -15,6 +15,11 @@ export default function LoginPage() {
 
     try {
       await signIn({ username: email, password });
+      
+      // Ensure authentication session is properly stored before redirecting
+      await fetchAuthSession();
+      console.log("Auth session retrieved, redirecting to portal");
+      
       // Redirect to restaurant portal on successful login
       window.location.href = '/restaurant-portal';
     } catch (error: any) {
