@@ -11,12 +11,5 @@ export const auth = defineAuth({
   // Disable MFA
   multifactor: {
     mode: 'OFF'
-  },
-  // Basic email sender configuration
-  senders: {
-    email: {
-      fromEmail: 'noreply@example.com',
-      fromName: 'Restaurant Portal',
-    }
   }
 });

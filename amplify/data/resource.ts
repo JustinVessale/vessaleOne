@@ -49,6 +49,7 @@ const schema = a.schema({
       isActive: a.boolean(),
     })
     .authorization((allow) => [
+      allow.publicApiKey(),
       allow.owner()
     ]),
 
