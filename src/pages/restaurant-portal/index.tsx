@@ -7,15 +7,42 @@ import { Loader2 } from 'lucide-react';
 
 const client = generateClient<Schema>();
 
+// Track page reloads to detect loops
+let pageLoadCount = 0;
+
 export default function RestaurantPortalPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
-
+  
   useEffect(() => {
+    // Increment counter to detect loops
+    pageLoadCount++;
+    console.log(`RestaurantPortalPage loaded ${pageLoadCount} times`);
+    
+    if (pageLoadCount > 5) {
+      console.error("Detected potential redirect loop. Breaking the cycle.");
+      setError("Too many page reloads detected. Breaking potential redirect loop.");
+      setIsLoading(false);
+      return;
+    }
+    
     async function checkAuthAndFetchRestaurant() {
       try {
+        // Skip authentication check if user just came from successful login
+        const restaurantId = sessionStorage.getItem('restaurantId');
+        const restaurantName = sessionStorage.getItem('restaurantName');
+        
+        console.log("Current session data:", { restaurantId, restaurantName });
+        
+        if (restaurantId && restaurantName) {
+          console.log("User has valid restaurant data in session, skipping auth check");
+          setIsAuthenticated(true);
+          setIsLoading(false);
+          return;
+        }
+        
         // Ensure we have a valid auth session first
         const authSession = await fetchAuthSession();
         console.log("Auth session tokens available:", !!authSession.tokens);
@@ -32,7 +59,8 @@ export default function RestaurantPortalPage() {
         setIsAuthenticated(true);
         
         // Get the user's email to find their restaurant
-        const userEmail = user.username;
+        const userEmail = user.signInDetails?.loginId || user.username;
+        console.log("Looking up staff for email:", userEmail);
         
         // Find the restaurant that the user is associated with
         const { data: staffData, errors: staffErrors } = await client.models.RestaurantStaff.list({
@@ -44,7 +72,7 @@ export default function RestaurantPortalPage() {
         
         if (staffErrors) {
           console.error("Staff query errors:", staffErrors);
-          setDebugInfo(JSON.stringify(staffErrors));
+          setDebugInfo(`Staff query errors: ${JSON.stringify(staffErrors)}`);
         }
         
         console.log("Staff data retrieved:", staffData);
@@ -72,7 +100,7 @@ export default function RestaurantPortalPage() {
           
           if (restaurantErrors) {
             console.error("Restaurant query errors:", restaurantErrors);
-            setDebugInfo(JSON.stringify(restaurantErrors));
+            setDebugInfo(`Restaurant query errors: ${JSON.stringify(restaurantErrors)}`);
           }
           
           if (restaurant && restaurant.name) {
@@ -122,7 +150,11 @@ export default function RestaurantPortalPage() {
           )}
         </div>
         <button 
-          onClick={() => window.location.href = '/login'}
+          onClick={() => {
+            // Clear session before redirecting to avoid potential loops
+            sessionStorage.clear();
+            window.location.href = '/portal/login';
+          }}
           className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
           Go to Login
@@ -134,7 +166,9 @@ export default function RestaurantPortalPage() {
   if (!isAuthenticated) {
     // Redirect to login if not authenticated
     if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+      // Clear session before redirecting to avoid potential loops
+      sessionStorage.clear();
+      window.location.href = '/portal/login';
     }
     return null;
   }

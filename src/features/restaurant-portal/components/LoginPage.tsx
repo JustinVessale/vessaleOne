@@ -1,19 +1,58 @@
-import { useNavigate } from 'react-router-dom';
 import { Authenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/api';
 import { type Schema } from '../../../../amplify/data/resource';
 import { useToast } from '@/hooks/use-toast';
 import '@aws-amplify/ui-react/styles.css';
 import { signOut } from 'aws-amplify/auth';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const client = generateClient<Schema>();
 
 export function LoginPage() {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  // Counter to detect loops
+  const renderCountRef = useRef(0);
+
+  // Add debug information about the current session state
+  useEffect(() => {
+    renderCountRef.current += 1;
+    
+    // Log session storage items to help with debugging
+    const restaurantId = sessionStorage.getItem('restaurantId');
+    const staffRole = sessionStorage.getItem('staffRole');
+    const restaurantName = sessionStorage.getItem('restaurantName');
+    
+    console.log(`[LoginPage] Render #${renderCountRef.current} - Session data:`, {
+      restaurantId,
+      staffRole,
+      restaurantName,
+      pathname: window.location.pathname
+    });
+    
+    // If we detect too many renders, it might indicate a loop
+    if (renderCountRef.current > 5) {
+      console.warn('[LoginPage] Too many renders detected, possible redirect loop');
+      setDebugInfo(`Possible redirect loop detected. Render count: ${renderCountRef.current}. Please clear session storage and try again.`);
+    }
+  }, []);
+
+  // Check if already authenticated with sessionStorage data
+  useEffect(() => {
+    const restaurantId = sessionStorage.getItem('restaurantId');
+    const staffRole = sessionStorage.getItem('staffRole');
+    
+    if (restaurantId && staffRole) {
+      console.log('[LoginPage] Already authenticated, redirecting to dashboard');
+      // Add a delay to allow debug information to be displayed
+      setTimeout(() => {
+        navigate('/portal/dashboard', { replace: true });
+      }, 300);
+    }
+  }, [navigate]);
 
   const listAllStaff = async () => {
     try {
@@ -89,15 +128,20 @@ export function LoginPage() {
       // Store restaurant context
       sessionStorage.setItem('restaurantId', staffMember.restaurantId || '');
       sessionStorage.setItem('staffRole', staffMember.role || '');
-      sessionStorage.setItem('restaurantName', restaurant.name || '');
+      if (restaurant.name) {
+        sessionStorage.setItem('restaurantName', restaurant.name);
+      }
 
-      // Redirect to dashboard
-      navigate('/portal/dashboard');
-      
+      // Success message
       toast({
         title: "Welcome back!",
-        description: `Signed in successfully to ${restaurant.name}`,
+        description: `Signed in successfully to ${restaurant.name || 'your restaurant'}`,
       });
+      
+      // Redirect to restaurant portal dashboard - use React Router instead of window.location
+      console.log("Redirecting to restaurant portal dashboard");
+      navigate('/portal/dashboard', { replace: true });
+      
       return true;
 
     } catch (error) {
@@ -140,6 +184,22 @@ export function LoginPage() {
                   </div>
                 )}
                 
+                {!debugInfo && (
+                  <div className="mt-4">
+                    <button
+                      onClick={() => {
+                        const restaurantId = sessionStorage.getItem('restaurantId');
+                        const staffRole = sessionStorage.getItem('staffRole');
+                        const restaurantName = sessionStorage.getItem('restaurantName');
+                        setDebugInfo(`Session data:\nrestaurantId: ${restaurantId}\nstaffRole: ${staffRole}\nrestaurantName: ${restaurantName}\nRender count: ${renderCountRef.current}`);
+                      }}
+                      className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs"
+                    >
+                      Show Debug Info
+                    </button>
+                  </div>
+                )}
+                
                 {debugInfo && (
                   <div className="mt-6 p-4 bg-gray-100 rounded text-left text-xs">
                     <h3 className="font-bold mb-2">Debug Information:</h3>
@@ -154,7 +214,19 @@ export function LoginPage() {
                       </button>
                       
                       <button
-                        onClick={() => signOut()}
+                        onClick={() => {
+                          // Clear all session storage
+                          sessionStorage.clear();
+                          console.log('[LoginPage] Session storage cleared');
+                          setDebugInfo('Session storage cleared. You can now try logging in again.');
+                        }}
+                        className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-xs"
+                      >
+                        Clear Session
+                      </button>
+                      
+                      <button
+                        onClick={() => signOut && signOut()}
                         className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-xs"
                       >
                         Sign Out

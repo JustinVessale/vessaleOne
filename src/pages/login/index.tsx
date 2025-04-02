@@ -21,7 +21,7 @@ export default function LoginPage() {
       console.log("Auth session retrieved, redirecting to portal");
       
       // Redirect to restaurant portal on successful login
-      window.location.href = '/restaurant-portal';
+      window.location.href = '/portal/dashboard';
     } catch (error: any) {
       console.error('Error signing in:', error);
       

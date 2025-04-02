@@ -58,7 +58,7 @@ export function PortalLayout() {
     try {
       await signOut();
       // Redirect to login page after signout
-      window.location.href = '/login';
+      window.location.href = '/portal/login';
     } catch (error) {
       console.error('Error signing out:', error);
     }
