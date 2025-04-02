@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { signOut } from 'aws-amplify/auth';
 import {
   BarChart,
@@ -20,7 +20,11 @@ const iconMap: Record<string, React.ReactNode> = {
   Settings: <Settings className="h-5 w-5" />
 };
 
-export function PortalLayout() {
+interface PortalLayoutProps {
+  children: ReactNode;
+}
+
+export function PortalLayout({ children }: PortalLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [currentPath, setCurrentPath] = useState<string>('');
   const [restaurantName, setRestaurantName] = useState<string>('');
@@ -141,7 +145,7 @@ export function PortalLayout() {
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          <CurrentComponent />
+          {children}
         </div>
       </div>
     </div>

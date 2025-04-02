@@ -12,14 +12,40 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Printer, Loader2 } from 'lucide-react';
+import { Printer, Loader2, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 
 const client = generateClient<Schema>();
+
+// Order status badge component
+function OrderStatusBadge({ status }: { status: string }) {
+  const getStatusStyles = () => {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'in progress':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      case 'new':
+      default:
+        return 'bg-blue-100 text-blue-800';
+    }
+  };
+
+  return (
+    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusStyles()}`}>
+      {status}
+    </span>
+  );
+}
 
 export function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingOrder, setProcessingOrder] = useState<string | null>(null);
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -158,6 +184,24 @@ export function OrdersPage() {
     }
   };
 
+  const toggleOrderExpand = (orderId: string) => {
+    if (expandedOrder === orderId) {
+      setExpandedOrder(null);
+    } else {
+      setExpandedOrder(orderId);
+    }
+  };
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = 
+      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === null || order.status.toLowerCase() === statusFilter.toLowerCase();
+    
+    return matchesSearch && matchesStatus;
+  });
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -168,50 +212,163 @@ export function OrdersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Orders</h1>
-      
-      {orders.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
-          <p className="text-gray-500">No orders yet.</p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
+        <p className="text-gray-600 mt-1">Manage your restaurant orders</p>
+      </div>
+
+      <div className="bg-white rounded-lg shadow mb-6">
+        <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+          <div className="flex items-center space-x-2">
+            <div className="relative">
+              <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search orders..."
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="relative">
+              <Filter className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <select
+                className="pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                value={statusFilter || ''}
+                onChange={(e) => setStatusFilter(e.target.value || null)}
+              >
+                <option value="">All Statuses</option>
+                <option value="new">New</option>
+                <option value="in progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <ChevronDown className="h-4 w-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+          <Button variant="outline">Export Orders</Button>
         </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.id.substring(0, 8)}</TableCell>
-                  <TableCell>{order.customerName || 'Guest'}</TableCell>
-                  <TableCell>
-                    <ul className="list-disc pl-5">
-                      {order.items?.map((item: any, index: number) => (
-                        <li key={index}>
-                          {item.quantity}x {item.menuItem?.name || 'Unknown Item'}
-                        </li>
-                      ))}
-                    </ul>
-                  </TableCell>
-                  <TableCell>{format(new Date(order.createdAt), 'MMM d, h:mm a')}</TableCell>
-                  <TableCell>${order.total?.toFixed(2)}</TableCell>
-                  <TableCell>{getStatusBadge(order.status)}</TableCell>
-                  <TableCell>{getActionButton(order)}</TableCell>
-                </TableRow>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredOrders.map((order) => (
+                <React.Fragment key={order.id}>
+                  <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleOrderExpand(order.id)}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{order.id}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div>{order.customerName || 'Guest'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div>{format(new Date(order.createdAt), 'MMM d, h:mm a')}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <OrderStatusBadge status={order.status} />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{order.total?.toFixed(2)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {expandedOrder === order.id ? (
+                        <ChevronUp className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                      )}
+                    </td>
+                  </tr>
+                  {expandedOrder === order.id && (
+                    <tr className="bg-gray-50">
+                      <td colSpan={6} className="px-6 py-4">
+                        <div className="text-sm">
+                          <h3 className="font-medium mb-2">Order Items</h3>
+                          <div className="border rounded-md overflow-hidden">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-100">
+                                <tr>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Item</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Quantity</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Price</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {order.items?.map((item: any, index: number) => (
+                                  <tr key={index}>
+                                    <td className="px-4 py-2 text-sm">{item.menuItem?.name || 'Unknown Item'}</td>
+                                    <td className="px-4 py-2 text-sm">{item.quantity}</td>
+                                    <td className="px-4 py-2 text-sm">{item.menuItem?.price?.toFixed(2)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          <div className="mt-4 flex justify-between">
+                            <div className="space-x-2">
+                              {order.status !== 'Completed' && order.status !== 'Cancelled' && (
+                                <>
+                                  <Button 
+                                    variant="default" 
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      updateOrderStatus(order.id, 'COMPLETED');
+                                    }}
+                                  >
+                                    Mark Completed
+                                  </Button>
+                                  {order.status === 'New' && (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateOrderStatus(order.id, 'PREPARING');
+                                      }}
+                                    >
+                                      Start Preparing
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                            {order.status !== 'Cancelled' && (
+                              <Button 
+                                variant="destructive" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateOrderStatus(order.id, 'CANCELLED');
+                                }}
+                              >
+                                Cancel Order
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
-            </TableBody>
-          </Table>
+              {filteredOrders.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
+                    No orders found matching your criteria.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
     </div>
   );
 } 

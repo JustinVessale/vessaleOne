@@ -2,15 +2,23 @@ import { OrdersPage } from './components/OrdersPage';
 import { MenuPage } from './components/MenuPage';
 import { AnalyticsPage } from './components/AnalyticsPage';
 import { AccountPage } from './components/AccountPage';
+import { DashboardPage } from './components/DashboardPage';
 
 // Define the available routes for the restaurant portal
 export const portalRoutes = [
+  {
+    path: 'dashboard',
+    component: DashboardPage,
+    label: 'Dashboard',
+    icon: 'BarChart',
+    isDefault: true,
+  },
   {
     path: 'orders',
     component: OrdersPage,
     label: 'Orders',
     icon: 'ShoppingBag',
-    isDefault: true,
+    isDefault: false,
   },
   {
     path: 'menu',
@@ -38,7 +46,7 @@ export const portalRoutes = [
 // Helper to get the default route
 export const getDefaultRoute = () => {
   const defaultRoute = portalRoutes.find(route => route.isDefault);
-  return defaultRoute ? defaultRoute.path : 'orders';
+  return defaultRoute ? defaultRoute.path : 'dashboard';
 };
 
 // Get a route by path

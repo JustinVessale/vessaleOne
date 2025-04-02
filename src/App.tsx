@@ -8,6 +8,12 @@ import { OrderConfirmationPage } from '@/features/orders/components/OrderConfirm
 import { Cart } from './features/cart/components/Cart';
 import { LoginPage } from '@/features/restaurant-portal/components/LoginPage';
 import { ProtectedRoute } from '@/features/restaurant-portal/components/ProtectedRoute';
+import { PortalLayout } from '@/features/restaurant-portal/components/PortalLayout';
+import { DashboardPage } from '@/features/restaurant-portal/components/DashboardPage';
+import { OrdersPage } from '@/features/restaurant-portal/components/OrdersPage';
+import { MenuPage } from '@/features/restaurant-portal/components/MenuPage';
+import { AnalyticsPage } from '@/features/restaurant-portal/components/AnalyticsPage';
+import { AccountPage } from '@/features/restaurant-portal/components/AccountPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,27 +47,37 @@ function AppContent() {
           <Route path="login" element={<LoginPage />} />
           <Route path="dashboard" element={
             <ProtectedRoute>
-              <div>Dashboard (Coming Soon)</div>
+              <PortalLayout>
+                <DashboardPage />
+              </PortalLayout>
             </ProtectedRoute>
           } />
           <Route path="orders" element={
             <ProtectedRoute>
-              <div>Orders (Coming Soon)</div>
+              <PortalLayout>
+                <OrdersPage />
+              </PortalLayout>
             </ProtectedRoute>
           } />
           <Route path="menu" element={
             <ProtectedRoute>
-              <div>Menu (Coming Soon)</div>
+              <PortalLayout>
+                <MenuPage />
+              </PortalLayout>
             </ProtectedRoute>
           } />
           <Route path="analytics" element={
             <ProtectedRoute>
-              <div>Analytics (Coming Soon)</div>
+              <PortalLayout>
+                <AnalyticsPage />
+              </PortalLayout>
             </ProtectedRoute>
           } />
-          <Route path="settings" element={
+          <Route path="account" element={
             <ProtectedRoute>
-              <div>Settings (Coming Soon)</div>
+              <PortalLayout>
+                <AccountPage />
+              </PortalLayout>
             </ProtectedRoute>
           } />
         </Route>

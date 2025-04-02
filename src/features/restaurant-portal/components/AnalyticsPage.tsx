@@ -1,159 +1,200 @@
-import { useState, useEffect } from 'react';
-import { generateClient } from 'aws-amplify/api';
-import { type Schema } from '../../../../amplify/data/resource';
-import { Loader2, DollarSign, ShoppingBag, Utensils, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
+import { BarChart, LineChart, PieChart, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-const client = generateClient<Schema>();
+// Sample analytics card component
+function AnalyticsCard({ 
+  title, 
+  value, 
+  change, 
+  timeframe,
+  icon
+}: { 
+  title: string; 
+  value: string; 
+  change: number;
+  timeframe: string;
+  icon: React.ReactNode;
+}) {
+  const isPositive = change > 0;
+  
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex justify-between">
+        <div>
+          <p className="text-sm text-gray-500">{title}</p>
+          <p className="text-2xl font-bold mt-1">{value}</p>
+          <div className="flex items-center mt-2">
+            <span className={`flex items-center text-sm ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+              {isPositive ? <ArrowUp className="h-3 w-3 mr-1" /> : <ArrowDown className="h-3 w-3 mr-1" />}
+              {Math.abs(change)}%
+            </span>
+            <span className="text-gray-500 text-sm ml-1">vs. {timeframe}</span>
+          </div>
+        </div>
+        <div className="p-3 bg-blue-50 rounded-full">
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function AnalyticsPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalOrders: 0,
-    totalRevenue: 0,
-    avgOrderValue: 0,
-    topSellingItems: [] as { name: string; count: number }[],
-  });
-
-  useEffect(() => {
-    const fetchAnalyticsData = async () => {
-      try {
-        const restaurantId = sessionStorage.getItem('restaurantId');
-        if (!restaurantId) return;
-
-        // Fetch orders
-        const { data: orders } = await client.models.Order.list({
-          filter: {
-            restaurantId: { eq: restaurantId },
-            status: { ne: 'CANCELLED' }
-          },
-          selectionSet: ['id', 'total', 'items.menuItem.id', 'items.menuItem.name', 'items.quantity']
-        });
-
-        // Calculate stats
-        const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
-        const avgOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
-
-        // Calculate top selling items
-        const itemCounts: Record<string, { name: string; count: number }> = {};
-        
-        orders.forEach(order => {
-          order.items?.forEach((item: any) => {
-            const itemId = item.menuItem?.id;
-            const itemName = item.menuItem?.name;
-            
-            if (itemId && itemName) {
-              if (!itemCounts[itemId]) {
-                itemCounts[itemId] = { name: itemName, count: 0 };
-              }
-              itemCounts[itemId].count += (item.quantity || 1);
-            }
-          });
-        });
-        
-        const topSellingItems = Object.values(itemCounts)
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 5);
-
-        setStats({
-          totalOrders: orders.length,
-          totalRevenue,
-          avgOrderValue,
-          topSellingItems,
-        });
-      } catch (error) {
-        console.error('Error fetching analytics data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchAnalyticsData();
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
-      </div>
-    );
-  }
-
+  const [timeframe, setTimeframe] = useState('week');
+  
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Analytics</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+        <p className="text-gray-600 mt-1">Insights and performance metrics for your restaurant</p>
+      </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Total Orders Card */}
+      <div className="mb-6 flex justify-between items-center">
+        <div className="flex space-x-2 bg-gray-100 p-1 rounded-md">
+          <Button 
+            variant={timeframe === 'day' ? 'default' : 'ghost'} 
+            size="sm"
+            onClick={() => setTimeframe('day')}
+          >
+            Today
+          </Button>
+          <Button 
+            variant={timeframe === 'week' ? 'default' : 'ghost'} 
+            size="sm"
+            onClick={() => setTimeframe('week')}
+          >
+            This Week
+          </Button>
+          <Button 
+            variant={timeframe === 'month' ? 'default' : 'ghost'} 
+            size="sm"
+            onClick={() => setTimeframe('month')}
+          >
+            This Month
+          </Button>
+          <Button 
+            variant={timeframe === 'year' ? 'default' : 'ghost'} 
+            size="sm"
+            onClick={() => setTimeframe('year')}
+          >
+            This Year
+          </Button>
+        </div>
+        <div className="flex items-center">
+          <Calendar className="h-4 w-4 mr-2 text-gray-500" />
+          <span className="text-sm text-gray-700">Custom Range</span>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <AnalyticsCard 
+          title="Total Revenue" 
+          value="$14,452"
+          change={8.2}
+          timeframe="last week"
+          icon={<LineChart className="h-6 w-6 text-blue-600" />}
+        />
+        <AnalyticsCard 
+          title="Total Orders" 
+          value="432"
+          change={-2.5}
+          timeframe="last week"
+          icon={<BarChart className="h-6 w-6 text-blue-600" />}
+        />
+        <AnalyticsCard 
+          title="Average Order Value" 
+          value="$33.45"
+          change={12.3}
+          timeframe="last week"
+          icon={<PieChart className="h-6 w-6 text-blue-600" />}
+        />
+        <AnalyticsCard 
+          title="New Customers" 
+          value="52"
+          change={5.1}
+          timeframe="last week"
+          icon={<LineChart className="h-6 w-6 text-blue-600" />}
+        />
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
-              <ShoppingBag size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Total Orders</p>
-              <h3 className="text-2xl font-bold">{stats.totalOrders}</h3>
-            </div>
+          <h2 className="text-lg font-semibold mb-4">Revenue Trend</h2>
+          <div className="aspect-[1.6/1] bg-gray-100 rounded-md flex items-center justify-center">
+            <p className="text-gray-500">Revenue chart visualization (mock)</p>
           </div>
         </div>
-        
-        {/* Revenue Card */}
         <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 text-green-600 mr-4">
-              <DollarSign size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Total Revenue</p>
-              <h3 className="text-2xl font-bold">${stats.totalRevenue.toFixed(2)}</h3>
-            </div>
-          </div>
-        </div>
-        
-        {/* Average Order Value Card */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
-              <TrendingUp size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium">Average Order</p>
-              <h3 className="text-2xl font-bold">${stats.avgOrderValue.toFixed(2)}</h3>
-            </div>
+          <h2 className="text-lg font-semibold mb-4">Orders by Day</h2>
+          <div className="aspect-[1.6/1] bg-gray-100 rounded-md flex items-center justify-center">
+            <p className="text-gray-500">Orders chart visualization (mock)</p>
           </div>
         </div>
       </div>
       
-      {/* Top Selling Items */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center">
-            <Utensils className="h-5 w-5 text-gray-500 mr-2" />
-            <h2 className="text-lg font-semibold">Top Selling Items</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Top Selling Items</h2>
+          <div className="space-y-4">
+            {[
+              { name: 'Chicken Parmesan', orders: 42, revenue: '$546.00', percent: 85 },
+              { name: 'Caesar Salad', orders: 38, revenue: '$342.00', percent: 75 },
+              { name: 'Margherita Pizza', orders: 31, revenue: '$403.00', percent: 62 },
+              { name: 'Chocolate Brownie', orders: 28, revenue: '$140.00', percent: 55 },
+              { name: 'Grilled Salmon', orders: 24, revenue: '$528.00', percent: 48 },
+            ].map((item, index) => (
+              <div key={index}>
+                <div className="flex justify-between mb-1">
+                  <span className="font-medium">{item.name}</span>
+                  <span>{item.revenue}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div 
+                    className="bg-blue-600 h-2.5 rounded-full" 
+                    style={{ width: `${item.percent}%` }}
+                  ></div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
         
-        <div className="divide-y divide-gray-200">
-          {stats.topSellingItems.length > 0 ? (
-            stats.topSellingItems.map((item, index) => (
-              <div key={index} className="p-4 flex justify-between items-center">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                    <span className="font-medium text-gray-600">{index + 1}</span>
-                  </div>
-                  <span className="font-medium">{item.name}</span>
-                </div>
-                <div>
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                    {item.count} sold
-                  </span>
-                </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Order Breakdown</h2>
+          <div className="mb-6 aspect-square max-w-[240px] mx-auto bg-gray-100 rounded-full flex items-center justify-center">
+            <p className="text-gray-500">Pie chart visualization (mock)</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-3 bg-gray-50 rounded-md">
+              <div className="flex items-center mb-1">
+                <div className="h-3 w-3 rounded-full bg-blue-500 mr-2"></div>
+                <span className="font-medium">Dine-in</span>
               </div>
-            ))
-          ) : (
-            <div className="p-4 text-center text-gray-500">
-              No order data available yet.
+              <p className="text-gray-500">45% (194 orders)</p>
             </div>
-          )}
+            <div className="p-3 bg-gray-50 rounded-md">
+              <div className="flex items-center mb-1">
+                <div className="h-3 w-3 rounded-full bg-green-500 mr-2"></div>
+                <span className="font-medium">Pickup</span>
+              </div>
+              <p className="text-gray-500">30% (129 orders)</p>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-md">
+              <div className="flex items-center mb-1">
+                <div className="h-3 w-3 rounded-full bg-yellow-500 mr-2"></div>
+                <span className="font-medium">Delivery</span>
+              </div>
+              <p className="text-gray-500">25% (109 orders)</p>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-md">
+              <div className="flex items-center mb-1">
+                <div className="h-3 w-3 rounded-full bg-purple-500 mr-2"></div>
+                <span className="font-medium">Online</span>
+              </div>
+              <p className="text-gray-500">55% (237 orders)</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
