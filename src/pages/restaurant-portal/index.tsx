@@ -173,5 +173,13 @@ export default function RestaurantPortalPage() {
     return null;
   }
 
-  return <PortalLayout />;
+  return (
+    <PortalLayout>
+      {/* Default dashboard content will go here */}
+      <div className="dashboard-container">
+        <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+        <p>Welcome to your restaurant portal.</p>
+      </div>
+    </PortalLayout>
+  );
 } 
