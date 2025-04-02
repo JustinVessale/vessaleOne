@@ -361,7 +361,10 @@ export function OrdersPage() {
         if (!restaurantId) return;
 
         const { data } = await client.models.Order.list({
-          selectionSet: ['id', 'customerName', 'restaurantId', 'status', 'total', 'createdAt', 'items.quantity', 'items.menuItem.name', 'items.menuItem.price'],
+          filter: {
+            restaurantId: { eq: restaurantId },
+          },
+          selectionSet: ['id', 'customerName', 'status', 'total', 'createdAt', 'items.quantity', 'items.menuItem.name', 'items.menuItem.price'],
         });
 
         console.log("Fetched orders:", data);
