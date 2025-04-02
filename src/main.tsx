@@ -3,11 +3,10 @@ import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { Amplify } from "aws-amplify";
+import outputs from "../amplify_outputs.json";
 import { parseAmplifyConfig } from "aws-amplify/utils";
 
-// For Gen2, the configuration is automatically injected into window.aws_exports
-declare const aws_exports: any;
-const amplifyConfig = parseAmplifyConfig(aws_exports);
+const amplifyConfig = parseAmplifyConfig(outputs);
 
 // Configure Amplify with REST API endpoints
 Amplify.configure({
@@ -15,7 +14,7 @@ Amplify.configure({
   API: {
     ...amplifyConfig.API,
     REST: {
-      'payment-api': aws_exports.custom?.API?.['payment-api']
+      'payment-api': outputs.custom?.API?.['payment-api']
     }
   }
 });
