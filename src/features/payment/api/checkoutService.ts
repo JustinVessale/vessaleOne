@@ -137,10 +137,10 @@ export async function handlePaymentSuccess(
       throw new Error('Failed to fetch order after payment');
     }
     
-    // Update order status in database
+    // Update order status in database to PAID (not directly to PREPARING)
     const { data, errors } = await client.models.Order.update({
       id: orderId,
-      status: 'PAID'
+      status: 'PAID' // Always set to PAID first so restaurant can accept the order
     });
     
     if (errors || !data) {
@@ -155,10 +155,9 @@ export async function handlePaymentSuccess(
         const nashResponse = await autodispatchOrder(nashOrderId);
         console.log('Nash autodispatch response:', nashResponse);
         
-        // Update order with Nash delivery information
+        // Update order with Nash delivery information, but keep status as PAID
         await client.models.Order.update({
           id: orderId,
-          status: 'PREPARING',
           deliveryInfo: {
             deliveryId: nashOrderId,
             provider: 'Nash',
@@ -171,20 +170,14 @@ export async function handlePaymentSuccess(
           }
         });
         
-        console.log('Order updated with delivery information');
+        console.log('Order updated with delivery information, status remains PAID for restaurant acceptance');
       } catch (nashError) {
         console.error('Failed to autodispatch Nash order:', nashError);
         // We don't want to fail the entire payment process if Nash autodispatch fails
         // Just log the error and continue
       }
     } else if (!orderData.isDelivery) {
-      console.log('Order is for pickup, no need to autodispatch Nash delivery');
-      
-      // Update order status to PREPARING for pickup orders
-      await client.models.Order.update({
-        id: orderId,
-        status: 'PREPARING'
-      });
+      console.log('Order is for pickup, status set to PAID for restaurant acceptance');
     }
   } catch (error) {
     console.error('Payment success handling failed:', error);

@@ -173,7 +173,7 @@ export function DeliveryTracking({ deliveryId, orderId, onCancel, onSwitchToPick
         deliveryInfo: null,
         deliveryFee: 0,
         deliveryAddress: '',
-        status: 'PAID',
+        status: 'PAID', // Keep as PAID so restaurant can accept it
         updatedAt: new Date().toISOString()
       });
 
@@ -181,7 +181,7 @@ export function DeliveryTracking({ deliveryId, orderId, onCancel, onSwitchToPick
       
       toast({
         title: "Order Updated",
-        description: "Successfully switched to pickup",
+        description: "Successfully switched to pickup. Restaurant will need to accept this order.",
         variant: "default",
       });
     } catch (error) {

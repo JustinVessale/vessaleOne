@@ -3,14 +3,31 @@ import { type Schema } from "../amplify/data/resource";
 import outputs from "../amplify_outputs.json";
 import { Amplify } from "aws-amplify";
 
+// Configure Amplify
 Amplify.configure(outputs);
 
-const client = generateClient<Schema>();
+// Use API key for all operations during seeding
+const client = generateClient<Schema>({
+  authMode: 'apiKey'
+});
 
+/**
+ * Run this script to seed the database with initial data for a restaurant.
+ * This will create:
+ * - A restaurant record
+ * - Staff members (including the owner with email justin@thevessale.com)
+ * - Menu categories and items
+ * 
+ * Execute from the project root with:
+ * npx tsx scripts/seed-data.ts
+ */
 async function seedData() {
   try {
-    // Create Restaurant
-    const restaurantResponse = await client.models.Restaurant.create({
+    // Define owner email for reference
+    const ownerEmail = "justin@thevessale.com";
+    
+    console.log("Creating restaurant...");
+    const restaurantData = {
       name: "World Famous Grill",
       slug: "world-famous-grill",
       description: "A cozy Mediterranean and Greek restaurant serving delicious authentic dishes with modern flair",
@@ -20,15 +37,54 @@ async function seedData() {
       state: "CA",
       zip: "90201",
       phone: "323-562-0744",
-    });
-
-    if (restaurantResponse.data?.id) {
-      var restaurantId = restaurantResponse.data.id; 
-    } else {
-      // Handle the case where id is missing
+      ownerEmail: ownerEmail,
+      isActive: true,
+      printerConfig: {
+        printerType: "EPSON",
+        ipAddress: "192.168.1.100",
+        port: 9100,
+        isEnabled: true
+      }
+    };
+    
+    const restaurantResponse = await client.models.Restaurant.create(restaurantData);
+    
+    if (!restaurantResponse.data?.id) {
       throw new Error("Restaurant ID is missing from the response.");
     }
-    
+    const restaurantId = restaurantResponse.data.id;
+    console.log("✅ Restaurant created with ID:", restaurantId);
+
+    // Create staff members
+    await Promise.all([
+      client.models.RestaurantStaff.create({
+        email: "manager@worldfamousgrill.com",
+        restaurantId: restaurantId,
+        role: "MANAGER",
+        firstName: "Jane",
+        lastName: "Doe",
+        isActive: true
+      }),
+      client.models.RestaurantStaff.create({
+        email: "staff@worldfamousgrill.com",
+        restaurantId: restaurantId,
+        role: "STAFF",
+        firstName: "Bob",
+        lastName: "Wilson",
+        isActive: true
+      }),
+      // Also create a staff record for the owner for authentication
+      client.models.RestaurantStaff.create({
+        email: ownerEmail,
+        restaurantId: restaurantId,
+        role: "OWNER",
+        firstName: "John",
+        lastName: "Smith",
+        isActive: true
+      })
+    ]);
+    console.log("✅ Staff members created");
+
     // Create Menu Categories
     const categories = await Promise.all([
       client.models.MenuCategory.create({
@@ -47,6 +103,7 @@ async function seedData() {
         restaurantId: restaurantId,
       }),
     ]);
+    console.log("✅ Menu categories created");
 
     // Create Menu Items for each category
     const [appetizers, mains, sides] = categories;
@@ -59,8 +116,9 @@ async function seedData() {
     const mainsId = mains.data.id;
     const sidesId = sides.data.id;
 
-    // Appetizers
+    // Create menu items
     await Promise.all([
+      // Appetizers
       client.models.MenuItem.create({
         name: "Monster Nachos",
         description: "Homemade tortilla chips topped with asada beef, cheese, guacamole, sour cream, pico de gallo & jalapenos",
@@ -82,10 +140,8 @@ async function seedData() {
         imageUrl: "https://images.unsplash.com/photo-1541518763669-27fef04b14ea",
         categoryId: appetizersId,
       }),
-    ]);
-
-    // Main Courses
-    await Promise.all([
+      
+      // Main Courses
       client.models.MenuItem.create({
         name: "Chicken Roll",
         description: "Tender chicken wrapped in fresh flatbread with garlic sauce",
@@ -107,24 +163,8 @@ async function seedData() {
         imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947",
         categoryId: mainsId,
       }),
-      client.models.MenuItem.create({
-        name: "Falafel Plate",
-        description: "Crispy falafel served with hummus, tahini sauce, and fresh pita bread",
-        price: 15.99,
-        imageUrl: "https://images.unsplash.com/photo-1601050690597-df0568f70950",
-        categoryId: mainsId,
-      }),
-      client.models.MenuItem.create({
-        name: "Gyro Plate",
-        description: "Traditional gyro meat served with tzatziki sauce, Greek salad, and pita bread",
-        price: 17.99,
-        imageUrl: "https://images.unsplash.com/photo-1529059997568-3d847b1154f0",
-        categoryId: mainsId,
-      }),
-    ]);
-
-    // Sides
-    await Promise.all([
+      
+      // Sides
       client.models.MenuItem.create({
         name: "Garlic Potato",
         description: "Roasted potatoes seasoned with garlic and herbs",
@@ -139,20 +179,21 @@ async function seedData() {
         imageUrl: "https://images.unsplash.com/photo-1639024471283-03518883512d",
         categoryId: sidesId,
       }),
-      client.models.MenuItem.create({
-        name: "Cheese Sticks",
-        description: "Golden-fried mozzarella sticks with marinara sauce",
-        price: 9.49,
-        imageUrl: "https://images.unsplash.com/photo-1531749668029-2db88e4276c7",
-        categoryId: sidesId,
-      }),
     ]);
+    console.log("✅ Menu items created");
 
     console.log("✅ Seed data created successfully");
+    console.log("NOTE: Remember to manually create an Auth user for the owner email if needed");
+    console.log(`Owner email: ${ownerEmail}`);
   } catch (error) {
     console.error("❌ Error creating seed data:", error);
+    console.error("Error details:", error instanceof Error ? error.stack : String(error));
+    
+    // Check if the error is related to the API
+    if (error.errors) {
+      console.error("API Errors:", JSON.stringify(error.errors, null, 2));
+    }
   }
-
 }
 
 // Run the seed function

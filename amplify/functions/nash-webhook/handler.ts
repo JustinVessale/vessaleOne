@@ -37,7 +37,7 @@ interface NashWebhookData {
 }
 
 // Define types based on the Amplify schema
-type OrderStatus = 'PENDING' | 'PAYMENT_PROCESSING' | 'PAID' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED' | null;
+type OrderStatus = 'PENDING' | 'PAYMENT_PROCESSING' | 'PAID' | 'RESTAURANT_ACCEPTED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED' | null;
 type DeliveryStatus = 'PENDING' | 'CONFIRMED' | 'PICKING_UP' | 'PICKED_UP' | 'DELIVERING' | 'COMPLETED' | 'CANCELLED' | 'FAILED' | null;
 
 interface OrderDriver {
@@ -442,6 +442,7 @@ function mapDeliveryStatusToOrderStatus(deliveryStatus: DeliveryStatus): OrderSt
 
   switch (deliveryStatus) {
     case 'PENDING':
+      return 'RESTAURANT_ACCEPTED'; // Start with restaurant acceptance when delivery is pending
     case 'CONFIRMED':
     case 'PICKING_UP':
       return 'PREPARING';
