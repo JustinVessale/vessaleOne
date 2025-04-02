@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NavigationBar } from './features/shared/components/NavigationBar';
 import { RestaurantPage } from './features/restaurant/components/RestaurantPage';
@@ -44,6 +44,12 @@ function AppContent() {
         
         {/* Restaurant Portal Routes */}
         <Route path="/portal">
+          {/* Index route - redirect to dashboard */}
+          <Route index element={
+            <ProtectedRoute>
+              <Navigate to="/portal/dashboard" replace />
+            </ProtectedRoute>
+          } />
           <Route path="login" element={<LoginPage />} />
           <Route path="dashboard" element={
             <ProtectedRoute>

@@ -10,7 +10,7 @@ export const portalRoutes = [
     path: 'dashboard',
     component: DashboardPage,
     label: 'Dashboard',
-    icon: 'BarChart',
+    icon: 'Dashboard',
     isDefault: true,
   },
   {
