@@ -1,5 +1,4 @@
 import { defineFunction } from '@aws-amplify/backend';
-import { data } from '../../data/resource';
 
 export const nashWebhook = defineFunction({
   name: 'nash-webhook',

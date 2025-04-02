@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { DeliveryForm, DeliveryFormData } from './DeliveryForm';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/features/cart/context/CartContext';
@@ -6,13 +6,8 @@ import { formatCurrency } from '@/utils/currency';
 import { useErrorHandler, ErrorMessages } from '@/utils/error-handler';
 import { 
   createOrderWithQuotes, 
-  NashOrderResponse,
   findPreferredQuote
 } from '@/lib/services/nashService';
-import { generateClient } from 'aws-amplify/api';
-import type { Schema } from '../../../../amplify/data/resource';
-
-const client = generateClient<Schema>();
 
 export interface DeliveryCheckoutProps {
   restaurantAddress: {

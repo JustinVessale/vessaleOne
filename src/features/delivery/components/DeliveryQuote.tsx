@@ -3,9 +3,6 @@ import { NashOrderResponse, NashQuote } from '@/lib/services/nashService';
 import { formatCurrency } from '@/utils/currency';
 import { format } from 'date-fns';
 
-// Remove debug mode for production
-const DEBUG_MODE = false;
-
 interface QuoteItemProps {
   quoteItem: NashQuote;
   onSelect: () => void;

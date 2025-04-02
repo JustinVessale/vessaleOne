@@ -5,7 +5,6 @@ import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
 
 interface DeliveryTrackingProps {
-  deliveryId?: string;
   orderId: string;
   onCancel?: () => void;
   onSwitchToPickup?: () => Promise<void>;
@@ -27,7 +26,7 @@ const client = generateClient<Schema>();
 
 type OrderType = Schema['Order']['type'];
 
-export function DeliveryTracking({ deliveryId, orderId, onCancel, onSwitchToPickup }: DeliveryTrackingProps) {
+export function DeliveryTracking({ orderId, onCancel, onSwitchToPickup }: DeliveryTrackingProps) {
   const [order, setOrder] = useState<OrderType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);

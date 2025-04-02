@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { generateClient } from 'aws-amplify/api';
 import { type Schema } from '../../../../amplify/data/resource';
-import { Loader2, Save, User, Building, Mail, Phone, MapPin, Clock, Upload, Trash } from 'lucide-react';
+import { Loader2, User, Building, Mail, Phone, MapPin, Clock, Upload, Trash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser } from 'aws-amplify/auth';
 
@@ -400,6 +400,15 @@ export function AccountPage() {
             onClick={handleEditToggle}
           >
             {isEditing ? "Save Changes" : "Edit Profile"}
+          </Button>
+        </div>
+
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+          <Button 
+            onClick={savePrinterSettings} 
+            disabled={isSaving}
+          >
+            {isSaving ? 'Saving...' : 'Save Settings'}
           </Button>
         </div>
       </div>

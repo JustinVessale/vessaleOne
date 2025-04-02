@@ -9,19 +9,6 @@ import { DeliveryTracking } from '@/features/delivery/components/DeliveryTrackin
 
 const client = generateClient<Schema>();
 
-type Order = Schema['Order']['type'];
-type OrderStatus = NonNullable<Order['status']>;
-
-const statusColors: Record<OrderStatus, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-800',
-  PAYMENT_PROCESSING: 'bg-blue-100 text-blue-800',
-  PAID: 'bg-green-100 text-green-800',
-  RESTAURANT_ACCEPTED: 'bg-teal-100 text-teal-800',
-  PREPARING: 'bg-purple-100 text-purple-800',
-  READY: 'bg-green-100 text-green-800',
-  COMPLETED: 'bg-gray-100 text-gray-800',
-  CANCELLED: 'bg-red-100 text-red-800'
-};
 
 export function OrderConfirmationPage() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -108,7 +95,6 @@ export function OrderConfirmationPage() {
                 
                 {order.deliveryInfo?.deliveryId ? (
                   <DeliveryTracking 
-                    deliveryId={order.deliveryInfo.deliveryId} 
                     orderId={order.id} 
                   />
                 ) : (
