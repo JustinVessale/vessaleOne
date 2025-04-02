@@ -114,7 +114,7 @@ const schema = a.schema({
       customerEmail: a.string(),
       items: a.hasMany('OrderItem', 'orderId'),
       total: a.float(),
-      status: a.enum(['PENDING', 'PAYMENT_PROCESSING', 'PAID', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED']),
+      status: a.enum(['PENDING', 'PAYMENT_PROCESSING', 'PAID', 'RESTAURANT_ACCEPTED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED']),
       stripePaymentIntentId: a.string(),
       specialInstructions: a.string(),
       deliveryAddress: a.string(),
