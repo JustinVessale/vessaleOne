@@ -10,15 +10,18 @@ import {
 } from "aws-cdk-lib/aws-apigateway";
 import { stripePayment } from "./functions/stripe-payment/resource";
 import { nashWebhook } from "./functions/nash-webhook/resource";
+import { seedDevelop } from "./functions/seed-develop/resource";
 import { secret } from '@aws-amplify/backend';
 import { Duration } from 'aws-cdk-lib';
 import { Function } from 'aws-cdk-lib/aws-lambda';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 export const backend = defineBackend({
   auth,
   data,
   stripePayment,
-  nashWebhook
+  nashWebhook,
+  seedDevelop
 });
 
 // Add secrets to the Lambda functions
@@ -39,6 +42,24 @@ backend.nashWebhook.addEnvironment('REGION', Stack.of(backend.data.resources.gra
 // The Lambda resource will need to handle these settings during execution
 backend.nashWebhook.addEnvironment('DESIRED_MEMORY_SIZE', '512');
 backend.nashWebhook.addEnvironment('DESIRED_TIMEOUT_SECONDS', '30');
+
+// Configure the seed-develop function
+backend.seedDevelop.addEnvironment('USER_POOL_ID', backend.auth.resources.userPool.userPoolId);
+backend.seedDevelop.addEnvironment('REGION', Stack.of(backend.data.resources.graphqlApi).region);
+backend.seedDevelop.addEnvironment('API_ID', backend.data.resources.graphqlApi.apiId);
+backend.seedDevelop.addEnvironment('API_ENDPOINT', `https://${backend.data.resources.graphqlApi.apiId}.appsync-api.${Stack.of(backend.data.resources.graphqlApi).region}.amazonaws.com/graphql`);
+backend.seedDevelop.addEnvironment('API_KEY', secret('AMPLIFY_API_KEY'));
+
+// Grant permission to interact with Cognito user pool
+backend.seedDevelop.resources.lambda.addToRolePolicy(
+  new PolicyStatement({
+    actions: [
+      'cognito-idp:AdminCreateUser',
+      'cognito-idp:AdminSetUserPassword'
+    ],
+    resources: [backend.auth.resources.userPool.userPoolArn]
+  })
+);
 
 // Create API stack
 const apiStack = backend.createStack("api-stack");
