@@ -3,16 +3,7 @@ import { generateClient } from 'aws-amplify/api';
 import { type Schema } from '../../../../amplify/data/resource';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Printer, Loader2, Search, Filter, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { Printer, Loader2, Search, ChevronDown, ChevronUp, Check } from 'lucide-react';
 
 const client = generateClient<Schema>();
 

@@ -6,7 +6,6 @@ import type { Schema } from '../../../../amplify/data/resource';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { DeliveryCheckout } from '@/features/delivery/components/DeliveryCheckout';
-import { autodispatchOrder } from '@/lib/services/nashService';
 import { useQuery } from '@tanstack/react-query';
 import { handlePaymentSuccess as processPaymentSuccess } from '../api/checkoutService';
 
@@ -27,11 +26,9 @@ export function CheckoutPage() {
   const { state, total, clearCart } = useCart();
   const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
-  const [isDelivery, setIsDelivery] = useState(false);
   const [deliveryData, setDeliveryData] = useState<DeliveryData | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<'delivery-option' | 'delivery' | 'payment'>('delivery-option');
   const [useDelivery, setUseDelivery] = useState(false);
-  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const orderAttemptedRef = useRef(false);
 
   // Reset the ref when component mounts

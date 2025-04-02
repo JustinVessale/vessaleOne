@@ -3,7 +3,6 @@ import { generateClient } from 'aws-amplify/api';
 import { type Schema } from '../../../../amplify/data/resource';
 import { useToast } from '@/hooks/use-toast';
 import '@aws-amplify/ui-react/styles.css';
-import { signOut } from 'aws-amplify/auth';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
