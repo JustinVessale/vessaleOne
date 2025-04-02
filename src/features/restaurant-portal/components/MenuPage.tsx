@@ -208,10 +208,11 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
 export function MenuPage() {
   const [categories, setCategories] = useState<MenuCategory[]>(sampleCategories);
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+
+  //const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
   const handleEditItem = (item: MenuItem) => {
-    setEditingItem(item);
+   // setEditingItem(item);
     // Open edit modal (not implemented in this example)
     console.log('Editing item:', item);
   };

@@ -3,7 +3,6 @@ import { generateClient } from 'aws-amplify/api';
 import { type Schema } from '../../../../amplify/data/resource';
 import { Loader2, User, Building, Mail, Phone, MapPin, Clock, Upload, Trash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getCurrentUser } from 'aws-amplify/auth';
 
 const client = generateClient<Schema>();
 
@@ -59,8 +58,8 @@ export function AccountPage() {
     port: 0,
     isEnabled: false
   });
-  const [staffMembers, setStaffMembers] = useState<any[]>([]);
-  const [currentUserEmail, setCurrentUserEmail] = useState('');
+  //const [staffMembers, setStaffMembers] = useState<any[]>([]);
+  //const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [activeTab, setActiveTab] = useState('restaurant');
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<any>({});
@@ -69,8 +68,8 @@ export function AccountPage() {
     const fetchAccountData = async () => {
       try {
         // Get the current user email
-        const user = await getCurrentUser();
-        setCurrentUserEmail(user.username);
+        //const user = await getCurrentUser();
+        //setCurrentUserEmail(user.username);
         
         const restaurantId = sessionStorage.getItem('restaurantId');
         if (!restaurantId) return;
@@ -120,7 +119,8 @@ export function AccountPage() {
           selectionSet: ['id', 'email', 'firstName', 'lastName', 'role', 'isActive']
         });
 
-        setStaffMembers(staffData);
+        //setStaffMembers(staffData);
+        console.log('staffData', staffData);
       } catch (error) {
         console.error('Error fetching account data:', error);
       } finally {
@@ -130,14 +130,6 @@ export function AccountPage() {
 
     fetchAccountData();
   }, []);
-
-  const handlePrinterSettingsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setPrinterSettings(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
 
   const savePrinterSettings = async () => {
     if (!restaurant) return;
@@ -166,19 +158,6 @@ export function AccountPage() {
       alert('Failed to save printer settings');
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const getRoleBadgeClass = (role: string) => {
-    switch (role) {
-      case 'OWNER':
-        return 'bg-purple-100 text-purple-800';
-      case 'MANAGER':
-        return 'bg-blue-100 text-blue-800';
-      case 'STAFF':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
     }
   };
 
