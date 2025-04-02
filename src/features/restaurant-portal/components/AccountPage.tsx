@@ -83,8 +83,24 @@ export function AccountPage() {
         if (!restaurantData) {
           throw new Error('Restaurant not found');
         }
-
-        setRestaurant(restaurantData);
+        
+        // Create a new restaurant object that matches the expected structure
+        const restaurantForState = {
+          id: restaurantData.id,
+          name: restaurantData.name || '',
+          description: restaurantData.description || '',
+          address: restaurantData.address || '',
+          email: '',
+          phone: restaurantData.phone || '',
+          website: '',
+          openingHours: sampleRestaurant.openingHours,
+          logo: '',
+          banner: '',
+          cuisine: '',
+          isActive: false
+        };
+        
+        setRestaurant(restaurantForState);
         
         // Set printer settings from restaurant data
         if (restaurantData.printerConfig) {
