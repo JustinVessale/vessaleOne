@@ -17,8 +17,27 @@ import { type Schema } from '../../data/resource';
 import { Amplify } from 'aws-amplify';
 import { AdminCreateUserCommand, AdminSetUserPasswordCommand, CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
 
-// Lambda will have environment variables with the correct config
-// but we need to import the client types
+// Configure Amplify with the API settings
+const endpoint = process.env.API_ENDPOINT;
+const region = process.env.REGION;
+const apiKey = process.env.API_KEY;
+
+if (!endpoint || !region || !apiKey) {
+  throw new Error('Missing required environment variables: API_ENDPOINT, REGION, and API_KEY must be set');
+}
+
+Amplify.configure({
+  API: {
+    GraphQL: {
+      endpoint,
+      region,
+      apiKey,
+      defaultAuthMode: 'apiKey'
+    }
+  }
+});
+
+// Generate the client after configuration
 const client = generateClient<Schema>({
   authMode: 'apiKey'
 });
@@ -29,11 +48,17 @@ export const handler: Handler = async (event, context) => {
     
     // Get environment variables
     const userPoolId = process.env.USER_POOL_ID;
-    const region = process.env.REGION;
+    const apiEndpoint = process.env.API_ENDPOINT;
     
-    if (!userPoolId || !region) {
-      throw new Error('Missing required environment variables: USER_POOL_ID and REGION must be set');
+    if (!userPoolId || !apiEndpoint) {
+      throw new Error('Missing required environment variables: USER_POOL_ID and API_ENDPOINT must be set');
     }
+    
+    console.log('Environment variables:', {
+      userPoolId,
+      apiEndpoint,
+      apiKey: '***' // Don't log the actual key
+    });
     
     // Define owner email for reference
     const ownerEmail = "justin@thevessale.com";
