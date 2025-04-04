@@ -26,37 +26,57 @@ if (!endpoint || !region || !apiKey) {
   throw new Error('Missing required environment variables: API_ENDPOINT, REGION, and API_KEY must be set');
 }
 
+// Log configuration for debugging (mask sensitive values)
+console.log('Configuration:', {
+  endpoint,
+  region,
+  apiKey: apiKey ? '***' : undefined
+});
+
+// Configure Amplify
 Amplify.configure({
   API: {
     GraphQL: {
       endpoint,
       region,
-      apiKey,
-      defaultAuthMode: 'apiKey'
+      defaultAuthMode: 'apiKey',
+      apiKey
     }
   }
 });
 
-// Generate the client after configuration
-const client = generateClient<Schema>({
-  authMode: 'apiKey'
-});
+// Generate the client AFTER configuration
+const client = generateClient<Schema>();
+
+// Test the client connection
+const testConnection = async () => {
+  try {
+    // Attempt a simple query to test the connection
+    const test = await client.models.Restaurant.list({});
+    console.log('API connection test successful');
+    return true;
+  } catch (error) {
+    console.error('API connection test failed:', error);
+    throw error;
+  }
+};
 
 export const handler: Handler = async (event, context) => {
   try {
     console.log('Starting seed process for develop environment');
     
+    // Test connection before proceeding
+    await testConnection();
+    
     // Get environment variables
     const userPoolId = process.env.USER_POOL_ID;
-    const apiEndpoint = process.env.API_ENDPOINT;
     
-    if (!userPoolId || !apiEndpoint) {
-      throw new Error('Missing required environment variables: USER_POOL_ID and API_ENDPOINT must be set');
+    if (!userPoolId) {
+      throw new Error('Missing required environment variable: USER_POOL_ID must be set');
     }
     
     console.log('Environment variables:', {
       userPoolId,
-      apiEndpoint,
       apiKey: '***' // Don't log the actual key
     });
     
