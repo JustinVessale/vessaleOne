@@ -15,6 +15,8 @@ export function LoginPage() {
   const navigate = useNavigate();
   // Counter to detect loops
   const renderCountRef = useRef(0);
+  // Ref to track if verification has already occurred
+  const hasVerifiedRef = useRef(false);
 
   // Add debug information about the current session state
   useEffect(() => {
@@ -163,9 +165,10 @@ export function LoginPage() {
       <div className="max-w-md w-full">
         <Authenticator>
           {({ signOut, user }) => {
-            // Verify restaurant access when user signs in
-            if (user) {
+            // Verify restaurant access only once when user signs in
+            if (user && !hasVerifiedRef.current && !isLoading) {
               console.log('Auth user object:', user);
+              hasVerifiedRef.current = true;
               verifyRestaurantAccess(user);
             }
             
