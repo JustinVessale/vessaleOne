@@ -264,7 +264,8 @@ export async function createOrderWithQuotes(
       contact: NashContact;
     };
     items?: NashDeliveryItem[];
-    externalId: string; 
+    orderId: string;
+    externalId: string;
   }
 ): Promise<NashOrderResponse> {
   // Convert our internal request format to Nash API format
