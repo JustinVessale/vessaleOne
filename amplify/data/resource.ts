@@ -121,6 +121,7 @@ const schema = a.schema({
       driver: a.ref('Driver'),
       createdAt: a.string(),
       updatedAt: a.string(),
+      externalId: a.string(),
       trackingInfo: a.customType({
         source: a.string(),
         campaignId: a.string(),
