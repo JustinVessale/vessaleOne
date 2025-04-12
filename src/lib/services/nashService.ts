@@ -87,9 +87,6 @@ export interface NashOrderRequest {
     valueCents?: number;
   }>;
   
-  // Dispatch strategy
-  dispatchStrategyId?: string;
-  
   // Tags for special behavior
   tags?: string[];
 }
@@ -314,9 +311,7 @@ export async function createOrderWithQuotes(
     currency: 'USD',
     deliveryMode: 'now',
     externalId: request.externalId,
-    
-    // Add dispatch strategy ID from environment variables
-    dispatchStrategyId: NASH_DISPATCH_STRATEGY_ID,
+  
     
     // Add the total order value in cents (required by Nash API)
     valueCents: minValueCents,
