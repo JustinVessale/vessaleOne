@@ -8,6 +8,10 @@ import {
   createOrderWithQuotes, 
   findPreferredQuote
 } from '@/lib/services/nashService';
+import { generateClient } from 'aws-amplify/api';
+import type { Schema } from '../../../../amplify/data/resource';
+
+const client = generateClient<Schema>();
 
 export interface DeliveryCheckoutProps {
   restaurantAddress: {
@@ -58,6 +62,14 @@ export function DeliveryCheckout({
     setIsLoadingQuotes(true);
     
     try {
+      // First get the order to access its externalId
+      const { data: orderData, errors: orderErrors } = await client.models.Order.get({ id: orderId });
+      
+      if (orderErrors || !orderData?.externalId) {
+        console.error('Error fetching order or missing externalId:', orderErrors);
+        throw new Error('Could not fetch order details');
+      }
+
       // Create an order with Nash to get quotes
       const orderResponse = await createOrderWithQuotes({
         pickup: {
@@ -72,7 +84,8 @@ export function DeliveryCheckout({
           contact: formData.contact
         },
         items: cartItemsToDeliveryItems(),
-        externalId: orderId
+        orderId,
+        externalId: orderData.externalId // Use the existing externalId
       });
       
       // Check if we have quotes

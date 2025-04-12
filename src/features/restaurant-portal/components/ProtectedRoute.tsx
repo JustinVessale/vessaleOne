@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { getCurrentUser } from 'aws-amplify/auth';
+import { getCurrentUser, fetchAuthSession } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/api';
 import { type Schema } from '../../../../amplify/data/resource';
 
@@ -18,11 +18,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   useEffect(() => {
     async function checkAuth() {
       try {
-        // First check if we already have session data
+        // First check if we already have session data in sessionStorage
         const storedRestaurantId = sessionStorage.getItem('restaurantId');
         const storedStaffRole = sessionStorage.getItem('staffRole');
         
-        // If we have session data, consider user authenticated without additional API calls
+        // If we have complete session data, consider user authenticated without additional API calls
         if (storedRestaurantId && storedStaffRole) {
           console.log('Session data found, user is authenticated');
           setIsAuthenticated(true);
@@ -30,12 +30,23 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
           return;
         }
         
-        console.log('No session data found, checking authentication status');
+        console.log('No complete session data found, checking authentication status');
         
-        // Check if user is signed in
+        // Check if user is actually authenticated with AWS Cognito
+        const authSession = await fetchAuthSession().catch(() => null);
+        if (!authSession || !authSession.tokens) {
+          console.log('No auth session found, user needs to login');
+          // User is not authenticated, let the component redirect to login
+          setIsAuthenticated(false);
+          setIsLoading(false);
+          return;
+        }
+        
+        console.log('Auth session found, user is logged in. Getting user details');
+        
+        // User is authenticated but missing restaurant data
+        // Now it's safe to get the current user
         const user = await getCurrentUser();
-        
-        // Get the email from user attributes
         const userEmail = user.signInDetails?.loginId || user.username;
         console.log('ProtectedRoute checking auth for user:', userEmail);
         

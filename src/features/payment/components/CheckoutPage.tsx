@@ -237,6 +237,11 @@ export function CheckoutPage() {
         ? total + (deliveryData?.deliveryFee || 0) 
         : total;
 
+      // Generate a timestamp-based ID for uniqueness
+      const timestamp = Date.now();
+      const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const externalId = `ord_${timestamp}${randomSuffix}`;
+
       console.log(`Creating ${useDelivery ? 'delivery' : 'pickup'} order with total: ${orderTotal} (subtotal: ${total}, delivery fee: ${deliveryData?.deliveryFee || 0})`);
 
       const { data: newOrder, errors } = await client.models.Order.create({
@@ -246,6 +251,7 @@ export function CheckoutPage() {
         restaurantId: state.items[0]?.restaurantId || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        externalId,
         // Add delivery-related fields if delivery is selected
         isDelivery: useDelivery,
         deliveryAddress: useDelivery ? (deliveryData?.address || '') : '',

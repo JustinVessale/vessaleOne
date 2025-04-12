@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import '@aws-amplify/ui-react/styles.css';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import outputs from '../../../../amplify_outputs.json';
 
 const client = generateClient<Schema>();
 
@@ -163,7 +164,17 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
-        <Authenticator>
+        <Authenticator
+          signUpAttributes={['email']} 
+          services={{
+            // Explicitly configure the auth service with the correct user pool details
+            authService: {
+              region: outputs.auth.aws_region,
+              userPoolId: outputs.auth.user_pool_id,
+              userPoolClientId: outputs.auth.user_pool_client_id
+            }
+          }}
+        >
           {({ signOut, user }) => {
             // Verify restaurant access only once when user signs in
             if (user && !hasVerifiedRef.current && !isLoading) {

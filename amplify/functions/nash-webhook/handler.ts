@@ -187,7 +187,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Find the order in our database that has this Nash order ID
     let orders, errors;
     try {
-      ({ data: orders, errors } = await client.models.Order.list({}));
+      ({ data: orders, errors } = await client.models.Order.list({
+        filter: {
+          externalId: { eq: nashOrderId }
+        }
+      }));
+      
     } catch (error) {
       console.error('Error fetching orders:', error);
       return {
@@ -212,20 +217,23 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     console.log(`Fetched ${orders?.length || 0} orders from database`);
 
-    // Find the order with the matching Nash order ID in the order.id field
-    const matchingOrder = orders?.find(order => order.id === nashOrderId);
-
-    if (!matchingOrder) {
-      console.error(`No order found with Nash order ID: ${nashOrderId}`);
+    // We should only have one matching order
+    if (!orders || orders.length === 0) {
+      console.error(`No order found with external ID: ${nashOrderId}`);
       return {
         statusCode: 404,
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ error: `No order found with externalIdentifier: ${nashOrderId}` })
+        body: JSON.stringify({ error: `No order found with external ID: ${nashOrderId}` })
       };
     }
 
+    if (orders.length > 1) {
+      console.warn(`Multiple orders found with external ID: ${nashOrderId}, using first match`);
+    }
+
+    const matchingOrder = orders[0];
     console.log('Found matching order:', matchingOrder.id);
     
     // Process the webhook based on type and event

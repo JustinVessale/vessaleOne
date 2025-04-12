@@ -87,9 +87,6 @@ export interface NashOrderRequest {
     valueCents?: number;
   }>;
   
-  // Dispatch strategy
-  dispatchStrategyId?: string;
-  
   // Tags for special behavior
   tags?: string[];
 }
@@ -264,7 +261,8 @@ export async function createOrderWithQuotes(
       contact: NashContact;
     };
     items?: NashDeliveryItem[];
-    externalId: string; // Now required
+    orderId: string;
+    externalId: string;
   }
 ): Promise<NashOrderResponse> {
   // Convert our internal request format to Nash API format
@@ -292,10 +290,6 @@ export async function createOrderWithQuotes(
   
   // Ensure we have a minimum value for valueCents (at least 100 cents = $1)
   const minValueCents = Math.max(totalValueCents, 100);
-
-  if (!request.externalId) {
-    throw new Error('External ID is required for creating Nash orders');
-  }
   
   const orderRequest: NashOrderRequest = {
     pickupAddress,
@@ -317,9 +311,7 @@ export async function createOrderWithQuotes(
     currency: 'USD',
     deliveryMode: 'now',
     externalId: request.externalId,
-    
-    // Add dispatch strategy ID from environment variables
-    dispatchStrategyId: NASH_DISPATCH_STRATEGY_ID,
+  
     
     // Add the total order value in cents (required by Nash API)
     valueCents: minValueCents,
