@@ -5,7 +5,6 @@ import { useToast } from '@/hooks/use-toast';
 import '@aws-amplify/ui-react/styles.css';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import outputs from '../../../../amplify_outputs.json';
 
 const client = generateClient<Schema>();
 
