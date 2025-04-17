@@ -166,6 +166,14 @@ export function LoginPage() {
       <div className="max-w-md w-full">
         <Authenticator
           signUpAttributes={['email']} 
+          services={{
+            // Explicitly configure the auth service with the correct user pool details
+            authService: {
+              region: outputs.auth.aws_region,
+              userPoolId: outputs.auth.user_pool_id,
+              userPoolClientId: outputs.auth.user_pool_client_id
+            }
+          }}
         >
           {({ signOut, user }) => {
             // Verify restaurant access only once when user signs in

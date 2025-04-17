@@ -16,17 +16,31 @@ import { generateClient } from 'aws-amplify/api';
 import { type Schema } from '../../data/resource';
 import { Amplify } from 'aws-amplify';
 import { AdminCreateUserCommand, AdminSetUserPasswordCommand, CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
-import outputs from "../../../amplify_outputs.json";
-import { parseAmplifyConfig } from "aws-amplify/utils";
 
-const amplifyConfig = parseAmplifyConfig(outputs);
+// Configure Amplify with the API settings
+const endpoint = process.env.API_ENDPOINT;
+const region = process.env.REGION;
+const apiKey = process.env.API_KEY;
 
+if (!endpoint || !region || !apiKey) {
+  throw new Error('Missing required environment variables: API_ENDPOINT, REGION, and API_KEY must be set');
+}
+
+// Log configuration for debugging (mask sensitive values)
+console.log('Configuration:', {
+  endpoint,
+  region,
+  apiKey: apiKey ? '***' : undefined
+});
+
+// Configure Amplify
 Amplify.configure({
-  ...amplifyConfig,
   API: {
-    ...amplifyConfig.API,
-    REST: {
-      'payment-api': outputs.custom?.API?.['payment-api']
+    GraphQL: {
+      endpoint,
+      region,
+      defaultAuthMode: 'apiKey',
+      apiKey
     }
   }
 });
@@ -232,7 +246,7 @@ export const handler: Handler = async (event, context) => {
     
     // Create Cognito client
     const cognitoClient = new CognitoIdentityProviderClient({ 
-      region: process.env.REGION
+      region: region
     });
     
     // Create the user
