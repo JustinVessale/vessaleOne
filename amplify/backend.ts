@@ -27,8 +27,9 @@ export const backend = defineBackend({
 // Add secrets to the Lambda functions
 backend.stripePayment.addEnvironment('STRIPE_SECRET_KEY', secret('STRIPE_SECRET_KEY'));
 backend.stripePayment.addEnvironment('STRIPE_WEBHOOK_SECRET', secret('STRIPE_WEBHOOK_SECRET'));
+backend.nashWebhook.addEnvironment('NASH_API_KEY', secret('NASH_API_KEY'));
+backend.nashWebhook.addEnvironment('NASH_ORG_ID', secret('NASH_ORG_ID'));
 backend.nashWebhook.addEnvironment('NASH_WEBHOOK_SECRET', secret('NASH_WEBHOOK_SECRET'));
-backend.nashWebhook.addEnvironment('API_KEY', secret('AMPLIFY_API_KEY'));
 
 // Add the API_ID and API_ENDPOINT environment variables for the Nash webhook Lambda
 // This is needed to configure Amplify correctly in the Lambda environment
@@ -69,16 +70,15 @@ const paymentApi = new RestApi(apiStack, "PaymentApi", {
   restApiName: "payment-api",
   deploy: true,
   deployOptions: {
-    stageName: process.env.AMPLIFY_ENV || 'dev', // Will be 'dev', 'prod', etc. based on the branch
+    stageName: process.env.AMPLIFY_ENV || 'dev',
   },
   defaultCorsPreflightOptions: {
     allowOrigins: [
       'http://localhost:5173',
       'http://localhost:3000',
-      'https://*.amplifyapp.com' // TODO: Change to the production domain
-      // ...(process.env.AMPLIFY_ENV === 'prod' 
-      //   ? ['https://your-production-domain.com'] 
-      //   : ['https://develop.d2g0w15slq5y17.amplifyapp.com', 'https://*.d2g0w15slq5y17.amplifyapp.com'])
+      'https://*.amplifyapp.com',
+      'https://*.thevessale.com', // Add your production domain
+      'https://thevessale.com'    // Add root domain
     ],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: [

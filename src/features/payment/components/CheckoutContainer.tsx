@@ -4,8 +4,9 @@ import { Elements } from '@stripe/react-stripe-js';
 import { PaymentForm } from './PaymentForm';
 import { createPaymentIntent } from '../api/checkoutService';
 import type { Schema } from '../../../../amplify/data/resource';
+import { STRIPE_PUBLISHABLE_KEY } from '@/config/stripe';
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 
 type Order = Schema['Order']['type']
 
