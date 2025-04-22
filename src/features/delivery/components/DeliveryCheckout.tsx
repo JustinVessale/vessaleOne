@@ -23,12 +23,14 @@ export interface DeliveryCheckoutProps {
   restaurantName: string;
   restaurantPhone: string;
   orderId: string; // Make this required
+  locationId?: string; // Add locationId as optional
   onContinue: (deliveryData: {
     address: string;
     deliveryFee: number;
     quoteId: string;
     estimatedDeliveryTime: string;
     nashOrderId?: string;
+    locationId?: string; // Include locationId in the callback data
   }) => void;
   onSwitchToPickup?: () => void; // Add new prop for pickup switch
 }
@@ -38,6 +40,7 @@ export function DeliveryCheckout({
   restaurantName,
   restaurantPhone,
   orderId,
+  locationId,
   onContinue,
   onSwitchToPickup
 }: DeliveryCheckoutProps) {
@@ -110,7 +113,8 @@ export function DeliveryCheckout({
             deliveryFee: deliveryFee,
             quoteId: preferredQuote.id,
             estimatedDeliveryTime: preferredQuote.dropoffEta,
-            nashOrderId: orderResponse.id || ''
+            nashOrderId: orderResponse.id || '',
+            locationId // Pass locationId to the callback
           });
           
           // Show confirmation toast

@@ -53,6 +53,35 @@ const schema = a.schema({
       allow.owner()
     ]),
 
+  // New model for restaurant locations
+  RestaurantLocation: a
+    .model({
+      name: a.string(),
+      slug: a.string(),
+      description: a.string(),
+      imageUrl: a.string(),
+      address: a.string(),
+      city: a.string(),
+      state: a.string(),
+      zip: a.string(),
+      phoneNumber: a.string(),
+      restaurantId: a.string(),
+      restaurant: a.belongsTo('Restaurant', 'restaurantId'),
+      menuCategories: a.hasMany('MenuCategory', 'locationId'),
+      orders: a.hasMany('Order', 'locationId'),
+      isActive: a.boolean(),
+      printerConfig: a.customType({
+        printerType: a.string(),
+        ipAddress: a.string(),
+        port: a.integer(),
+        isEnabled: a.boolean(),
+      }),
+    })
+    .authorization((allow) => [
+      allow.publicApiKey(),
+      allow.owner()
+    ]),
+
   Restaurant: a
     .model({
       name: a.string(),
@@ -61,6 +90,8 @@ const schema = a.schema({
       imageUrl: a.string(),
       menuCategories: a.hasMany('MenuCategory', 'restaurantId'),
       orders: a.hasMany('Order', 'restaurantId'),
+      // Add locations relationship
+      locations: a.hasMany('RestaurantLocation', 'restaurantId'),
       address: a.string(),
       city: a.string(),
       state: a.string(),
@@ -69,6 +100,7 @@ const schema = a.schema({
       ownerEmail: a.string(),
       staff: a.hasMany('RestaurantStaff', 'restaurantId'),
       isActive: a.boolean(),
+      isChain: a.boolean(),
       printerConfig: a.customType({
         printerType: a.string(),
         ipAddress: a.string(),
@@ -87,7 +119,10 @@ const schema = a.schema({
       description: a.string(),
       menuItems: a.hasMany('MenuItem', 'categoryId'),
       restaurantId: a.string(),
-      restaurant: a.belongsTo('Restaurant', 'restaurantId')
+      restaurant: a.belongsTo('Restaurant', 'restaurantId'),
+      // Add optional location relationship for location-specific menu categories
+      locationId: a.string(),
+      location: a.belongsTo('RestaurantLocation', 'locationId'),
     })
     .authorization((allow) => [
       allow.publicApiKey()
@@ -111,6 +146,9 @@ const schema = a.schema({
     .model({
       restaurantId: a.string(),
       restaurant: a.belongsTo('Restaurant', 'restaurantId'),
+      // Add optional location fields
+      locationId: a.string(),
+      location: a.belongsTo('RestaurantLocation', 'locationId'),
       customerEmail: a.string(),
       items: a.hasMany('OrderItem', 'orderId'),
       total: a.float(),

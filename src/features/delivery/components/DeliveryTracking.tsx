@@ -56,7 +56,10 @@ export function DeliveryTracking({ orderId, onCancel, onSwitchToPickup }: Delive
             'driver.name',
             'driver.phone',
             'driver.currentLocation.lat',
-            'driver.currentLocation.lng'
+            'driver.currentLocation.lng',
+            'locationId',
+            'location.id',
+            'location.name'
           ] 
         }
       );
@@ -67,7 +70,7 @@ export function DeliveryTracking({ orderId, onCancel, onSwitchToPickup }: Delive
       }
       
       if (orderData) {
-        setOrder(orderData as OrderType);
+        setOrder(orderData as any as OrderType);
         setRetryCount(0); // Reset retry count on success
       } else {
         // Increment retry count if order not found

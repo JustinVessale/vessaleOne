@@ -15,13 +15,30 @@ import { secret } from '@aws-amplify/backend';
 import { Duration } from 'aws-cdk-lib';
 import { Function } from 'aws-cdk-lib/aws-lambda';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { defineStorage } from '@aws-amplify/backend-storage';
+
+// Define S3 storage for restaurant images
+export const storage = defineStorage({
+  name: 'restaurantImages',
+  access: (allow) => ({
+    'restaurant/*': [
+      allow.guest.to(['read']),
+      allow.authenticated.to(['read', 'write', 'delete'])
+    ],
+    'menu/*': [
+      allow.guest.to(['read']),
+      allow.authenticated.to(['read', 'write', 'delete'])
+    ]
+  })
+});
 
 export const backend = defineBackend({
   auth,
   data,
   stripePayment,
   nashWebhook,
-  seedDevelop
+  seedDevelop,
+  storage
 });
 
 // Add secrets to the Lambda functions

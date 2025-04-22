@@ -40,37 +40,69 @@ export function CheckoutPage() {
     };
   }, []);
 
+  // Get the locationId from the first cart item (if available)
+  const locationId = state.items[0]?.locationId;
+
   // Fetch restaurant data
   const { data: restaurantData, isLoading: isLoadingRestaurant } = useQuery({
-    queryKey: ['restaurant', state.items[0]?.restaurantId],
+    queryKey: ['restaurant', state.items[0]?.restaurantId, locationId],
     queryFn: async () => {
       if (!state.items[0]?.restaurantId) {
         throw new Error('No restaurant ID found in cart');
       }
       
-      const { data, errors } = await client.models.Restaurant.get({
-        id: state.items[0].restaurantId
-      });
-      
-      if (errors) {
-        console.error('Error fetching restaurant:', errors);
-        throw new Error('Failed to fetch restaurant details');
-      }
-      
-      if (!data || !data.name || !data.phone || !data.address || !data.city || !data.state || !data.zip) {
-        throw new Error('Restaurant data is incomplete');
-      }
-      
-      return {
-        name: data.name,
-        phone: data.phone,
-        address: {
-          street: data.address,
-          city: data.city,
-          state: data.state,
-          zip: data.zip
+      // If we have a locationId, fetch location data instead of restaurant
+      if (locationId) {
+        // Using list with filter instead of get with selectionSet to avoid type errors
+        const { data, errors } = await client.models.RestaurantLocation.list({
+          filter: { id: { eq: locationId } }
+        });
+        
+        if (errors) {
+          console.error('Error fetching restaurant location:', errors);
+          throw new Error('Failed to fetch restaurant location details');
         }
-      };
+        
+        if (!data || data.length === 0 || !data[0].name || !data[0].phoneNumber || !data[0].address || !data[0].city || !data[0].state || !data[0].zip) {
+          throw new Error('Restaurant location data is incomplete');
+        }
+        
+        return {
+          name: data[0].name,
+          phone: data[0].phoneNumber, // Note: Using phoneNumber from location model
+          address: {
+            street: data[0].address,
+            city: data[0].city,
+            state: data[0].state,
+            zip: data[0].zip
+          }
+        };
+      } else {
+        // Otherwise fetch regular restaurant data
+        const { data, errors } = await client.models.Restaurant.get({
+          id: state.items[0].restaurantId
+        });
+        
+        if (errors) {
+          console.error('Error fetching restaurant:', errors);
+          throw new Error('Failed to fetch restaurant details');
+        }
+        
+        if (!data || !data.name || !data.phone || !data.address || !data.city || !data.state || !data.zip) {
+          throw new Error('Restaurant data is incomplete');
+        }
+        
+        return {
+          name: data.name,
+          phone: data.phone,
+          address: {
+            street: data.address,
+            city: data.city,
+            state: data.state,
+            zip: data.zip
+          }
+        };
+      }
     },
     enabled: !!state.items[0]?.restaurantId
   });
@@ -249,6 +281,8 @@ export function CheckoutPage() {
         status: 'PENDING',
         customerEmail: '',
         restaurantId: state.items[0]?.restaurantId || '',
+        // Add locationId if it exists in the cart
+        ...(locationId ? { locationId } : {}),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         externalId,
@@ -304,7 +338,7 @@ export function CheckoutPage() {
       });
       return null;
     }
-  }, [state.items, total, useDelivery, deliveryData, toast]);
+  }, [state.items, total, useDelivery, deliveryData, toast, locationId]);
 
   const handlePaymentSuccess = async (_paymentIntentId: string) => {
     try {

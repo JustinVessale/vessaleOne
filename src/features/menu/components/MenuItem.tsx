@@ -13,9 +13,10 @@ type MenuItemData = {
 type MenuItemProps = {
   item: MenuItemData;
   restaurantId: string;
+  locationId?: string;
 };
 
-export function MenuItem({ item, restaurantId }: MenuItemProps) {
+export function MenuItem({ item, restaurantId, locationId }: MenuItemProps) {
   const { addItem } = useCart();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -27,6 +28,7 @@ export function MenuItem({ item, restaurantId }: MenuItemProps) {
       quantity: quantity,
       imageUrl: item.imageUrl,
       restaurantId,
+      locationId,
       specialInstructions: instructions
     });
   };

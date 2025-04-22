@@ -29,16 +29,23 @@ function AppContent() {
   const location = useLocation();
   const hideCartPaths = ['/checkout', '/orders', '/portal'];
   
-  // Don't show the cart in App.tsx for restaurant pages (it's included in RestaurantPage)
-  // or for checkout, order, and portal pages
-  const isRestaurantPage = /^\/[^/]+$/.test(location.pathname);
+  // Check if we're on a restaurant page (either /:restaurantSlug or /:restaurantSlug/:locationSlug)
+  // This regex matches "/something" or "/something/something-else"
+  const isRestaurantPage = /^\/[^/]+\/?([^/]+)?$/.test(location.pathname);
   const shouldShowCart = !hideCartPaths.some(path => location.pathname.startsWith(path)) && !isRestaurantPage;
 
   return (
     <div className="flex flex-col min-h-screen">
       <NavigationBar />
       <Routes>
-        <Route path="/:slug" element={<RestaurantPage />} />
+        {/* Restaurant routes - now as top-level routes */}
+        <Route path="/:restaurantSlug" element={<RestaurantPage />} />
+        <Route path="/:restaurantSlug/:locationSlug" element={<RestaurantPage />} />
+        
+        {/* Redirect root to handle empty path (optional, can be customized) */}
+        <Route path="/" element={<Navigate to="/not-found" replace />} />
+        
+        {/* Checkout and order confirmation routes */}
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/orders/:orderId" element={<OrderConfirmationPage />} />
         
