@@ -92,6 +92,11 @@ function OrderTable({
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{order.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div>{order.customerName || 'Guest'}</div>
+                    {order.location?.name && (
+                      <div className="text-xs text-gray-400 mt-1">
+                        Location: {order.location.name}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div>{format(new Date(order.createdAt), 'MMM d, h:mm a')}</div>
@@ -355,7 +360,18 @@ export function OrdersPage() {
           filter: {
             restaurantId: { eq: restaurantId },
           },
-          selectionSet: ['id', 'customerName', 'status', 'total', 'createdAt', 'items.quantity', 'items.menuItem.name', 'items.menuItem.price'],
+          selectionSet: [
+            'id', 
+            'customerName', 
+            'status', 
+            'total', 
+            'createdAt', 
+            'items.quantity', 
+            'items.menuItem.name', 
+            'items.menuItem.price', 
+            'locationId',
+            'location.name'
+          ],
         });
 
         console.log("Fetched orders:", data);

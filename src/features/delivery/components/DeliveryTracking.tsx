@@ -176,6 +176,8 @@ export function DeliveryTracking({ orderId, onCancel, onSwitchToPickup }: Delive
         deliveryFee: 0,
         deliveryAddress: '',
         status: 'PAID', // Keep as PAID so restaurant can accept it
+        // Preserve locationId if it exists
+        ...(order.locationId ? { locationId: order.locationId } : {}),
         updatedAt: new Date().toISOString()
       });
 

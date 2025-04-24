@@ -31,7 +31,21 @@ export function OrderConfirmationPage() {
             'deliveryAddress',
             'customerName',
             'customerPhone',
-            'deliveryInfo.*'
+            'deliveryInfo.*',
+            'locationId',
+            'location.name',
+            'location.address',
+            'location.city',
+            'location.state',
+            'location.zip',
+            'location.phoneNumber',
+            'restaurantId',
+            'restaurant.name',
+            'restaurant.address',
+            'restaurant.city',
+            'restaurant.state',
+            'restaurant.zip',
+            'restaurant.phone'
           ]
         }
       )
@@ -62,6 +76,15 @@ export function OrderConfirmationPage() {
     );
   }
 
+  // Get restaurant info from either location or restaurant property
+  const restaurantName = order.location?.name || order.restaurant?.name || 'Restaurant';
+  const restaurantAddress = order.location ? 
+    `${order.location.address}, ${order.location.city}, ${order.location.state} ${order.location.zip}` : 
+    order.restaurant ? 
+    `${order.restaurant.address}, ${order.restaurant.city}, ${order.restaurant.state} ${order.restaurant.zip}` :
+    '';
+  const restaurantPhone = order.location?.phoneNumber || order.restaurant?.phone || '';
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
@@ -87,6 +110,16 @@ export function OrderConfirmationPage() {
               <p className="text-sm text-gray-600">
                 Placed on {format(new Date(order.createdAt ?? Date.now()), 'MMM d, yyyy h:mm a')}
               </p>
+            </div>
+
+            {/* Restaurant Information */}
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{restaurantName}</h3>
+              {restaurantAddress && <p className="text-sm text-gray-600">{restaurantAddress}</p>}
+              {restaurantPhone && <p className="text-sm text-gray-600">{restaurantPhone}</p>}
+              {order.location && order.restaurant?.name && (
+                <p className="text-sm text-gray-600 mt-1">Part of {order.restaurant.name}</p>
+              )}
             </div>
 
             {/* Delivery Information (if applicable) */}
