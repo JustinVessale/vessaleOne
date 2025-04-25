@@ -4,6 +4,7 @@ import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../../../amplify/data/resource';
 import { MenuCategory } from '../../menu/components/MenuCategory';
 import { Cart } from '../../cart/components/Cart';
+import { StorageImage } from '@/components/ui/s3-image';
 
 const client = generateClient<Schema>();
 
@@ -123,7 +124,7 @@ export function RestaurantPage() {
     <div className="flex flex-col flex-1">
       {/* Hero Section - Fixed height */}
       <div className="relative h-48 md:h-64">
-        <img
+        <StorageImage
           src={restaurant.imageUrl ?? ''}
           alt={restaurant.name ?? ''}
           className="absolute inset-0 w-full h-full object-cover"

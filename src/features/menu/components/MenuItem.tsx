@@ -1,6 +1,7 @@
 import { useCart } from '../../cart/context/CartContext';
 import { useState } from 'react';
 import { ItemDetailModal } from './ItemDetailModal';
+import { StorageImage } from '@/components/ui/s3-image';
 
 type MenuItemData = {
   id: string;
@@ -50,11 +51,10 @@ export function MenuItem({ item, restaurantId, locationId }: MenuItemProps) {
         
         {item.imageUrl && (
           <div className="flex-shrink-0 w-20 h-20 relative rounded-lg overflow-hidden">
-            <img
+            <StorageImage
               src={item.imageUrl}
               alt={item.name}
               className="w-full h-full object-cover"
-              loading="lazy"
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
           </div>

@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Plus, Edit, Trash, Search, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSelectedLocation } from '../hooks/useSelectedLocation';
+import { EditMenuItemModal } from './EditMenuItemModal';
+import { useRestaurantContext } from '../context/RestaurantContext';
+import { StorageImage } from '@/components/ui/s3-image';
 
 // Define menu category interface
 interface MenuCategory {
@@ -20,9 +23,10 @@ interface MenuItem {
   imageUrl?: string;
   isAvailable: boolean;
   isPopular?: boolean;
+  categoryId: string;
 }
 
-// Sample menu data
+// Update the sample categories data with categoryId
 const sampleCategories: MenuCategory[] = [
   {
     id: 'cat1',
@@ -36,7 +40,8 @@ const sampleCategories: MenuCategory[] = [
         price: 8.95,
         imageUrl: 'https://source.unsplash.com/random/100x100?salad',
         isAvailable: true,
-        isPopular: true
+        isPopular: true,
+        categoryId: 'cat1'
       },
       {
         id: 'item2',
@@ -44,7 +49,8 @@ const sampleCategories: MenuCategory[] = [
         description: 'Fresh baked bread with garlic butter and herbs',
         price: 4.95,
         imageUrl: 'https://source.unsplash.com/random/100x100?bread',
-        isAvailable: true
+        isAvailable: true,
+        categoryId: 'cat1'
       },
       {
         id: 'item3',
@@ -52,7 +58,8 @@ const sampleCategories: MenuCategory[] = [
         description: 'Lightly fried squid served with marinara sauce',
         price: 11.95,
         imageUrl: 'https://source.unsplash.com/random/100x100?calamari',
-        isAvailable: true
+        isAvailable: true,
+        categoryId: 'cat1'
       }
     ]
   },
@@ -68,7 +75,8 @@ const sampleCategories: MenuCategory[] = [
         price: 16.95,
         imageUrl: 'https://source.unsplash.com/random/100x100?chicken',
         isAvailable: true,
-        isPopular: true
+        isPopular: true,
+        categoryId: 'cat2'
       },
       {
         id: 'item5',
@@ -76,7 +84,8 @@ const sampleCategories: MenuCategory[] = [
         description: 'Fresh Atlantic salmon with lemon butter sauce and seasonal vegetables',
         price: 21.95,
         imageUrl: 'https://source.unsplash.com/random/100x100?salmon',
-        isAvailable: true
+        isAvailable: true,
+        categoryId: 'cat2'
       },
       {
         id: 'item6',
@@ -84,7 +93,8 @@ const sampleCategories: MenuCategory[] = [
         description: 'Mixed vegetables in our signature sauce served over rice',
         price: 14.95,
         imageUrl: 'https://source.unsplash.com/random/100x100?stirfry',
-        isAvailable: false
+        isAvailable: false,
+        categoryId: 'cat2'
       }
     ]
   },
@@ -100,7 +110,8 @@ const sampleCategories: MenuCategory[] = [
         price: 7.95,
         imageUrl: 'https://source.unsplash.com/random/100x100?cake',
         isAvailable: true,
-        isPopular: true
+        isPopular: true,
+        categoryId: 'cat3'
       },
       {
         id: 'item8',
@@ -108,7 +119,8 @@ const sampleCategories: MenuCategory[] = [
         description: 'Creamy cheesecake with a graham cracker crust',
         price: 6.95,
         imageUrl: 'https://source.unsplash.com/random/100x100?cheesecake',
-        isAvailable: true
+        isAvailable: true,
+        categoryId: 'cat3'
       }
     ]
   }
@@ -184,10 +196,12 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
           </div>
           {item.imageUrl && (
             <div className="ml-4">
-              <img 
+              <StorageImage 
                 src={item.imageUrl} 
                 alt={item.name} 
                 className="h-16 w-16 object-cover rounded-md"
+                width={64}
+                height={64}
               />
             </div>
           )}
@@ -209,14 +223,21 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
 export function MenuPage() {
   const [categories, setCategories] = useState<MenuCategory[]>(sampleCategories);
   const [searchTerm, setSearchTerm] = useState('');
-  const { locationName, hasLocation } = useSelectedLocation();
-
-  //const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const { locationName, hasLocation, locationId } = useSelectedLocation();
+  const { restaurant } = useRestaurantContext();
+  
+  // Add state for edit modal
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
   const handleEditItem = (item: MenuItem) => {
-   // setEditingItem(item);
-    // Open edit modal (not implemented in this example)
-    console.log('Editing item:', item);
+    setEditingItem(item);
+    setEditModalOpen(true);
+  };
+  
+  const handleAddItem = () => {
+    setEditingItem(null); // null indicates a new item
+    setEditModalOpen(true);
   };
 
   const handleDeleteItem = (itemId: string) => {
@@ -236,6 +257,36 @@ export function MenuPage() {
       )
     }));
     setCategories(updatedCategories);
+  };
+  
+  const handleSaveMenuItem = (updatedItem: MenuItem) => {
+    // Determine if this is an edit or an add
+    const isEditing = !!editingItem;
+    
+    if (isEditing) {
+      // Update existing item
+      const updatedCategories = categories.map(category => ({
+        ...category,
+        items: category.items.map(item => 
+          item.id === updatedItem.id ? updatedItem : item
+        )
+      }));
+      setCategories(updatedCategories);
+    } else {
+      // Add new item
+      // In a real implementation, you would add the item to the selected category
+      // For now, we'll add it to the first category
+      if (categories.length > 0) {
+        const newItemWithId = {
+          ...updatedItem,
+          id: `item${Date.now()}`, // Generate a temporary ID
+        };
+        
+        const updatedCategories = [...categories];
+        updatedCategories[0].items.push(newItemWithId);
+        setCategories(updatedCategories);
+      }
+    }
   };
 
   const filteredCategories = categories.map(category => ({
@@ -266,7 +317,7 @@ export function MenuPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button>
+        <Button onClick={handleAddItem}>
           <Plus className="h-4 w-4 mr-2" />
           Add Menu Item
         </Button>
@@ -308,6 +359,17 @@ export function MenuPage() {
             </div>
           ))}
         </div>
+      )}
+      
+      {/* Edit Menu Item Modal */}
+      {editModalOpen && (
+        <EditMenuItemModal
+          item={editingItem}
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          onSave={handleSaveMenuItem}
+          restaurantId={restaurant?.id || ''}
+        />
       )}
     </div>
   );

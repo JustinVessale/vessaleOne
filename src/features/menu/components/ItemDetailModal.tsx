@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useState } from 'react';
+import { StorageImage } from '@/components/ui/s3-image';
 
 type MenuItemData = {
   id: string;
@@ -33,7 +34,7 @@ export function ItemDetailModal({ item, isOpen, onClose, onAddToCart }: ItemDeta
         </DialogHeader>
         
         <div className="space-y-4 py-4">
-          <img
+          <StorageImage
             src={item.imageUrl}
             alt={item.name}
             className="w-full h-48 object-cover rounded-lg"

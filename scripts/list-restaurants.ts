@@ -43,7 +43,11 @@ async function listRestaurants() {
     const { data: restaurants, errors } = await client.models.Restaurant.list({
       selectionSet: ['id', 'name', 'slug', 'isActive']
     });
-    
+
+    const { data: locations, errors: locationErrors } = await client.models.RestaurantLocation.list({
+      selectionSet: ['id', 'name', 'slug', 'isActive']
+    });
+
     if (errors) {
       throw new Error(`Error fetching restaurants: ${JSON.stringify(errors)}`);
     }
@@ -55,6 +59,18 @@ async function listRestaurants() {
     
     console.log("\n=== Restaurants ===");
     console.log("Count:", restaurants.length);
+    console.log("First 5 restaurants:");
+    restaurants.slice(0, 5).forEach(r => {
+      console.log(`- ${r.name} (${r.id})`);
+    });
+    console.log("-------------------");
+
+    console.log("\n=== Locations ===");
+    console.log("Count:", locations.length);
+    console.log("First 5 locations:");
+    locations.slice(0, 5).forEach(l => {
+      console.log(`- ${l.name} (${l.id})`);
+    });
     console.log("-------------------");
     
     // Display restaurants in a table format

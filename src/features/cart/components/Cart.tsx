@@ -1,6 +1,7 @@
 import { XMarkIcon, ShoppingBagIcon } from '@heroicons/react/24/solid';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
+import { StorageImage } from '@/components/ui/s3-image';
 
 export function Cart() {
   const { state, removeItem, updateQuantity, toggleCart } = useCart();
@@ -26,11 +27,17 @@ export function Cart() {
           <>
             {state.items.map((item) => (
               <div key={item.id} className="flex items-start space-x-4 mb-6">
-                <img
-                  src={item.imageUrl}
-                  alt={item.name}
-                  className="w-20 h-20 rounded-lg object-cover"
-                />
+                {item.imageUrl ? (
+                  <StorageImage
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="w-20 h-20 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <ShoppingBagIcon className="h-8 w-8 text-gray-400" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0 pr-2">
                   <div className="flex justify-between items-start">
                     <h3 className="font-medium">{item.name}</h3>

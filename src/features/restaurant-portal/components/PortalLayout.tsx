@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { portalRoutes } from '../routes';
 import { RestaurantLocationProvider } from '../context/RestaurantLocationContext';
+import { RestaurantProvider } from '../context/RestaurantContext';
 import { LocationSelector } from './LocationSelector';
 
 // Icon mapping
@@ -145,8 +146,10 @@ export function PortalLayout({ children }: PortalLayoutProps) {
   ), [children, restaurantName, isSidebarOpen, currentPath]);
 
   return (
-    <RestaurantLocationProvider>
-      {layoutContent}
-    </RestaurantLocationProvider>
+    <RestaurantProvider>
+      <RestaurantLocationProvider>
+        {layoutContent}
+      </RestaurantLocationProvider>
+    </RestaurantProvider>
   );
 } 
