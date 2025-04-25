@@ -10,24 +10,22 @@ import { menuItemImageHelper } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 import { useSelectedLocation } from '../hooks/useSelectedLocation';
 import { StorageImage } from '@/components/ui/s3-image';
+import type { Schema } from '../../../../amplify/data/resource';
 
-// Define menu item interface
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl?: string;
-  isAvailable: boolean;
+// Define types using the generated Schema
+type MenuItemType = Schema['MenuItem']['type'];
+
+// Extended type for UI-specific properties
+type MenuItemUI = MenuItemType & {
+  isAvailable?: boolean;
   isPopular?: boolean;
-  categoryId: string;
-}
+};
 
 interface EditMenuItemModalProps {
-  item: MenuItem | null;
+  item: MenuItemUI | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (item: MenuItem) => void;
+  onSave: (item: MenuItemUI) => void;
   restaurantId: string;
 }
 
@@ -42,7 +40,7 @@ export function EditMenuItemModal({
   const { locationId = 'default' } = useSelectedLocation();
   
   // Initialize state with the item data or defaults for a new item
-  const [formData, setFormData] = useState<MenuItem>(
+  const [formData, setFormData] = useState<MenuItemUI>(
     item || {
       id: '',
       name: '',
@@ -52,7 +50,7 @@ export function EditMenuItemModal({
       isAvailable: true,
       isPopular: false,
       categoryId: ''
-    }
+    } as MenuItemUI
   );
   
   const [isUploading, setIsUploading] = useState(false);
@@ -136,7 +134,7 @@ export function EditMenuItemModal({
                 <Input
                   id="name"
                   name="name"
-                  value={formData.name}
+                  value={formData.name || ''}
                   onChange={handleChange}
                   required
                 />
@@ -150,7 +148,7 @@ export function EditMenuItemModal({
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.price}
+                  value={formData.price || 1}
                   onChange={handleChange}
                   required
                 />
@@ -162,7 +160,7 @@ export function EditMenuItemModal({
               <Textarea
                 id="description"
                 name="description"
-                value={formData.description}
+                value={formData.description || ''}
                 onChange={handleChange}
                 rows={3}
               />
@@ -172,7 +170,7 @@ export function EditMenuItemModal({
               <Label>Image</Label>
               <ImageUploader
                 onImageSelected={handleImageSelected}
-                previewUrl={formData.imageUrl}
+                previewUrl={formData.imageUrl || undefined}
                 isUploading={isUploading}
               />
               {formData.imageUrl && !imageFile && (
