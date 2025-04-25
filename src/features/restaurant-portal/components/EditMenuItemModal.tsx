@@ -97,45 +97,57 @@ export function EditMenuItemModal({
             imageUrl: uploadResult.url
           }));
         } catch (uploadError: any) {
-          // Check for specific error types
+          // Log the full error for debugging
           console.error('Image upload error:', uploadError);
           
-          // Extract error message and status code if available
-          const statusCode = uploadError.statusCode || 
-                           (uploadError.response?.status) || 
-                           (uploadError.message?.includes('403') ? 403 : null);
+          let errorTitle = "Image Upload Failed";
+          let continueWithSave = false;
           
-          let errorMessage = 'Failed to upload image';
-          
-          // Handle specific error cases
-          if (statusCode === 403) {
-            errorMessage = 'Permission denied when uploading image. You may not have access to this storage location.';
-          } else if (uploadError.message?.includes('Network')) {
-            errorMessage = 'Network error occurred while uploading. Please check your connection.';
-          } else if (uploadError.message) {
-            errorMessage = `Upload error: ${uploadError.message}`;
+          // Check if it's an S3 permission error
+          if (uploadError.message?.includes('AccessDenied') || 
+              uploadError.message?.includes('not authorized') ||
+              uploadError.code === 'AccessDenied') {
+            
+            // Ask user if they want to continue without the image
+            const confirmed = window.confirm(
+              "Unable to upload the image due to permission issues. Would you like to save the item without updating the image?"
+            );
+            
+            if (confirmed) {
+              continueWithSave = true;
+            } else {
+              setIsUploading(false);
+              return; // Stop the form submission
+            }
+          } else {
+            // For other errors, just show the toast
+            setTimeout(() => {
+              toast({
+                title: errorTitle,
+                variant: "destructive",
+                duration: 3,
+                className: "bg-red-100 border-red-400 text-red-800 border"
+              });
+            }, 100);
+            
+            setIsUploading(false);
+            return; // Stop the form submission
           }
           
-          // Ensure toast is visible with longer duration and higher z-index
-          setTimeout(() => {
-            toast({
-              title: "Image Upload Failed",
-              variant: "destructive",
-              duration: 5000,
-              className: "bg-red-100 border-red-400 text-red-800 border"
-            });
-          }, 100);
-          
-          setIsUploading(false);
-          return; // Stop the form submission if image upload fails
+          // If we're not continuing with the save, stop here
+          if (!continueWithSave) {
+            setIsUploading(false);
+            return;
+          }
+          // Otherwise we'll continue without the new image
         }
       }
       
       // Call the onSave function with the updated data
       onSave({
         ...formData,
-        // If we just uploaded a new image, use that URL
-        imageUrl: imageFile ? formData.imageUrl : formData.imageUrl
+        // Only update the imageUrl if we successfully uploaded a new image
+        // Keep the existing imageUrl if upload failed but user chose to continue
       });
       
       // Reset state
@@ -144,15 +156,11 @@ export function EditMenuItemModal({
     } catch (error: any) {
       console.error('Error saving menu item:', error);
       
-      // Provide a more specific error message if possible
-      const errorMessage = error.message || 'Failed to save the menu item. Please try again.';
-      
-      // Ensure toast is visible with longer duration
       setTimeout(() => {
         toast({
           title: "Save Failed",
           variant: "destructive",
-          duration: 5000,
+          duration: 3,
           className: "bg-red-100 border-red-400 text-red-800 border"
         });
       }, 100);
