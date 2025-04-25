@@ -10,9 +10,25 @@ const NASH_API_BASE_URL = import.meta.env.DEV
   ? '/nash-api' 
   : 'https://api.sandbox.usenash.com';
 
+// Get the appropriate Nash API key based on the environment
+const getNashAPIKey = () => {
+  const isProd = import.meta.env.PROD === true;
+  return isProd 
+    ? import.meta.env.VITE_NASH_API_KEY_PROD
+    : import.meta.env.VITE_NASH_API_KEY_DEV;
+};
+
+// Get the appropriate Nash Org ID based on the environment
+const getNashOrgID = () => {
+  const isProd = import.meta.env.PROD === true;
+  return isProd 
+    ? import.meta.env.VITE_NASH_ORG_ID_PROD
+    : import.meta.env.VITE_NASH_ORG_ID_DEV;
+};
+
 // Nash API credentials - should be stored in environment variables
-const NASH_API_KEY = import.meta.env.VITE_NASH_API_KEY || '';
-const NASH_ORG_ID = import.meta.env.VITE_NASH_ORG_ID || '';
+const NASH_API_KEY = getNashAPIKey() || '';
+const NASH_ORG_ID = getNashOrgID() || '';
 const NASH_DISPATCH_STRATEGY_ID = import.meta.env.VITE_NASH_DISPATCH_STRATEGY_ID || '';
 
 // Log configuration on startup
