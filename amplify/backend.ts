@@ -25,7 +25,7 @@ export const backend = defineBackend({
 });
 
 // Add secrets to the Lambda functions
-backend.stripePayment.addEnvironment('STRIPE_SECRET_KEY', secret('STRIPE_SECRET_KEY'));
+backend.stripePayment.addEnvironment('STRIPE_SECRET_KEY', secret('VITE_STRIPE_SECRET_KEY'));
 backend.stripePayment.addEnvironment('STRIPE_WEBHOOK_SECRET', secret('STRIPE_WEBHOOK_SECRET'));
 backend.nashWebhook.addEnvironment('NASH_API_KEY', secret('NASH_API_KEY'));
 backend.nashWebhook.addEnvironment('NASH_ORG_ID', secret('NASH_ORG_ID'));
