@@ -74,11 +74,12 @@ const paymentApi = new RestApi(apiStack, "PaymentApi", {
   },
   defaultCorsPreflightOptions: {
     allowOrigins: [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'https://*.amplifyapp.com',
-      'https://*.thevessale.com', // Add your production domain
-      'https://thevessale.com'    // Add root domain
+      'https://develop.d2g0w15slq5y17.amplifyapp.com', // Explicit develop domain
+      'https://main.d2g0w15slq5y17.amplifyapp.com',    // Explicit main domain
+      'https://*.amplifyapp.com',                     // Generic pattern for other environments
+      'https://*.thevessale.com',                     // Production domain
+      'https://thevessale.com',                       // Root domain
+      'https://www.orderthevessale.com'               // Additional domain
     ],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: [
