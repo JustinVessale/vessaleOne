@@ -1,3 +1,7 @@
+/**
+ * Custom hook that provides functionality for uploading, deleting, and managing images in Amplify Storage.
+ * Use this when components need to manipulate images, not just display them.
+ */
 import { useState } from 'react';
 import { uploadImage, getImageUrl, deleteImage } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';

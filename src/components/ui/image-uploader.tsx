@@ -1,3 +1,7 @@
+/**
+ * UI component that provides a user interface for selecting and previewing images before upload.
+ * Handles the file selection process but delegates the actual upload to a callback function.
+ */
 import { useState, useRef } from 'react';
 import { Button } from './button';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';

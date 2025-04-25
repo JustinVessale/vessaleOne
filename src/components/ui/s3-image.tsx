@@ -1,3 +1,7 @@
+/**
+ * StorageImage component handles displaying images from Amplify Storage with proper URL resolution,
+ * loading states, and fallback support. Use this when you need to display images stored in S3.
+ */
 import { useState, useEffect } from 'react';
 import { getImageUrl } from '@/lib/storage';
 
@@ -118,6 +122,3 @@ export function StorageImage({
     </div>
   );
 }
-
-// Export the old name for backward compatibility
-export const S3Image = StorageImage; 
