@@ -1,4 +1,4 @@
-import { useState, } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Plus, Edit, Trash, Search, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSelectedLocation } from '../hooks/useSelectedLocation';
@@ -33,6 +33,37 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
   onToggleAvailability: (itemId: string, isAvailable: boolean) => void;
 }) {
   const [showActions, setShowActions] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  
+  // Handle click outside to close menu
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node) && 
+          buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
+        setShowActions(false);
+      }
+    }
+    
+    if (showActions) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showActions]);
+  
+  // Position the menu when it's shown
+  useEffect(() => {
+    if (showActions && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.top,
+        left: rect.left - 120, // Position to the left of the button
+      });
+    }
+  }, [showActions]);
 
   return (
     <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
@@ -76,6 +107,7 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
           
           <div className="relative">
             <button 
+              ref={buttonRef}
               className="p-2 rounded-full hover:bg-gray-100 flex items-center justify-center"
               onClick={() => setShowActions(!showActions)}
               aria-label="Menu options"
@@ -84,9 +116,16 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
             </button>
             
             {showActions && (
-              <div className="absolute right-0 bottom-full mb-1 z-10 w-48 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5">
+              <div 
+                ref={menuRef}
+                className="fixed z-50 w-48 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5"
+                style={{
+                  top: `${menuPosition.top - 120}px`, // Position above the button
+                  left: `${menuPosition.left}px`
+                }}
+              >
                 <button 
-                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-100"
                   onClick={() => {
                     onEdit(item);
                     setShowActions(false);
@@ -96,7 +135,7 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
                   Edit Item
                 </button>
                 <button 
-                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-100"
                   onClick={() => {
                     onToggleAvailability(item.id, !(item.isAvailable !== false));
                     setShowActions(false);
@@ -105,7 +144,7 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
                   {item.isAvailable !== false ? 'Mark as Unavailable' : 'Mark as Available'}
                 </button>
                 <button 
-                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 focus:outline-none focus:bg-red-50"
                   onClick={() => {
                     onDelete(item.id);
                     setShowActions(false);
