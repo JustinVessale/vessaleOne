@@ -99,6 +99,7 @@ const schema = a.schema({
       description: a.string(),
       price: a.float(),
       imageUrl: a.string(),
+      imagePath: a.string(), // Path to the image in S3 storage
       categoryId: a.string(),
       category: a.belongsTo('MenuCategory', 'categoryId'),
       orderItems: a.hasMany('OrderItem', 'menuItemId')

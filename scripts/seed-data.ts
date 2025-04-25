@@ -124,6 +124,7 @@ async function seedData() {
         description: "Homemade tortilla chips topped with asada beef, cheese, guacamole, sour cream, pico de gallo & jalapenos",
         price: 16.99,
         imageUrl: "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d",
+        imagePath: `${restaurantId}/default/monster-nachos.jpg`,
         categoryId: appetizersId,
       }),
       client.models.MenuItem.create({
@@ -131,6 +132,7 @@ async function seedData() {
         description: "Creamy house-made hummus served with warm pita bread",
         price: 7.99,
         imageUrl: "https://images.unsplash.com/photo-1577805947697-89e18249d767",
+        imagePath: `${restaurantId}/default/hummus.jpg`,
         categoryId: appetizersId,
       }),
       client.models.MenuItem.create({
@@ -138,6 +140,7 @@ async function seedData() {
         description: "Traditional dolmas stuffed with seasoned rice and herbs",
         price: 7.99,
         imageUrl: "https://images.unsplash.com/photo-1541518763669-27fef04b14ea",
+        imagePath: `${restaurantId}/default/grape-leaves.jpg`,
         categoryId: appetizersId,
       }),
       
@@ -147,6 +150,7 @@ async function seedData() {
         description: "Tender chicken wrapped in fresh flatbread with garlic sauce",
         price: 10.99,
         imageUrl: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143",
+        imagePath: `${restaurantId}/default/chicken-roll.jpg`,
         categoryId: mainsId,
       }),
       client.models.MenuItem.create({
@@ -154,6 +158,7 @@ async function seedData() {
         description: "Crispy wings tossed in your choice of sauce",
         price: 13.99,
         imageUrl: "https://images.unsplash.com/photo-1608039829572-78524f79c4c7",
+        imagePath: `${restaurantId}/default/chicken-wings.jpg`,
         categoryId: mainsId,
       }),
       client.models.MenuItem.create({
@@ -161,6 +166,7 @@ async function seedData() {
         description: "A generous assortment of grilled meats including lamb, chicken, and beef with Mediterranean seasonings",
         price: 28.99,
         imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947",
+        imagePath: `${restaurantId}/default/mixed-grill-platter.jpg`,
         categoryId: mainsId,
       }),
       
@@ -170,6 +176,7 @@ async function seedData() {
         description: "Roasted potatoes seasoned with garlic and herbs",
         price: 9.99,
         imageUrl: "https://images.unsplash.com/photo-1568569350062-ebfa3cb195df",
+        imagePath: `${restaurantId}/default/garlic-potato.jpg`,
         categoryId: sidesId,
       }),
       client.models.MenuItem.create({
@@ -177,6 +184,7 @@ async function seedData() {
         description: "Crispy battered onion rings stacked high",
         price: 8.99,
         imageUrl: "https://images.unsplash.com/photo-1639024471283-03518883512d",
+        imagePath: `${restaurantId}/default/onion-rings-tower.jpg`,
         categoryId: sidesId,
       }),
     ]);

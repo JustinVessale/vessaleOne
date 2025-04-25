@@ -1,6 +1,7 @@
 import { defineBackend } from '@aws-amplify/backend';
 import { data } from './data/resource';
 import { auth } from './auth/resource';
+import { storage } from './storage/resource';
 import { Stack } from "aws-cdk-lib";
 import {
   AuthorizationType,
@@ -19,6 +20,7 @@ import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 export const backend = defineBackend({
   auth,
   data,
+  storage,
   stripePayment,
   nashWebhook,
   seedDevelop
