@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BarChart, LineChart, PieChart, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
+import { BarChart, LineChart, PieChart, Calendar, ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 // Sample analytics card component
@@ -45,6 +45,11 @@ export function AnalyticsPage() {
   
   return (
     <div>
+      <div className="bg-amber-100 border border-amber-300 rounded-md p-4 mb-6 flex items-center">
+        <AlertTriangle className="h-6 w-6 text-amber-500 mr-3" />
+        <p className="text-amber-800 font-medium">Placeholder data, component coming soon</p>
+      </div>
+      
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
         <p className="text-gray-600 mt-1">Insights and performance metrics for your restaurant</p>
