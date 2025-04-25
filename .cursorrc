@@ -1,0 +1,23 @@
+{
+  "rules": {
+    "amplify": {
+      "include": [
+        "@aws-amplify/backend",
+        "@aws-amplify/backend-*",
+        "aws-cdk-lib",
+        "amplify/backend.ts"
+      ],
+      "exclude": [
+        "aws-amplify",
+        "@aws-amplify/ui-react",
+        "amplify-cli",
+        "amplify configure"
+      ],
+      "preferredDocs": [
+        "https://docs.amplify.aws/gen2/",
+        "https://docs.aws.amazon.com/amplify/latest/userguide/welcome.html"
+      ],
+      "customPrompt": "IMPORTANT: This project uses AWS Amplify Gen 2 ONLY. NEVER suggest Amplify Gen 1 commands like 'amplify push', 'amplify add', etc. ALWAYS use Gen 2 commands with 'npx ampx' prefix. ONLY use TypeScript CDK constructs and patterns from @aws-amplify/backend. If you're unsure if a suggestion is Gen 1 or Gen 2, do not suggest it."
+    }
+  }
+} 

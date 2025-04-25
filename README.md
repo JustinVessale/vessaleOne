@@ -1,5 +1,7 @@
 # Vessale Restaurant Ordering System
 
+> **⚠️ IMPORTANT: This project uses AWS Amplify Gen 2 exclusively. All commands, patterns, and solutions MUST follow Gen 2 paradigms. Do NOT use Gen 1 commands like `amplify push` - only use Gen 2 commands like `npx ampx push` or `npx ampx sandbox`.**
+
 A modern, responsive web application for restaurant menu browsing and online ordering, built with React, TypeScript, and AWS Amplify Gen 2.
 
 ## Features
@@ -18,20 +20,41 @@ A modern, responsive web application for restaurant menu browsing and online ord
   - Persistent cart state
   - Sliding cart panel on desktop and mobile
 
+- 💳 **Payment Processing**
+  - Secure checkout with Stripe integration
+  - Credit card processing
+  - Payment status tracking
+  - Order confirmation
+
+- 🚚 **Delivery Management**
+  - Nash delivery integration
+  - Real-time delivery tracking
+  - Delivery quotes and estimates
+  - Address validation and management
+
+- 📋 **Order Management**
+  - Order confirmation and details
+  - Order history
+  - Order status tracking
+
 - 💫 **Modern UI/UX**
   - Mobile-first responsive design
-  - Smooth animations and transitions
+  - Smooth animations and transitions with Framer Motion
   - Loading states and error handling
   - Touch-friendly interface
   - Accessible components
+  - Toast notifications
 
 ## Tech Stack
 
 - **Frontend Framework**: React with TypeScript
-- **Routing**: React Router v6
-- **Styling**: Tailwind CSS
+- **Routing**: React Router v7
+- **Styling**: Tailwind CSS v4
 - **UI Components**: Shadcn/UI, Radix UI
-- **State Management**: React Query, React Context
+- **State Management**: TanStack React Query, React Context
+- **Animation**: Framer Motion
+- **Payment Processing**: Stripe
+- **Delivery Integration**: Nash
 - **Backend**: AWS Amplify Gen 2
 - **API**: GraphQL
 - **Build Tools**: Vite
@@ -53,9 +76,33 @@ src/
 │   │   │   └── Cart.tsx
 │   │   └── context/
 │   │       └── CartContext.tsx
+│   ├── payment/
+│   │   ├── components/
+│   │   │   ├── CheckoutPage.tsx
+│   │   │   ├── PaymentForm.tsx
+│   │   │   └── StripeProvider.tsx
+│   │   └── api/
+│   │       └── paymentApi.ts
+│   ├── delivery/
+│   │   ├── components/
+│   │   │   ├── DeliveryForm.tsx
+│   │   │   ├── DeliveryQuote.tsx
+│   │   │   └── DeliveryTracking.tsx
+│   │   └── hooks/
+│   │       └── useDelivery.ts
+│   ├── orders/
+│   │   └── components/
+│   │       └── OrderConfirmationPage.tsx
 │   └── shared/
 │       └── components/
 │           └── Layout.tsx
+├── components/
+│   └── ui/
+│       └── [shadcn components]
+├── lib/
+│   └── utils.ts
+├── hooks/
+│   └── [custom hooks]
 └── App.tsx
 
 ```
@@ -67,30 +114,38 @@ src/
 - Node.js (v16 or higher)
 - npm or yarn
 - AWS Account with Amplify CLI configured
+- Stripe account for payment processing
+- Nash account for delivery integration
 
 ### Installation
 
 1. Clone the repository:
-\`\`\`bash
+```bash
 git clone [repository-url]
 cd vessaleOne
-\`\`\`
+```
 
 2. Install dependencies:
-\`\`\`bash
+```bash
 npm install
-\`\`\`
+```
 
-3. Configure AWS Amplify:
-\`\`\`bash
-amplify init
-amplify push
-\`\`\`
+3. Configure environment variables:
+Create a `.env.local` file with the following variables:
+```
+VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+VITE_NASH_API_KEY=your_nash_api_key
+```
 
-4. Start the development server:
-\`\`\`bash
+4. Configure AWS Amplify Gen 2:
+```bash
+npx ampx sandbox
+```
+
+5. Start the development server:
+```bash
 npm run dev
-\`\`\`
+```
 
 ## Development
 
@@ -100,20 +155,25 @@ npm run dev
 - **MenuCategory**: Displays a category of menu items in a responsive grid
 - **MenuItem**: Individual menu item card with image, description, and add-to-cart functionality
 - **Cart**: Shopping cart slide-out panel with item management
+- **CheckoutPage**: Handles payment processing with Stripe integration
+- **DeliveryForm**: Collects and validates delivery information
+- **DeliveryTracking**: Real-time tracking of delivery status
+- **OrderConfirmationPage**: Displays order details and confirmation
 - **Layout**: Main application layout with header and footer
 
 ### State Management
 
 - **CartContext**: Global cart state management using React Context
-- **React Query**: Server state management for API calls
+- **TanStack React Query**: Server state management for API calls
 - **AWS Amplify**: Backend state and data management
 
 ### Styling
 
-- Utilizes Tailwind CSS for responsive design
+- Utilizes Tailwind CSS v4 for responsive design
 - Custom color scheme defined in tailwind.config.js
 - Mobile-first approach with responsive breakpoints
 - Consistent spacing and typography system
+- Framer Motion for smooth animations and transitions
 
 ## Data Model
 
@@ -138,21 +198,42 @@ npm run dev
 - imageUrl: String
 - categoryId: ID!
 
+### Order
+- id: ID!
+- userId: ID!
+- items: [OrderItem]
+- status: OrderStatus!
+- total: Float!
+- deliveryAddress: Address
+- paymentId: String
+- createdAt: AWSDateTime!
+
+### OrderItem
+- id: ID!
+- menuItemId: ID!
+- quantity: Int!
+- specialInstructions: String
+- price: Float!
+
 ## Contributing
 
 1. Create a feature branch
 2. Make your changes
 3. Submit a pull request
 
+## Completed Features
+- [x] Restaurant menu display
+- [x] Shopping cart functionality
+- [x] Stripe payment integration
+- [x] Nash delivery integration
+- [x] Order confirmation
+- [x] Responsive UI with animations
+
 ## Future Enhancements
 
 - [ ] User authentication
-- [ ] Order history
 - [ ] Restaurant reviews and ratings
-- [ ] Real-time order tracking
 - [ ] Multiple restaurant support
-- [ ] Payment integration
-- [ ] Delivery address management
 
 ## License
 

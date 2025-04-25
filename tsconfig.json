@@ -18,8 +18,15 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "$amplify/*": [".amplify/generated/*"]
+    }
   },
   "include": ["src"],
+  "exclude": ["amplify/**/*", "node_modules", "dist"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -1,11 +1,5 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
-
-/*== STEP 1 ===============================================================
-The section below creates a Todo database table with a "content" field. Try
-adding a new "isDone" field as a boolean. The authorization rule below
-specifies that any user authenticated via an API key can "create", "read",
-"update", and "delete" any "Todo" records.
-=========================================================================*/
+import { nashWebhook } from '../functions/nash-webhook/resource';
 
 const schema = a.schema({
   // Custom types need to be defined inside the schema
@@ -21,6 +15,73 @@ const schema = a.schema({
     currentLocation: a.ref('Location'),
   }),
 
+  // Add delivery-related custom types
+  DeliveryStatus: a.enum([
+    'PENDING', 
+    'CONFIRMED', 
+    'PICKING_UP', 
+    'PICKED_UP', 
+    'DELIVERING', 
+    'COMPLETED', 
+    'CANCELLED', 
+    'FAILED'
+  ]),
+
+  DeliveryInfo: a.customType({
+    deliveryId: a.string(),
+    provider: a.string(),
+    fee: a.float(),
+    estimatedPickupTime: a.string(),
+    estimatedDeliveryTime: a.string(),
+    trackingUrl: a.string(),
+    status: a.ref('DeliveryStatus'),
+    quoteId: a.string(),
+  }),
+
+  RestaurantStaff: a
+    .model({
+      email: a.string(),
+      restaurantId: a.string(),
+      restaurant: a.belongsTo('Restaurant', 'restaurantId'),
+      role: a.enum(['OWNER', 'MANAGER', 'STAFF']),
+      firstName: a.string(),
+      lastName: a.string(),
+      isActive: a.boolean(),
+    })
+    .authorization((allow) => [
+      allow.publicApiKey(),
+      allow.owner()
+    ]),
+
+  // New model for restaurant locations
+  RestaurantLocation: a
+    .model({
+      name: a.string(),
+      slug: a.string(),
+      description: a.string(),
+      imageUrl: a.string(),
+      address: a.string(),
+      city: a.string(),
+      state: a.string(),
+      zip: a.string(),
+      phoneNumber: a.string(),
+      restaurantId: a.string(),
+      restaurant: a.belongsTo('Restaurant', 'restaurantId'),
+      menuCategories: a.hasMany('MenuCategory', 'locationId'),
+      orders: a.hasMany('Order', 'locationId'),
+      isActive: a.boolean(),
+      printerConfig: a.customType({
+        printerType: a.string(),
+        ipAddress: a.string(),
+        port: a.integer(),
+        isEnabled: a.boolean(),
+      }),
+    })
+    .authorization((allow) => [
+      allow.publicApiKey(),
+      allow.owner()
+    ]),
+
   Restaurant: a
     .model({
       name: a.string(),
@@ -28,9 +89,29 @@ const schema = a.schema({
       description: a.string(),
       imageUrl: a.string(),
       menuCategories: a.hasMany('MenuCategory', 'restaurantId'),
-      orders: a.hasMany('Order', 'restaurantId')
+      orders: a.hasMany('Order', 'restaurantId'),
+      // Add locations relationship
+      locations: a.hasMany('RestaurantLocation', 'restaurantId'),
+      address: a.string(),
+      city: a.string(),
+      state: a.string(),
+      zip: a.string(),
+      phone: a.string(),
+      ownerEmail: a.string(),
+      staff: a.hasMany('RestaurantStaff', 'restaurantId'),
+      isActive: a.boolean(),
+      isChain: a.boolean(),
+      printerConfig: a.customType({
+        printerType: a.string(),
+        ipAddress: a.string(),
+        port: a.integer(),
+        isEnabled: a.boolean(),
+      }),
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [
+      allow.publicApiKey(),
+      allow.owner()
+    ]),
 
   MenuCategory: a
     .model({
@@ -38,9 +119,14 @@ const schema = a.schema({
       description: a.string(),
       menuItems: a.hasMany('MenuItem', 'categoryId'),
       restaurantId: a.string(),
-      restaurant: a.belongsTo('Restaurant', 'restaurantId')
+      restaurant: a.belongsTo('Restaurant', 'restaurantId'),
+      // Add optional location relationship for location-specific menu categories
+      locationId: a.string(),
+      location: a.belongsTo('RestaurantLocation', 'locationId'),
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [
+      allow.publicApiKey()
+    ]),
 
   MenuItem: a
     .model({
@@ -52,28 +138,43 @@ const schema = a.schema({
       category: a.belongsTo('MenuCategory', 'categoryId'),
       orderItems: a.hasMany('OrderItem', 'menuItemId')
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [
+      allow.publicApiKey()
+    ]),
 
   Order: a
     .model({
       restaurantId: a.string(),
       restaurant: a.belongsTo('Restaurant', 'restaurantId'),
+      // Add optional location fields
+      locationId: a.string(),
+      location: a.belongsTo('RestaurantLocation', 'locationId'),
       customerEmail: a.string(),
       items: a.hasMany('OrderItem', 'orderId'),
       total: a.float(),
-      status: a.enum(['PENDING', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'IN_DELIVERY', 'DELIVERED', 'CANCELLED']),
+      status: a.enum(['PENDING', 'PAYMENT_PROCESSING', 'PAID', 'RESTAURANT_ACCEPTED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED']),
+      stripePaymentIntentId: a.string(),
       specialInstructions: a.string(),
       deliveryAddress: a.string(),
       driver: a.ref('Driver'),
       createdAt: a.string(),
       updatedAt: a.string(),
+      externalId: a.string(),
       trackingInfo: a.customType({
         source: a.string(),
         campaignId: a.string(),
         clickId: a.string()
-      })
+      }),
+      // Add delivery-related fields
+      isDelivery: a.boolean(),
+      deliveryFee: a.float(),
+      deliveryInfo: a.ref('DeliveryInfo'),
+      customerName: a.string(),
+      customerPhone: a.string(),
     })
-    .authorization((allow) => [allow.publicApiKey()]),
+    .authorization((allow) => [
+      allow.publicApiKey()
+    ]),
 
   OrderItem: a
     .model({
@@ -84,8 +185,12 @@ const schema = a.schema({
       orderId: a.string(),
       order: a.belongsTo('Order', 'orderId')
     })
-    .authorization((allow) => [allow.publicApiKey()])
-});
+    .authorization((allow) => [
+      allow.publicApiKey()
+    ])
+})
+.authorization(allow => [allow.resource(nashWebhook)]); // allow query and subscription operations but not mutations
+
 
 export type Schema = ClientSchema<typeof schema>;
 
@@ -99,32 +204,3 @@ export const data = defineData({
     },
   },
 });
-
-/*== STEP 2 ===============================================================
-Go to your frontend source code. From your client-side code, generate a
-Data client to make CRUDL requests to your table. (THIS SNIPPET WILL ONLY
-WORK IN THE FRONTEND CODE FILE.)
-
-Using JavaScript or Next.js React Server Components, Middleware, Server 
-Actions or Pages Router? Review how to generate Data clients for those use
-cases: https://docs.amplify.aws/gen2/build-a-backend/data/connect-to-API/
-=========================================================================*/
-
-/*
-"use client"
-import { generateClient } from "aws-amplify/data";
-import type { Schema } from "@/amplify/data/resource";
-
-const client = generateClient<Schema>() // use this Data client for CRUDL requests
-*/
-
-/*== STEP 3 ===============================================================
-Fetch records from the database and use them in your frontend component.
-(THIS SNIPPET WILL ONLY WORK IN THE FRONTEND CODE FILE.)
-=========================================================================*/
-
-/* For example, in a React component, you can use this snippet in your
-  function's RETURN statement */
-// const { data: todos } = await client.models.Todo.list()
-
-// return <ul>{todos.map(todo => <li key={todo.id}>{todo.content}</li>)}</ul>

@@ -3,123 +3,257 @@ import { type Schema } from "../amplify/data/resource";
 import outputs from "../amplify_outputs.json";
 import { Amplify } from "aws-amplify";
 
+// Configure Amplify
 Amplify.configure(outputs);
 
-const client = generateClient<Schema>();
+// Use API key for all operations during seeding
+const client = generateClient<Schema>({
+  authMode: 'apiKey'
+});
 
+/**
+ * Run this script to seed the database with initial data for a restaurant.
+ * This will create:
+ * - A restaurant record
+ * - Staff members (including the owner with email justin@thevessale.com)
+ * - Menu categories and items
+ * 
+ * Execute from the project root with:
+ * npx tsx scripts/seed-data.ts
+ */
 async function seedData() {
   try {
-    // Create Restaurant
-    const restaurantResponse = await client.models.Restaurant.create({
-      name: "The Tasty Corner",
-      slug: "the-tasty-corner",
-      description: "A cozy restaurant serving delicious comfort food with a modern twist",
-      imageUrl: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
-    });
-
-    if (restaurantResponse.data?.id) {
-      var restaurantId = restaurantResponse.data.id; 
-    } else {
-      // Handle the case where id is missing
+    // Define owner email for reference
+    const ownerEmail = "justin@thevessale.com";
+    
+    console.log("Creating restaurant...");
+    const restaurantData = {
+      name: "World Famous Grill",
+      slug: "world-famous-grill",
+      description: "A cozy Mediterranean and Greek restaurant serving delicious authentic dishes with modern flair",
+      // Keep using public URLs for development
+      // In production, would use S3 paths like: restaurant/{restaurantId}/default/image/{filename}
+      imageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5",
+      address: "4143 E Florence Ave",
+      city: "Bell",
+      state: "CA",
+      zip: "90201",
+      phone: "323-562-0744",
+      ownerEmail: ownerEmail,
+      isActive: true,
+      isChain: true,
+      printerConfig: {
+        printerType: "EPSON",
+        ipAddress: "192.168.1.100",
+        port: 9100,
+        isEnabled: true
+      }
+    };
+    
+    const restaurantResponse = await client.models.Restaurant.create(restaurantData);
+    
+    if (!restaurantResponse.data?.id) {
       throw new Error("Restaurant ID is missing from the response.");
     }
-    
+    const restaurantId = restaurantResponse.data.id;
+    console.log("✅ Restaurant created with ID:", restaurantId);
+
+    // Create restaurant locations
+    console.log("Creating restaurant locations...");
+    const locationsData = [
+      {
+        name: "Bell",
+        slug: "bell",
+        description: "Our original location in Bell",
+        // Using restaurant image with note about S3 paths for production
+        // S3 path format would be: restaurant/{restaurantId}/{locationId}/image/{filename}
+        imageUrl: restaurantData.imageUrl,
+        address: "4143 E Florence Ave",
+        city: "Bell",
+        state: "CA",
+        zip: "90201",
+        phoneNumber: "323-562-0744",
+        restaurantId: restaurantId,
+        isActive: true,
+        printerConfig: {
+          printerType: "EPSON",
+          ipAddress: "192.168.1.101",
+          port: 9100,
+          isEnabled: true
+        }
+      },
+      {
+        name: "Downey",
+        slug: "downey",
+        description: "Our newest location in Downey",
+        // Using restaurant image with note about S3 paths for production
+        // S3 path format would be: restaurant/{restaurantId}/{locationId}/image/{filename}
+        imageUrl: restaurantData.imageUrl,
+        address: "7934 Florence Ave",
+        city: "Downey",
+        state: "CA",
+        zip: "90240",
+        phoneNumber: "562-861-2271",
+        restaurantId: restaurantId,
+        isActive: true,
+        printerConfig: {
+          printerType: "EPSON",
+          ipAddress: "192.168.1.102",
+          port: 9100,
+          isEnabled: true
+        }
+      }
+    ];
+
+    const locationResponses = await Promise.all(
+      locationsData.map(location => client.models.RestaurantLocation.create(location))
+    );
+    console.log("✅ Restaurant locations created");
+
+    // Create staff members
+    await Promise.all([
+      client.models.RestaurantStaff.create({
+        email: "manager@worldfamousgrill.com",
+        restaurantId: restaurantId,
+        role: "MANAGER",
+        firstName: "Jane",
+        lastName: "Doe",
+        isActive: true
+      }),
+      client.models.RestaurantStaff.create({
+        email: "staff@worldfamousgrill.com",
+        restaurantId: restaurantId,
+        role: "STAFF",
+        firstName: "Bob",
+        lastName: "Wilson",
+        isActive: true
+      }),
+      // Also create a staff record for the owner for authentication
+      client.models.RestaurantStaff.create({
+        email: ownerEmail,
+        restaurantId: restaurantId,
+        role: "OWNER",
+        firstName: "John",
+        lastName: "Smith",
+        isActive: true
+      })
+    ]);
+    console.log("✅ Staff members created");
+
     // Create Menu Categories
     const categories = await Promise.all([
       client.models.MenuCategory.create({
-        name: "Starters",
-        description: "Light bites to start your meal",
+        name: "Appetizers",
+        description: "Delicious starters and small plates",
         restaurantId: restaurantId,
       }),
       client.models.MenuCategory.create({
         name: "Main Courses",
-        description: "Hearty main dishes",
+        description: "Hearty Mediterranean and Greek entrees",
         restaurantId: restaurantId,
       }),
       client.models.MenuCategory.create({
-        name: "Desserts",
-        description: "Sweet treats to finish",
+        name: "Sides",
+        description: "Perfect accompaniments to your meal",
         restaurantId: restaurantId,
       }),
     ]);
+    console.log("✅ Menu categories created");
 
     // Create Menu Items for each category
-    const [starters, mains, desserts] = categories;
+    const [appetizers, mains, sides] = categories;
 
-    if (!starters.data?.id || !mains.data?.id || !desserts.data?.id) {
+    if (!appetizers.data?.id || !mains.data?.id || !sides.data?.id) {
       throw new Error("One or more category IDs are missing from the response.");
     }
 
-    const startersId = starters.data.id;
+    const appetizersId = appetizers.data.id;
     const mainsId = mains.data.id;
-    const dessertsId = desserts.data.id;
+    const sidesId = sides.data.id;
 
-    // Starters
-    await Promise.all([
-      client.models.MenuItem.create({
-        name: "Crispy Calamari",
-        description: "Lightly battered calamari served with garlic aioli",
-        price: 12.99,
-        imageUrl: "https://images.unsplash.com/photo-1604909052743-94e838986d24",
-        categoryId: startersId,
-      }),
-      client.models.MenuItem.create({
-        name: "Caesar Salad",
-        description: "Fresh romaine lettuce, parmesan, croutons, and house-made dressing",
-        price: 10.99,
-        imageUrl: "https://images.unsplash.com/photo-1550304943-4f24f54ddde9",
-        categoryId: startersId,
-      }),
-    ]);
+    // Helper function to generate S3 path for menu item images (commented out for reference)
+    // const generateMenuItemImagePath = (itemId: string) => 
+    //   `menu/${restaurantId}/default/menuItems/${itemId}/placeholder-image.jpg`;
 
-    // Main Courses
-    await Promise.all([
+    // Create menu items with public URLs (in production would use S3 paths)
+    const menuItems = await Promise.all([
+      // Appetizers
       client.models.MenuItem.create({
-        name: "Grilled Salmon",
-        description: "Fresh Atlantic salmon with seasonal vegetables",
-        price: 24.99,
-        imageUrl: "https://images.unsplash.com/photo-1467003909585-2f8a72700288",
-        categoryId: mainsId,
+        name: "Monster Nachos",
+        description: "Homemade tortilla chips topped with asada beef, cheese, guacamole, sour cream, pico de gallo & jalapenos",
+        price: 16.99,
+        imageUrl: "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d",
+        categoryId: appetizersId,
       }),
       client.models.MenuItem.create({
-        name: "Ribeye Steak",
-        description: "12oz ribeye with garlic mashed potatoes",
-        price: 32.99,
-        imageUrl: "https://images.unsplash.com/photo-1600891964092-4316c288032e",
-        categoryId: mainsId,
-      }),
-      client.models.MenuItem.create({
-        name: "Mushroom Risotto",
-        description: "Creamy arborio rice with wild mushrooms and parmesan",
-        price: 18.99,
-        imageUrl: "https://images.unsplash.com/photo-1476124369491-e7addf5db371",
-        categoryId: mainsId,
-      }),
-    ]);
-
-    // Desserts
-    await Promise.all([
-      client.models.MenuItem.create({
-        name: "Chocolate Lava Cake",
-        description: "Warm chocolate cake with a molten center",
-        price: 8.99,
-        imageUrl: "https://images.unsplash.com/photo-1511911063855-2bf39afa5b2e",
-        categoryId: dessertsId,
-      }),
-      client.models.MenuItem.create({
-        name: "New York Cheesecake",
-        description: "Classic cheesecake with berry compote",
+        name: "Hummus",
+        description: "Creamy house-made hummus served with warm pita bread",
         price: 7.99,
-        imageUrl: "https://images.unsplash.com/photo-1524351199678-941a58a3df50",
-        categoryId: dessertsId,
+        imageUrl: "https://images.unsplash.com/photo-1577805947697-89e18249d767",
+        categoryId: appetizersId,
+      }),
+      client.models.MenuItem.create({
+        name: "Grape Leaves",
+        description: "Traditional dolmas stuffed with seasoned rice and herbs",
+        price: 7.99,
+        imageUrl: "https://images.unsplash.com/photo-1541518763669-27fef04b14ea",
+        categoryId: appetizersId,
+      }),
+      
+      // Main Courses
+      client.models.MenuItem.create({
+        name: "Chicken Roll",
+        description: "Tender chicken wrapped in fresh flatbread with garlic sauce",
+        price: 10.99,
+        imageUrl: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143",
+        categoryId: mainsId,
+      }),
+      client.models.MenuItem.create({
+        name: "Chicken Wings",
+        description: "Crispy wings tossed in your choice of sauce",
+        price: 13.99,
+        imageUrl: "https://images.unsplash.com/photo-1608039829572-78524f79c4c7",
+        categoryId: mainsId,
+      }),
+      client.models.MenuItem.create({
+        name: "Mixed Grill Platter",
+        description: "A generous assortment of grilled meats including lamb, chicken, and beef with Mediterranean seasonings",
+        price: 28.99,
+        imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947",
+        categoryId: mainsId,
+      }),
+      
+      // Sides
+      client.models.MenuItem.create({
+        name: "Garlic Potato",
+        description: "Roasted potatoes seasoned with garlic and herbs",
+        price: 9.99,
+        imageUrl: "https://images.unsplash.com/photo-1568569350062-ebfa3cb195df",
+        categoryId: sidesId,
+      }),
+      client.models.MenuItem.create({
+        name: "Onion Rings Tower",
+        description: "Crispy battered onion rings stacked high",
+        price: 8.99,
+        imageUrl: "https://images.unsplash.com/photo-1639024471283-03518883512d",
+        categoryId: sidesId,
       }),
     ]);
+    console.log("✅ Menu items created");
 
     console.log("✅ Seed data created successfully");
+    console.log("NOTE: S3 image functionality can be tested by uploading images through the Restaurant Portal UI");
+    console.log("NOTE: Remember to manually create an Auth user for the owner email if needed");
+    console.log(`Owner email: ${ownerEmail}`);
   } catch (error) {
     console.error("❌ Error creating seed data:", error);
+    console.error("Error details:", error instanceof Error ? error.stack : String(error));
+    
+    // Check if the error is related to the API
+    if (error.errors) {
+      console.error("API Errors:", JSON.stringify(error.errors, null, 2));
+    }
   }
-
 }
 
 // Run the seed function
