@@ -39,6 +39,7 @@ async function seedData() {
       phone: "323-562-0744",
       ownerEmail: ownerEmail,
       isActive: true,
+      isChain: true,
       printerConfig: {
         printerType: "EPSON",
         ipAddress: "192.168.1.100",
@@ -54,6 +55,54 @@ async function seedData() {
     }
     const restaurantId = restaurantResponse.data.id;
     console.log("✅ Restaurant created with ID:", restaurantId);
+
+    // Create restaurant locations
+    console.log("Creating restaurant locations...");
+    const locationsData = [
+      {
+        name: "Bell",
+        slug: "bell",
+        description: "Our original location in Bell",
+        imageUrl: restaurantData.imageUrl,
+        address: "4143 E Florence Ave",
+        city: "Bell",
+        state: "CA",
+        zip: "90201",
+        phoneNumber: "323-562-0744",
+        restaurantId: restaurantId,
+        isActive: true,
+        printerConfig: {
+          printerType: "EPSON",
+          ipAddress: "192.168.1.101",
+          port: 9100,
+          isEnabled: true
+        }
+      },
+      {
+        name: "Downey",
+        slug: "downey",
+        description: "Our newest location in Downey",
+        imageUrl: restaurantData.imageUrl,
+        address: "7934 Florence Ave",
+        city: "Downey",
+        state: "CA",
+        zip: "90240",
+        phoneNumber: "562-861-2271",
+        restaurantId: restaurantId,
+        isActive: true,
+        printerConfig: {
+          printerType: "EPSON",
+          ipAddress: "192.168.1.102",
+          port: 9100,
+          isEnabled: true
+        }
+      }
+    ];
+
+    const locationResponses = await Promise.all(
+      locationsData.map(location => client.models.RestaurantLocation.create(location))
+    );
+    console.log("✅ Restaurant locations created");
 
     // Create staff members
     await Promise.all([
