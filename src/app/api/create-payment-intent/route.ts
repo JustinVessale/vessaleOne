@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { generateServerClient } from '@/lib/amplify-utils';
-import { stripe } from '@/config/stripe';
+import { createStripe } from '@/config/stripe';
 
 
 export async function POST(request: Request) {
   try {
     const { total, orderId, restaurantId } = await request.json();
+    const stripe = createStripe();
     // Create a PaymentIntent with the order amount and currency
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(total * 100), // Convert to cents

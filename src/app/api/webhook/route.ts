@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
-import { stripe } from '@/config/stripe';
+import { createStripe } from '@/config/stripe';
 import { generateServerClient } from '@/lib/amplify-utils';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -10,6 +10,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.text();
     const signature = (await headers()).get('stripe-signature')!;
+    const stripe = createStripe();
 
     let event: Stripe.Event;
 

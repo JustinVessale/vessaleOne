@@ -9,9 +9,15 @@ const getPublishableKey = () => {
 };
 
 // Initialize Stripe with the appropriate API version -> Use for server-side Stripe operations
-export const stripe = new Stripe(import.meta.env.VITE_STRIPE_SECRET_KEY, {
-  apiVersion: '2025-01-27.acacia',
-});
+export const createStripe = () => {
+  const key = import.meta.env.VITE_STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error('Missing Stripe secret key environment variable');
+  }
+  return new Stripe(key, {
+    apiVersion: '2025-01-27.acacia',
+  });
+};
 
 export const STRIPE_PUBLISHABLE_KEY = getPublishableKey();
 if (!STRIPE_PUBLISHABLE_KEY) {
