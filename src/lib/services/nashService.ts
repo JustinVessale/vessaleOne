@@ -8,7 +8,9 @@
 // Nash API base URL - Use proxy in development, direct URL in production
 const NASH_API_BASE_URL = import.meta.env.DEV 
   ? '/nash-api' 
-  : 'https://api.sandbox.usenash.com';
+  : import.meta.env.PROD 
+    ? 'https://api.usenash.com' 
+    : 'https://api.sandbox.usenash.com';
 
 // Get the appropriate Nash API key based on the environment
 const getNashAPIKey = () => {
