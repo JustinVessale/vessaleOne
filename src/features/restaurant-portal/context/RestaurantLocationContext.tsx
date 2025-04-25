@@ -4,18 +4,6 @@ import { type Schema } from '../../../../amplify/data/resource';
 
 const client = generateClient<Schema>();
 
-// Define a type for Nullable fields
-type Nullable<T> = T | null;
-
-interface RestaurantLocation {
-  id: string;
-  name: Nullable<string>;
-  address: Nullable<string>;
-  city: Nullable<string>;
-  state: Nullable<string>;
-  zip: Nullable<string>;
-  isActive: Nullable<boolean>;
-}
 
 // Interface for the location that's displayed in the UI, with non-nullable fields
 interface DisplayLocation {
