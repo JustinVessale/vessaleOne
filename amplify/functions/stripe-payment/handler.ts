@@ -5,7 +5,50 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-01-27.acacia'
 });
 
+// Helper function to determine the appropriate origin for CORS
+const getAllowedOrigin = (origin?: string): string => {
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://develop.d2g0w15slq5y17.amplifyapp.com',
+    'https://main.d2g0w15slq5y17.amplifyapp.com',
+    'https://thevessale.com',
+    'https://www.thevessale.com'
+  ];
+  
+  // If the origin is in our allowed list, return it
+  if (origin && allowedOrigins.includes(origin)) {
+    return origin;
+  }
+  
+  // Otherwise check if it matches our amplifyapp.com pattern
+  if (origin && /^https:\/\/.*\.amplifyapp\.com$/.test(origin)) {
+    return origin;
+  }
+  
+  // Fallback to localhost in development
+  return 'http://localhost:5173';
+};
+
 export const handler: APIGatewayProxyHandler = async (event) => {
+  // Get the origin from the request
+  const origin = event.headers.origin || event.headers.Origin || 'http://localhost:5173';
+  const allowedOrigin = getAllowedOrigin(origin);
+  
+  // Handle OPTIONS request for CORS preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': allowedOrigin,
+        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        'Access-Control-Allow-Credentials': 'true'
+      },
+      body: ''
+    };
+  }
+  
   try {
     const { total, orderId, restaurantId } = JSON.parse(event.body || '{}');
 
@@ -21,8 +64,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     return {
       statusCode: 200,
       headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "*"
+        'Access-Control-Allow-Origin': allowedOrigin,
+        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        'Access-Control-Allow-Credentials': 'true'
       },
       body: JSON.stringify({
         clientSecret: paymentIntent.client_secret,
@@ -36,8 +81,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return {
         statusCode: 401,
         headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "*"
+          'Access-Control-Allow-Origin': allowedOrigin,
+          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
+          'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+          'Access-Control-Allow-Credentials': 'true'
         },
         body: JSON.stringify({
           error: 'Stripe Authentication Error',
@@ -51,8 +98,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return {
         statusCode: error.statusCode || 500,
         headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "*"
+          'Access-Control-Allow-Origin': allowedOrigin,
+          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
+          'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+          'Access-Control-Allow-Credentials': 'true'
         },
         body: JSON.stringify({
           error: 'Failed to create payment intent',
@@ -66,8 +115,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     return {
       statusCode: 500,
       headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "*"
+        'Access-Control-Allow-Origin': allowedOrigin,
+        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        'Access-Control-Allow-Credentials': 'true'
       },
       body: JSON.stringify({
         error: 'An unexpected error occurred',
