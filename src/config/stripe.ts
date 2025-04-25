@@ -1,5 +1,5 @@
 
-
+import Stripe from 'stripe';
 // Get the appropriate publishable key based on the environment
 const getPublishableKey = () => {
   const isProd = import.meta.env.PROD === true;
@@ -7,6 +7,11 @@ const getPublishableKey = () => {
     ? import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_PROD
     : import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_DEV;
 };
+
+// Initialize Stripe with the appropriate API version -> Use for server-side Stripe operations
+export const stripe = new Stripe(import.meta.env.VITE_STRIPE_SECRET_KEY, {
+  apiVersion: '2025-01-27.acacia',
+});
 
 export const STRIPE_PUBLISHABLE_KEY = getPublishableKey();
 if (!STRIPE_PUBLISHABLE_KEY) {

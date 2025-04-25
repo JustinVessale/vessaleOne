@@ -277,6 +277,8 @@ export function MenuPage() {
     // Note: Since availability is not in the current schema, this would need schema modification
     // For now, we'll update the item in the local state only
     try {
+      console.log(`Toggling availability for item ${itemId} to ${isAvailable}`);
+      
       // In a real implementation, you would update the menu item in the database
       // await client.models.MenuItem.update({
       //   id: itemId,

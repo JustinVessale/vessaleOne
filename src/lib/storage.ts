@@ -1,4 +1,4 @@
-import { uploadData, getUrl, remove, downloadData } from 'aws-amplify/storage';
+import { uploadData, getUrl, remove } from 'aws-amplify/storage';
 
 /**
  * Utility functions for managing storage operations for restaurant images
@@ -31,13 +31,16 @@ export const uploadImage = async (file: File, path: string) => {
     const fullPath = `${path}/${fileName}`;
     
     // Upload the file using Amplify Storage
-    const result = await uploadData({
-      key: fullPath,
+    const operation = uploadData({
+      path: fullPath,
       data: file,
       options: {
         contentType: file.type,
       }
-    }).result;
+    });
+    
+    // Wait for the upload to complete
+    await operation.result;
     
     // Get the public URL for the uploaded file
     const imageUrl = await getImageUrl(fullPath);
@@ -57,7 +60,7 @@ export const uploadImage = async (file: File, path: string) => {
 export const getImageUrl = async (key: string) => {
   try {
     const { url } = await getUrl({
-      key,
+      path: key,
       options: {
         validateObjectExistence: true,
         expiresIn: 3600 // URL expires in 1 hour
@@ -77,7 +80,7 @@ export const getImageUrl = async (key: string) => {
  */
 export const deleteImage = async (key: string) => {
   try {
-    await remove({ key });
+    await remove({ path: key });
     return true;
   } catch (error) {
     console.error('Error deleting image:', error);
