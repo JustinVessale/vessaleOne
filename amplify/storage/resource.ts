@@ -1,6 +1,6 @@
 import { defineStorage } from '@aws-amplify/backend-storage';
 
-// Define S3 storage for restaurant images with path-based organization
+// Define storage for restaurant images with path-based organization
 export const storage = defineStorage({
   name: 'restaurantImages',
   access: (allow) => ({
@@ -8,21 +8,22 @@ export const storage = defineStorage({
     'restaurant/*': [
       allow.guest.to(['read']),
       // Authenticated users can write to restaurant images
-      // Note: Application-level permissions will enforce which restaurants a user can modify
       allow.authenticated.to(['read', 'write', 'delete'])
     ],
     'menu/*': [
       allow.guest.to(['read']),
       // Authenticated users can write to menu images
-      // Note: Application-level permissions will enforce which menu items a user can modify
       allow.authenticated.to(['read', 'write', 'delete'])
     ],
-    // Use specific restaurant ID paths for better organization
-    'restaurant/${restaurantId}/*': [
+    
+    // Restaurant-specific paths with location support
+    'restaurant/{restaurantId}/{locationId}/image/*': [
       allow.guest.to(['read']),
       allow.authenticated.to(['read', 'write', 'delete'])
     ],
-    'menu/${restaurantId}/*': [
+    
+    // Menu item-specific paths with location support
+    'menu/{restaurantId}/{locationId}/menuItems/{menuItemId}/*': [
       allow.guest.to(['read']), 
       allow.authenticated.to(['read', 'write', 'delete'])
     ]

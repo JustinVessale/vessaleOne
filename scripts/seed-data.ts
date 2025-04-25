@@ -31,6 +31,8 @@ async function seedData() {
       name: "World Famous Grill",
       slug: "world-famous-grill",
       description: "A cozy Mediterranean and Greek restaurant serving delicious authentic dishes with modern flair",
+      // Keep using public URLs for development
+      // In production, would use S3 paths like: restaurant/{restaurantId}/default/image/{filename}
       imageUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5",
       address: "4143 E Florence Ave",
       city: "Bell",
@@ -63,6 +65,8 @@ async function seedData() {
         name: "Bell",
         slug: "bell",
         description: "Our original location in Bell",
+        // Using restaurant image with note about S3 paths for production
+        // S3 path format would be: restaurant/{restaurantId}/{locationId}/image/{filename}
         imageUrl: restaurantData.imageUrl,
         address: "4143 E Florence Ave",
         city: "Bell",
@@ -82,6 +86,8 @@ async function seedData() {
         name: "Downey",
         slug: "downey",
         description: "Our newest location in Downey",
+        // Using restaurant image with note about S3 paths for production
+        // S3 path format would be: restaurant/{restaurantId}/{locationId}/image/{filename}
         imageUrl: restaurantData.imageUrl,
         address: "7934 Florence Ave",
         city: "Downey",
@@ -165,8 +171,12 @@ async function seedData() {
     const mainsId = mains.data.id;
     const sidesId = sides.data.id;
 
-    // Create menu items
-    await Promise.all([
+    // Helper function to generate S3 path for menu item images (commented out for reference)
+    // const generateMenuItemImagePath = (itemId: string) => 
+    //   `menu/${restaurantId}/default/menuItems/${itemId}/placeholder-image.jpg`;
+
+    // Create menu items with public URLs (in production would use S3 paths)
+    const menuItems = await Promise.all([
       // Appetizers
       client.models.MenuItem.create({
         name: "Monster Nachos",
@@ -232,6 +242,7 @@ async function seedData() {
     console.log("✅ Menu items created");
 
     console.log("✅ Seed data created successfully");
+    console.log("NOTE: S3 image functionality can be tested by uploading images through the Restaurant Portal UI");
     console.log("NOTE: Remember to manually create an Auth user for the owner email if needed");
     console.log(`Owner email: ${ownerEmail}`);
   } catch (error) {

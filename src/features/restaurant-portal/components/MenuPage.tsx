@@ -1,127 +1,69 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Plus, Edit, Trash, Search, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSelectedLocation } from '../hooks/useSelectedLocation';
+import { EditMenuItemModal } from './EditMenuItemModal';
+import { useRestaurantContext } from '../context/RestaurantContext';
+import { StorageImage } from '@/components/ui/s3-image';
+import { generateClient } from 'aws-amplify/api';
+import type { Schema } from '../../../../amplify/data/resource';
+import { useQuery } from '@tanstack/react-query';
 
-// Define menu category interface
-interface MenuCategory {
-  id: string;
-  name: string;
-  description?: string;
-  items: MenuItem[];
-}
+const client = generateClient<Schema>();
 
-// Define menu item interface
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl?: string;
-  isAvailable: boolean;
+// Define types using the generated Schema - export so they can be used by EditMenuItemModal
+export type MenuItemType = Schema['MenuItem']['type'];
+export type MenuCategoryType = Schema['MenuCategory']['type'];
+
+// Extended types for UI-specific properties
+export type MenuItemUI = MenuItemType & {
+  isAvailable?: boolean;
   isPopular?: boolean;
-}
+};
 
-// Sample menu data
-const sampleCategories: MenuCategory[] = [
-  {
-    id: 'cat1',
-    name: 'Starters',
-    description: 'Begin your meal with these delicious appetizers',
-    items: [
-      {
-        id: 'item1',
-        name: 'Caesar Salad',
-        description: 'Crisp romaine lettuce, croutons, parmesan cheese with our homemade dressing',
-        price: 8.95,
-        imageUrl: 'https://source.unsplash.com/random/100x100?salad',
-        isAvailable: true,
-        isPopular: true
-      },
-      {
-        id: 'item2',
-        name: 'Garlic Bread',
-        description: 'Fresh baked bread with garlic butter and herbs',
-        price: 4.95,
-        imageUrl: 'https://source.unsplash.com/random/100x100?bread',
-        isAvailable: true
-      },
-      {
-        id: 'item3',
-        name: 'Calamari',
-        description: 'Lightly fried squid served with marinara sauce',
-        price: 11.95,
-        imageUrl: 'https://source.unsplash.com/random/100x100?calamari',
-        isAvailable: true
-      }
-    ]
-  },
-  {
-    id: 'cat2',
-    name: 'Main Courses',
-    description: 'Our chef\'s special entrees',
-    items: [
-      {
-        id: 'item4',
-        name: 'Chicken Parmesan',
-        description: 'Breaded chicken topped with tomato sauce and mozzarella, served with pasta',
-        price: 16.95,
-        imageUrl: 'https://source.unsplash.com/random/100x100?chicken',
-        isAvailable: true,
-        isPopular: true
-      },
-      {
-        id: 'item5',
-        name: 'Grilled Salmon',
-        description: 'Fresh Atlantic salmon with lemon butter sauce and seasonal vegetables',
-        price: 21.95,
-        imageUrl: 'https://source.unsplash.com/random/100x100?salmon',
-        isAvailable: true
-      },
-      {
-        id: 'item6',
-        name: 'Vegetable Stir Fry',
-        description: 'Mixed vegetables in our signature sauce served over rice',
-        price: 14.95,
-        imageUrl: 'https://source.unsplash.com/random/100x100?stirfry',
-        isAvailable: false
-      }
-    ]
-  },
-  {
-    id: 'cat3',
-    name: 'Desserts',
-    description: 'Sweet treats to end your meal',
-    items: [
-      {
-        id: 'item7',
-        name: 'Chocolate Cake',
-        description: 'Rich chocolate cake with a molten center',
-        price: 7.95,
-        imageUrl: 'https://source.unsplash.com/random/100x100?cake',
-        isAvailable: true,
-        isPopular: true
-      },
-      {
-        id: 'item8',
-        name: 'New York Cheesecake',
-        description: 'Creamy cheesecake with a graham cracker crust',
-        price: 6.95,
-        imageUrl: 'https://source.unsplash.com/random/100x100?cheesecake',
-        isAvailable: true
-      }
-    ]
-  }
-];
+export type MenuCategoryWithItems = MenuCategoryType & {
+  items: MenuItemUI[];
+};
 
 // Menu item component
 function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: { 
-  item: MenuItem; 
-  onEdit: (item: MenuItem) => void;
+  item: MenuItemUI; 
+  onEdit: (item: MenuItemUI) => void;
   onDelete: (itemId: string) => void;
   onToggleAvailability: (itemId: string, isAvailable: boolean) => void;
 }) {
   const [showActions, setShowActions] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  
+  // Handle click outside to close menu
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node) && 
+          buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
+        setShowActions(false);
+      }
+    }
+    
+    if (showActions) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showActions]);
+  
+  // Position the menu when it's shown
+  useEffect(() => {
+    if (showActions && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.top,
+        left: rect.left - 120, // Position to the left of the button
+      });
+    }
+  }, [showActions]);
 
   return (
     <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
@@ -136,70 +78,84 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
                 </span>
               )}
             </div>
-            <p className="text-gray-600 text-sm mb-2 line-clamp-2">{item.description}</p>
-            <div className="flex justify-between items-center">
-              <span className="font-semibold">${item.price.toFixed(2)}</span>
-              <div className="relative">
-                <button 
-                  className="p-1 rounded-full hover:bg-gray-100"
-                  onClick={() => setShowActions(!showActions)}
-                >
-                  <MoreVertical className="h-5 w-5 text-gray-500" />
-                </button>
-                {showActions && (
-                  <div className="absolute right-0 z-10 mt-1 w-48 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5">
-                    <button 
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => {
-                        onEdit(item);
-                        setShowActions(false);
-                      }}
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Item
-                    </button>
-                    <button 
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => {
-                        onToggleAvailability(item.id, !item.isAvailable);
-                        setShowActions(false);
-                      }}
-                    >
-                      {item.isAvailable ? 'Mark as Unavailable' : 'Mark as Available'}
-                    </button>
-                    <button 
-                      className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                      onClick={() => {
-                        onDelete(item.id);
-                        setShowActions(false);
-                      }}
-                    >
-                      <Trash className="h-4 w-4 mr-2" />
-                      Delete Item
-                    </button>
-                  </div>
-                )}
-              </div>
+            <p className="text-gray-600 text-sm mb-2 line-clamp-2">{item.description || ''}</p>
+            <div className="flex items-center">
+              <span className="font-semibold">${(item.price || 0).toFixed(2)}</span>
             </div>
           </div>
           {item.imageUrl && (
             <div className="ml-4">
-              <img 
+              <StorageImage 
                 src={item.imageUrl} 
-                alt={item.name} 
+                alt={item.name || 'Menu item'} 
                 className="h-16 w-16 object-cover rounded-md"
+                width={64}
+                height={64}
+                fallbackSrc="/placeholder-food.jpg"
               />
             </div>
           )}
         </div>
-        <div className="mt-2">
+        <div className="mt-2 flex items-center justify-between">
           <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-            item.isAvailable 
+            item.isAvailable !== false
               ? 'bg-green-100 text-green-800' 
               : 'bg-red-100 text-red-800'
           }`}>
-            {item.isAvailable ? 'Available' : 'Unavailable'}
+            {item.isAvailable !== false ? 'Available' : 'Unavailable'}
           </span>
+          
+          <div className="relative">
+            <button 
+              ref={buttonRef}
+              className="p-2 rounded-full hover:bg-gray-100 flex items-center justify-center"
+              onClick={() => setShowActions(!showActions)}
+              aria-label="Menu options"
+            >
+              <MoreVertical className="h-5 w-5 text-gray-500" />
+            </button>
+            
+            {showActions && (
+              <div 
+                ref={menuRef}
+                className="fixed z-50 w-48 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5"
+                style={{
+                  top: `${menuPosition.top - 120}px`, // Position above the button
+                  left: `${menuPosition.left}px`
+                }}
+              >
+                <button 
+                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-100"
+                  onClick={() => {
+                    onEdit(item);
+                    setShowActions(false);
+                  }}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Item
+                </button>
+                <button 
+                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-100"
+                  onClick={() => {
+                    onToggleAvailability(item.id, !(item.isAvailable !== false));
+                    setShowActions(false);
+                  }}
+                >
+                  {item.isAvailable !== false ? 'Mark as Unavailable' : 'Mark as Available'}
+                </button>
+                <button 
+                  className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 focus:outline-none focus:bg-red-50"
+                  onClick={() => {
+                    onDelete(item.id);
+                    setShowActions(false);
+                  }}
+                >
+                  <Trash className="h-4 w-4 mr-2" />
+                  Delete Item
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -207,44 +163,211 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
 }
 
 export function MenuPage() {
-  const [categories, setCategories] = useState<MenuCategory[]>(sampleCategories);
   const [searchTerm, setSearchTerm] = useState('');
-  const { locationName, hasLocation } = useSelectedLocation();
+  const { locationName, hasLocation, locationId } = useSelectedLocation();
+  const { restaurant } = useRestaurantContext();
+  
+  // Add state for edit modal
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItemUI | null>(null);
 
-  //const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  // Fetch menu categories and items
+  const { data: categories = [], isLoading, error, refetch } = useQuery<MenuCategoryWithItems[]>({
+    queryKey: ['menuCategories', restaurant?.id, locationId],
+    queryFn: async () => {
+      if (!restaurant?.id) {
+        throw new Error('Restaurant ID not found');
+      }
+      
+      // Define filter to fetch restaurant or location-specific menu categories
+      const categoryFilter = locationId 
+        ? { 
+            and: [
+              { restaurantId: { eq: restaurant.id } },
+              { or: [
+                { locationId: { eq: locationId } },
+                { locationId: { attributeExists: false } }
+              ]}
+            ] 
+          }
+        : { restaurantId: { eq: restaurant.id } };
+        
+      const { data: categoriesData, errors: categoryErrors } = await client.models.MenuCategory.list({
+        filter: categoryFilter,
+        selectionSet: ['id', 'name', 'description']
+      });
+      
+      if (categoryErrors) {
+        console.error('Error fetching menu categories:', categoryErrors);
+        throw new Error('Failed to fetch menu categories');
+      }
+      
+      if (!categoriesData || categoriesData.length === 0) {
+        return [];
+      }
+      
+      // For each category, fetch its menu items
+      const categoriesWithItems = await Promise.all(
+        categoriesData.map(async (category) => {
+          const { data: menuItems, errors: menuItemErrors } = await client.models.MenuItem.list({
+            filter: { categoryId: { eq: category.id } },
+            selectionSet: ['id', 'name', 'description', 'price', 'imageUrl', 'categoryId']
+          });
+          
+          if (menuItemErrors) {
+            console.error(`Error fetching menu items for category ${category.id}:`, menuItemErrors);
+            return {
+              ...category,
+              items: []
+            };
+          }
+          
+          // Transform menu items to match our interface by adding UI properties
+          const items = menuItems?.map(item => ({
+            ...item,
+            isAvailable: true, // Default to true since availability status is not in the schema
+            isPopular: false,   // Default to false since popularity status is not in the schema
+          })) || [];
+          
+          return {
+            ...category,
+            items
+          };
+        })
+      );
+      
+      return categoriesWithItems as MenuCategoryWithItems[];
+    },
+    enabled: !!restaurant?.id
+  });
 
-  const handleEditItem = (item: MenuItem) => {
-   // setEditingItem(item);
-    // Open edit modal (not implemented in this example)
-    console.log('Editing item:', item);
+  const handleEditItem = (item: MenuItemUI) => {
+    setEditingItem(item);
+    setEditModalOpen(true);
+  };
+  
+  const handleAddItem = () => {
+    setEditingItem(null); // null indicates a new item
+    setEditModalOpen(true);
   };
 
-  const handleDeleteItem = (itemId: string) => {
-    // In real implementation, show confirmation dialog
-    const updatedCategories = categories.map(category => ({
-      ...category,
-      items: category.items.filter(item => item.id !== itemId)
-    }));
-    setCategories(updatedCategories);
+  const handleDeleteItem = async (itemId: string) => {
+    if (window.confirm('Are you sure you want to delete this item?')) {
+      try {
+        const { errors } = await client.models.MenuItem.delete({
+          id: itemId
+        });
+        
+        if (errors) {
+          console.error('Error deleting menu item:', errors);
+          alert('Failed to delete menu item. Please try again.');
+          return;
+        }
+        
+        // Refetch menu data
+        refetch();
+      } catch (error) {
+        console.error('Error deleting menu item:', error);
+        alert('Failed to delete menu item. Please try again.');
+      }
+    }
   };
 
-  const handleToggleAvailability = (itemId: string, isAvailable: boolean) => {
-    const updatedCategories = categories.map(category => ({
-      ...category,
-      items: category.items.map(item => 
-        item.id === itemId ? { ...item, isAvailable } : item
-      )
-    }));
-    setCategories(updatedCategories);
+  const handleToggleAvailability = async (itemId: string, isAvailable: boolean) => {
+    // Note: Since availability is not in the current schema, this would need schema modification
+    // For now, we'll update the item in the local state only
+    try {
+      // In a real implementation, you would update the menu item in the database
+      // await client.models.MenuItem.update({
+      //   id: itemId,
+      //   isAvailable
+      // });
+      
+      // For now, just refetch to simulate an update
+      refetch();
+    } catch (error) {
+      console.error('Error updating menu item availability:', error);
+      alert('Failed to update menu item availability. Please try again.');
+    }
+  };
+  
+  const handleSaveMenuItem = async (updatedItem: MenuItemUI) => {
+    try {
+      // Determine if this is an edit or an add
+      const isEditing = !!editingItem;
+      
+      if (isEditing) {
+        // Update existing item
+        const { errors } = await client.models.MenuItem.update({
+          id: updatedItem.id,
+          name: updatedItem.name,
+          description: updatedItem.description,
+          price: updatedItem.price,
+          imageUrl: updatedItem.imageUrl
+        });
+        
+        if (errors) {
+          console.error('Error updating menu item:', errors);
+          alert('Failed to update menu item. Please try again.');
+          return;
+        }
+      } else {
+        // Add new item
+        const { errors } = await client.models.MenuItem.create({
+          name: updatedItem.name,
+          description: updatedItem.description,
+          price: updatedItem.price,
+          imageUrl: updatedItem.imageUrl,
+          categoryId: updatedItem.categoryId
+        });
+        
+        if (errors) {
+          console.error('Error creating menu item:', errors);
+          alert('Failed to create menu item. Please try again.');
+          return;
+        }
+      }
+      
+      // Refetch menu data
+      refetch();
+    } catch (error) {
+      console.error('Error saving menu item:', error);
+      alert('Failed to save menu item. Please try again.');
+    }
   };
 
+  // Filter categories and items based on search term
   const filteredCategories = categories.map(category => ({
     ...category,
     items: category.items.filter(item => 
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchTerm.toLowerCase())
+      (item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.description || '').toLowerCase().includes(searchTerm.toLowerCase())
     )
   })).filter(category => category.items.length > 0);
+
+  if (isLoading) {
+    return (
+      <div className="animate-pulse space-y-6">
+        <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+        <div className="h-10 bg-gray-200 rounded w-full"></div>
+        <div className="h-64 bg-gray-200 rounded w-full"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
+        <p>Error loading menu: {(error as Error).message}</p>
+        <Button 
+          onClick={() => refetch()}
+          className="mt-2"
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -266,7 +389,7 @@ export function MenuPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button>
+        <Button onClick={handleAddItem}>
           <Plus className="h-4 w-4 mr-2" />
           Add Menu Item
         </Button>
@@ -308,6 +431,17 @@ export function MenuPage() {
             </div>
           ))}
         </div>
+      )}
+      
+      {/* Edit Menu Item Modal */}
+      {editModalOpen && (
+        <EditMenuItemModal
+          item={editingItem}
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          onSave={handleSaveMenuItem}
+          restaurantId={restaurant?.id || ''}
+        />
       )}
     </div>
   );
