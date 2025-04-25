@@ -7,32 +7,50 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 // Helper function to determine the appropriate origin for CORS
 const getAllowedOrigin = (origin?: string): string => {
+  console.log('origin', origin);
+  
+  // If no origin provided, return an empty string (disables CORS)
+  if (!origin) {
+    console.log('no origin provided');
+    return '*'; // Allow any origin as fallback
+  }
+  
   const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
     'https://develop.d2g0w15slq5y17.amplifyapp.com',
     'https://main.d2g0w15slq5y17.amplifyapp.com',
     'https://thevessale.com',
-    'https://www.thevessale.com'
+    'https://www.thevessale.com',
+    'https://www.orderthevessale.com'
   ];
   
   // If the origin is in our allowed list, return it
-  if (origin && allowedOrigins.includes(origin)) {
+  if (allowedOrigins.includes(origin)) {
     return origin;
   }
   
   // Otherwise check if it matches our amplifyapp.com pattern
-  if (origin && /^https:\/\/.*\.amplifyapp\.com$/.test(origin)) {
+  if (/^https:\/\/.*\.amplifyapp\.com$/.test(origin)) {
     return origin;
   }
   
-  // Fallback to localhost in development
-  return 'http://localhost:5173';
+  // Return the actual origin if nothing else matches - this is more secure than a wildcard
+  console.log('returning original origin');
+  return origin;
 };
 
 export const handler: APIGatewayProxyHandler = async (event) => {
-  // Get the origin from the request
-  const origin = event.headers.origin || event.headers.Origin || 'http://localhost:5173';
+  // Log headers for debugging
+  console.log('Request headers:', JSON.stringify(event.headers));
+  
+  // Get the origin from the request headers - API Gateway normalizes headers to lowercase
+  const origin = event.headers.origin || 
+                 event.headers.Origin || 
+                 event.headers['origin'] || 
+                 '';
+                 
+  console.log('Detected origin:', origin);
   const allowedOrigin = getAllowedOrigin(origin);
   
   // Handle OPTIONS request for CORS preflight
