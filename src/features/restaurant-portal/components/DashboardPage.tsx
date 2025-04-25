@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BarChart3, Users, Utensils, DollarSign } from 'lucide-react';
+import { useSelectedLocation } from '../hooks/useSelectedLocation';
 
 // Sample dashboard card component
 function DashboardCard({ 
@@ -40,6 +41,7 @@ function DashboardCard({
 export function DashboardPage() {
   const [staffName, setStaffName] = useState<string>('');
   const [restaurantName, setRestaurantName] = useState<string>('');
+  const { locationName, hasLocation } = useSelectedLocation();
 
   useEffect(() => {
     // Get staff and restaurant information from session storage
@@ -50,12 +52,17 @@ export function DashboardPage() {
     setRestaurantName(storedRestaurantName);
   }, []);
 
+  // Create a display name combining restaurant and location if present
+  const displayName = hasLocation && locationName 
+    ? `${restaurantName} - ${locationName}`
+    : restaurantName;
+
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600 mt-1">
-          Welcome{staffName ? `, ${staffName}` : ''} to the {restaurantName || 'restaurant'} portal
+          Welcome{staffName ? `, ${staffName}` : ''} to the {displayName || 'restaurant'} portal
         </p>
       </div>
 

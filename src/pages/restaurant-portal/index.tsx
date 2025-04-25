@@ -106,6 +106,33 @@ export default function RestaurantPortalPage() {
           if (restaurant && restaurant.name) {
             console.log("Restaurant found:", restaurant.name);
             sessionStorage.setItem('restaurantName', restaurant.name);
+            
+            // Check if this is a chain restaurant
+            if (restaurant.isChain) {
+              // Fetch locations for this restaurant
+              const { data: locationsData, errors: locationsErrors } = await client.models.RestaurantLocation.list({
+                filter: {
+                  restaurantId: { eq: staffMember.restaurantId },
+                  isActive: { eq: true }
+                },
+                selectionSet: ['id', 'name']
+              });
+              
+              if (locationsErrors) {
+                console.error("Locations query errors:", locationsErrors);
+                setDebugInfo(`Locations query errors: ${JSON.stringify(locationsErrors)}`);
+              }
+              
+              console.log("Restaurant locations:", locationsData);
+              
+              // If there are locations and none is selected, select the first one
+              if (locationsData && locationsData.length > 0 && !sessionStorage.getItem('selectedLocationId')) {
+                sessionStorage.setItem('selectedLocationId', locationsData[0].id);
+              }
+            } else {
+              // For non-chain restaurants, clear any previously selected location
+              sessionStorage.removeItem('selectedLocationId');
+            }
           }
         }
         
@@ -121,6 +148,7 @@ export default function RestaurantPortalPage() {
         sessionStorage.removeItem('staffRole');
         sessionStorage.removeItem('restaurantName');
         sessionStorage.removeItem('staffName');
+        sessionStorage.removeItem('selectedLocationId');
       }
     }
     
