@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BarChart3, Users, Utensils, DollarSign } from 'lucide-react';
+import { BarChart3, Users, Utensils, DollarSign, AlertTriangle } from 'lucide-react';
 import { useSelectedLocation } from '../hooks/useSelectedLocation';
 
 // Sample dashboard card component
@@ -59,6 +59,11 @@ export function DashboardPage() {
 
   return (
     <div>
+      <div className="bg-amber-100 border border-amber-300 rounded-md p-4 mb-6 flex items-center">
+        <AlertTriangle className="h-6 w-6 text-amber-500 mr-3" />
+        <p className="text-amber-800 font-medium">Placeholder data, component coming soon</p>
+      </div>
+      
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600 mt-1">

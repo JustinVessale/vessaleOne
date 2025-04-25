@@ -1,8 +1,24 @@
-
 import Stripe from 'stripe';
 // Get the appropriate publishable key based on the environment
 const getPublishableKey = () => {
-  const isProd = import.meta.env.PROD === true;
+  // Check if we're in a development environment
+  const isDev = import.meta.env.MODE === 'development' || 
+                window.location.hostname === 'localhost' ||
+                window.location.hostname.includes('develop.d2g0w15slq5y17.amplifyapp.com');
+  
+  // Always use test keys in development environments
+  const isProd = !isDev && import.meta.env.PROD === true;
+  
+  console.log('Stripe config - Environment check:', {
+    isDev,
+    isProd,
+    hostname: window.location.hostname,
+    PROD: import.meta.env.PROD,
+    MODE: import.meta.env.MODE,
+    devKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_DEV,
+    prodKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_PROD
+  });
+  
   return isProd 
     ? import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_PROD
     : import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_DEV;
