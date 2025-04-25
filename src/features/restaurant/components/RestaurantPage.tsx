@@ -53,6 +53,7 @@ export function RestaurantPage() {
         
         // If we're looking for a specific location
         if (locationSlug && restaurantObj.id) {
+          console.log(`Fetching location with slug: ${locationSlug} for restaurant ID: ${restaurantObj.id}`);
           const { data: locationData, errors: locationErrors } = await client.models.RestaurantLocation.list({
             filter: { 
               slug: { eq: locationSlug },
@@ -60,6 +61,8 @@ export function RestaurantPage() {
             },
             selectionSet: ['id', 'name', 'slug', 'description', 'imageUrl', 'address', 'city', 'state', 'zip', 'phoneNumber', 'menuCategories.*']
           });
+          
+          console.log('Location API response:', { locationData, errors: locationErrors });
           
           if (locationErrors) throw new Error('Failed to fetch location data');
           if (!locationData || locationData.length === 0) throw new Error('Location not found');
@@ -74,7 +77,14 @@ export function RestaurantPage() {
             description: locationObj.description || restaurantObj.description,
             imageUrl: locationObj.imageUrl || restaurantObj.imageUrl,
             location: locationObj,
-            menuCategories: locationObj.menuCategories || restaurantObj.menuCategories || []
+            // Combine menu categories from both restaurant and location
+            menuCategories: [
+              ...(restaurantObj.menuCategories || []),
+              ...(locationObj.menuCategories || []).filter((locCat: any) => 
+                // Only add location categories that don't have the same name as restaurant categories
+                !(restaurantObj.menuCategories || []).some((resCat: any) => resCat.name === locCat.name)
+              )
+            ]
           } as RestaurantData;
         }
         
