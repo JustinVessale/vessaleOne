@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Edit, Trash, Search, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useSelectedLocation } from '../hooks/useSelectedLocation';
 
 // Define menu category interface
 interface MenuCategory {
@@ -208,6 +209,7 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
 export function MenuPage() {
   const [categories, setCategories] = useState<MenuCategory[]>(sampleCategories);
   const [searchTerm, setSearchTerm] = useState('');
+  const { locationName, hasLocation } = useSelectedLocation();
 
   //const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
@@ -248,7 +250,9 @@ export function MenuPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Menu</h1>
-        <p className="text-gray-600 mt-1">Manage your restaurant menu items</p>
+        {hasLocation && locationName && (
+          <p className="text-gray-600 mt-1">Managing menu for location: {locationName}</p>
+        )}
       </div>
 
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">

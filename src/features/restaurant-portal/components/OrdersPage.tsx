@@ -4,8 +4,10 @@ import { type Schema } from '../../../../amplify/data/resource';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Printer, Loader2, Search, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { useSelectedLocation } from '../hooks/useSelectedLocation';
 
 const client = generateClient<Schema>();
+
 
 // Order status badge component
 function OrderStatusBadge({ status }: { status: string }) {
@@ -92,6 +94,11 @@ function OrderTable({
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{order.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div>{order.customerName || 'Guest'}</div>
+                    {order.location?.name && (
+                      <div className="text-xs text-gray-400 mt-1">
+                        Location: {order.location.name}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div>{format(new Date(order.createdAt), 'MMM d, h:mm a')}</div>
@@ -340,48 +347,66 @@ const printOrderReceipt = (order: any) => {
 export function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [processingOrder, setProcessingOrder] = useState<string | null>(null);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const { locationId, locationName, hasLocation } = useSelectedLocation();
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const restaurantId = sessionStorage.getItem('restaurantId');
-        console.log("About to fetch orders for restaurantId:", restaurantId);
-        if (!restaurantId) return;
-
-        const { data } = await client.models.Order.list({
-          filter: {
-            restaurantId: { eq: restaurantId },
-          },
-          selectionSet: ['id', 'customerName', 'status', 'total', 'createdAt', 'items.quantity', 'items.menuItem.name', 'items.menuItem.price'],
-        });
-
-        console.log("Fetched orders:", data);
-
-        // Sort the data by createdAt in descending order after fetching
-        const sortedData = [...data].sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt) : new Date();
-          const dateB = b.createdAt ? new Date(b.createdAt) : new Date();
-          return dateB.getTime() - dateA.getTime();
-        });
-        
-        setOrders(sortedData);
-      } catch (error) {
-        console.error('Error fetching orders:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchOrders();
-    
-    // Set up polling for new orders (every 30 seconds)
-    const intervalId = setInterval(fetchOrders, 30000);
-    
-    return () => clearInterval(intervalId);
-  }, []);
+  }, [locationId]); // Refetch when location changes
+
+  const fetchOrders = async () => {
+    setIsLoading(true);
+    try {
+      const restaurantId = sessionStorage.getItem('restaurantId');
+      
+      if (!restaurantId) {
+        console.error('No restaurant ID found in session storage');
+        setIsLoading(false);
+        return;
+      }
+
+      let filter: any = {
+        restaurantId: { eq: restaurantId }
+      };
+
+      // Add location filter if a location is selected
+      if (locationId) {
+        filter.locationId = { eq: locationId };
+      }
+
+      // Fetch orders for the restaurant and location
+      const { data, errors } = await client.models.Order.list ({
+        filter,
+        selectionSet: [
+          'id', 
+          'customerName', 
+          'status', 
+          'total', 
+          'createdAt', 
+          'items.quantity', 
+          'items.menuItem.name', 
+          'items.menuItem.price', 
+          'locationId',
+          'location.name'
+        ],
+      });
+
+      if (errors) {
+        console.error('Errors fetching orders:', errors);
+      }
+
+      if (data) {
+        console.log('Orders fetched:', data);
+        setOrders(data);
+      }
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     setProcessingOrder(orderId);
@@ -440,80 +465,104 @@ export function OrdersPage() {
     }
   };
 
-  // Filter orders by search term and organize by status
-  const filteredOrders = orders.filter(order => {
-    return order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (order.customerName || '').toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  // Filter orders by status
+  const getOrdersByStatus = (status: string | string[]) => {
+    const statusArray = Array.isArray(status) ? status : [status];
+    return orders
+      .filter(order => statusArray.includes(order.status))
+      .filter(order => {
+        if (!searchQuery) return true;
+        const query = searchQuery.toLowerCase();
+        return (
+          (order.id && order.id.toLowerCase().includes(query)) ||
+          (order.customerName && order.customerName.toLowerCase().includes(query)) ||
+          (order.customerEmail && order.customerEmail.toLowerCase().includes(query))
+        );
+      });
+  };
 
-  // Group orders by status
-  const incomingOrders = filteredOrders.filter(order => order.status === 'PAID');
-  const inProgressOrders = filteredOrders.filter(order => 
-    order.status === 'RESTAURANT_ACCEPTED' || 
-    order.status === 'PREPARING' || 
-    order.status === 'READY'
-  );
-  const completedOrders = filteredOrders.filter(order => order.status === 'COMPLETED');
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
-      </div>
-    );
-  }
+  // Get different order categories
+  const newOrders = getOrdersByStatus(['PAID']);
+  const inProgressOrders = getOrdersByStatus(['RESTAURANT_ACCEPTED', 'PREPARING']);
+  const readyOrders = getOrdersByStatus(['READY']);
+  const completedOrders = getOrdersByStatus(['COMPLETED', 'CANCELLED']);
 
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-        <p className="text-gray-600 mt-1">Manage your restaurant orders</p>
-      </div>
-
-      <div className="mb-6 bg-white rounded-lg shadow p-4">
-        <div className="flex items-center">
-          <div className="relative">
-            <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search orders..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
+            {hasLocation && locationName && (
+              <p className="text-gray-600 mt-1">Managing orders for location: {locationName}</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                placeholder="Search orders..."
+                className="pl-10 pr-4 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={fetchOrders}
+              disabled={isLoading}
+            >
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Refresh'}
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Incoming Orders */}
-      <OrderTable 
-        title="Incoming Orders" 
-        orders={incomingOrders}
-        processingOrder={processingOrder}
-        updateOrderStatus={updateOrderStatus}
-        expandedOrder={expandedOrder}
-        toggleOrderExpand={toggleOrderExpand}
-      />
-
-      {/* In Progress Orders */}
-      <OrderTable 
-        title="In Progress Orders" 
-        orders={inProgressOrders}
-        processingOrder={processingOrder}
-        updateOrderStatus={updateOrderStatus}
-        expandedOrder={expandedOrder}
-        toggleOrderExpand={toggleOrderExpand}
-      />
-
-      {/* Completed Orders */}
-      <OrderTable 
-        title="Completed Orders" 
-        orders={completedOrders}
-        processingOrder={processingOrder}
-        updateOrderStatus={updateOrderStatus}
-        expandedOrder={expandedOrder}
-        toggleOrderExpand={toggleOrderExpand}
-      />
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <span className="ml-2 text-gray-600">Loading orders...</span>
+        </div>
+      ) : (
+        <>
+          <OrderTable 
+            title="New Orders" 
+            orders={newOrders} 
+            processingOrder={processingOrder}
+            updateOrderStatus={updateOrderStatus}
+            expandedOrder={expandedOrder}
+            toggleOrderExpand={toggleOrderExpand}
+          />
+          
+          <OrderTable 
+            title="In Progress" 
+            orders={inProgressOrders} 
+            processingOrder={processingOrder}
+            updateOrderStatus={updateOrderStatus}
+            expandedOrder={expandedOrder}
+            toggleOrderExpand={toggleOrderExpand}
+          />
+          
+          <OrderTable 
+            title="Ready for Pickup/Delivery" 
+            orders={readyOrders} 
+            processingOrder={processingOrder}
+            updateOrderStatus={updateOrderStatus}
+            expandedOrder={expandedOrder}
+            toggleOrderExpand={toggleOrderExpand}
+          />
+          
+          <OrderTable 
+            title="Completed Orders" 
+            orders={completedOrders} 
+            processingOrder={processingOrder}
+            updateOrderStatus={updateOrderStatus}
+            expandedOrder={expandedOrder}
+            toggleOrderExpand={toggleOrderExpand}
+          />
+        </>
+      )}
     </div>
   );
 } 

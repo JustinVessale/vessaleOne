@@ -145,7 +145,7 @@ export async function handlePaymentSuccess(
     
     if (errors || !data) {
       console.error('Failed to update order status after payment:', errors);
-      throw new Error('Failed to update order status after payment');
+      throw new Error('Failed to update order status after paymen t');
     }
     
     // Only autodispatch if this is a delivery order and we have a Nash order ID

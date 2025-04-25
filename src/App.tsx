@@ -9,11 +9,7 @@ import { Cart } from './features/cart/components/Cart';
 import { LoginPage } from '@/features/restaurant-portal/components/LoginPage';
 import { ProtectedRoute } from '@/features/restaurant-portal/components/ProtectedRoute';
 import { PortalLayout } from '@/features/restaurant-portal/components/PortalLayout';
-import { DashboardPage } from '@/features/restaurant-portal/components/DashboardPage';
-import { OrdersPage } from '@/features/restaurant-portal/components/OrdersPage';
-import { MenuPage } from '@/features/restaurant-portal/components/MenuPage';
-import { AnalyticsPage } from '@/features/restaurant-portal/components/AnalyticsPage';
-import { AccountPage } from '@/features/restaurant-portal/components/AccountPage';
+import { portalRoutes } from '@/features/restaurant-portal/routes';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,16 +25,23 @@ function AppContent() {
   const location = useLocation();
   const hideCartPaths = ['/checkout', '/orders', '/portal'];
   
-  // Don't show the cart in App.tsx for restaurant pages (it's included in RestaurantPage)
-  // or for checkout, order, and portal pages
-  const isRestaurantPage = /^\/[^/]+$/.test(location.pathname);
+  // Check if we're on a restaurant page (either /:restaurantSlug or /:restaurantSlug/:locationSlug)
+  // This regex matches "/something" or "/something/something-else"
+  const isRestaurantPage = /^\/[^/]+\/?([^/]+)?$/.test(location.pathname);
   const shouldShowCart = !hideCartPaths.some(path => location.pathname.startsWith(path)) && !isRestaurantPage;
 
   return (
     <div className="flex flex-col min-h-screen">
       <NavigationBar />
       <Routes>
-        <Route path="/:slug" element={<RestaurantPage />} />
+        {/* Restaurant routes - now as top-level routes */}
+        <Route path="/:restaurantSlug" element={<RestaurantPage />} />
+        <Route path="/:restaurantSlug/:locationSlug" element={<RestaurantPage />} />
+        
+        {/* Redirect root to handle empty path (optional, can be customized) */}
+        <Route path="/" element={<Navigate to="/not-found" replace />} />
+        
+        {/* Checkout and order confirmation routes */}
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/orders/:orderId" element={<OrderConfirmationPage />} />
         
@@ -51,41 +54,21 @@ function AppContent() {
             </ProtectedRoute>
           } />
           <Route path="login" element={<LoginPage />} />
-          <Route path="dashboard" element={
-            <ProtectedRoute>
-              <PortalLayout>
-                <DashboardPage />
-              </PortalLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="orders" element={
-            <ProtectedRoute>
-              <PortalLayout>
-                <OrdersPage />
-              </PortalLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="menu" element={
-            <ProtectedRoute>
-              <PortalLayout>
-                <MenuPage />
-              </PortalLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="analytics" element={
-            <ProtectedRoute>
-              <PortalLayout>
-                <AnalyticsPage />
-              </PortalLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="account" element={
-            <ProtectedRoute>
-              <PortalLayout>
-                <AccountPage />
-              </PortalLayout>
-            </ProtectedRoute>
-          } />
+          
+          {/* Individual portal routes with explicit paths instead of wildcard */}
+          {portalRoutes.map((route) => (
+            <Route 
+              key={route.path} 
+              path={route.path} 
+              element={
+                <ProtectedRoute>
+                  <PortalLayout>
+                    <route.component />
+                  </PortalLayout>
+                </ProtectedRoute>
+              } 
+            />
+          ))}
         </Route>
       </Routes>
       {shouldShowCart && <Cart />}

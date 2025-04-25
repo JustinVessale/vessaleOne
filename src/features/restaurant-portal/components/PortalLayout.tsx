@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect, ReactNode, useMemo } from 'react';
 import { signOut } from 'aws-amplify/auth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { portalRoutes } from '../routes';
+import { RestaurantLocationProvider } from '../context/RestaurantLocationContext';
+import { LocationSelector } from './LocationSelector';
 
 // Icon mapping
 const iconMap: Record<string, React.ReactNode> = {
@@ -64,7 +66,8 @@ export function PortalLayout({ children }: PortalLayoutProps) {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
-  return (
+  // Memoize the content to prevent re-renders
+  const layoutContent = useMemo(() => (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
       <div 
@@ -94,6 +97,9 @@ export function PortalLayout({ children }: PortalLayoutProps) {
             )}
           </button>
         </div>
+
+        {/* Location Selector - Only show when sidebar is open */}
+        {isSidebarOpen && <LocationSelector />}
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4">
@@ -136,5 +142,11 @@ export function PortalLayout({ children }: PortalLayoutProps) {
         </div>
       </div>
     </div>
+  ), [children, restaurantName, isSidebarOpen, currentPath]);
+
+  return (
+    <RestaurantLocationProvider>
+      {layoutContent}
+    </RestaurantLocationProvider>
   );
 } 

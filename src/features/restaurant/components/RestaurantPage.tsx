@@ -7,18 +7,97 @@ import { Cart } from '../../cart/components/Cart';
 
 const client = generateClient<Schema>();
 
+// Define a simple type for our restaurant to use in the component
+interface RestaurantData {
+  id?: string;
+  name?: string;
+  description?: string;
+  imageUrl?: string;
+  locations?: any[];
+  menuCategories?: any[];
+  location?: {
+    id: string;
+    name: string;
+    description?: string;
+    imageUrl?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    phoneNumber?: string;
+    menuCategories?: any[];
+  };
+}
+
 export function RestaurantPage() {
-  const { slug } = useParams<{ slug: string }>();
+  const { restaurantSlug, locationSlug } = useParams<{ 
+    restaurantSlug: string;
+    locationSlug?: string;
+  }>();
   
-  const { data: restaurant, isLoading } = useQuery({
-    queryKey: ['restaurant', slug],
+  const { data: restaurant, isLoading } = useQuery<RestaurantData>({
+    queryKey: ['restaurant', restaurantSlug, locationSlug],
     queryFn: async () => {
-      const { data, errors } = await client.models.Restaurant.list({
-        filter: { slug: { eq: slug } },
-        selectionSet: ['id', 'name', 'description', 'imageUrl', 'menuCategories.*']
-      });
-      if (errors) throw new Error('Failed to fetch restaurant');
-      return data[0];
+      try {
+        // First, fetch the restaurant
+        const { data: restaurantData, errors: restaurantErrors } = await client.models.Restaurant.list({
+          filter: { slug: { eq: restaurantSlug } },
+          selectionSet: ['id', 'name', 'description', 'imageUrl', 'menuCategories.*', 'locations.*', 'isChain']
+        });
+        
+        if (restaurantErrors) throw new Error('Failed to fetch restaurant');
+        if (!restaurantData || restaurantData.length === 0) throw new Error('Restaurant not found');
+        
+        // We need to assert this as any to access properties safely
+        const restaurantObj = restaurantData[0] as any;
+        
+        // If we're looking for a specific location
+        if (locationSlug && restaurantObj.id) {
+          console.log(`Fetching location with slug: ${locationSlug} for restaurant ID: ${restaurantObj.id}`);
+          const { data: locationData, errors: locationErrors } = await client.models.RestaurantLocation.list({
+            filter: { 
+              slug: { eq: locationSlug },
+              restaurantId: { eq: restaurantObj.id }
+            },
+            selectionSet: ['id', 'name', 'slug', 'description', 'imageUrl', 'address', 'city', 'state', 'zip', 'phoneNumber', 'menuCategories.*']
+          });
+          
+          console.log('Location API response:', { locationData, errors: locationErrors });
+          
+          if (locationErrors) throw new Error('Failed to fetch location data');
+          if (!locationData || locationData.length === 0) throw new Error('Location not found');
+          
+          // We need to assert this as any to access properties safely
+          const locationObj = locationData[0] as any;
+          
+          // Combine restaurant with location data
+          return {
+            ...restaurantObj,
+            name: locationObj.name || restaurantObj.name,
+            description: locationObj.description || restaurantObj.description,
+            imageUrl: locationObj.imageUrl || restaurantObj.imageUrl,
+            location: locationObj,
+            // Combine menu categories from both restaurant and location
+            menuCategories: [
+              ...(restaurantObj.menuCategories || []),
+              ...(locationObj.menuCategories || []).filter((locCat: any) => 
+                // Only add location categories that don't have the same name as restaurant categories
+                !(restaurantObj.menuCategories || []).some((resCat: any) => resCat.name === locCat.name)
+              )
+            ]
+          } as RestaurantData;
+        }
+        
+        // Just return the restaurant with normalized properties
+        return {
+          ...restaurantObj,
+          locations: restaurantObj.locations || [],
+          menuCategories: restaurantObj.menuCategories || []
+        } as RestaurantData;
+      } catch (error) {
+        console.error('Error fetching restaurant:', error);
+        throw error;
+      }
     }
   });
 
@@ -29,6 +108,16 @@ export function RestaurantPage() {
   if (!restaurant) {
     return <div className="h-screen flex items-center justify-center">Restaurant not found</div>;
   }
+
+  // Display location information if we're on a location page
+  const showLocationInfo = !!locationSlug && !!restaurant.location;
+  
+  // Safely access locations and menu categories
+  const locations = restaurant.locations || [];
+  const hasLocations = Array.isArray(locations) && locations.length > 0;
+  
+  const menuCategories = restaurant.menuCategories || [];
+  const hasMenuCategories = Array.isArray(menuCategories) && menuCategories.length > 0;
 
   return (
     <div className="flex flex-col flex-1">
@@ -44,10 +133,41 @@ export function RestaurantPage() {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-white">{restaurant.name}</h1>
               <p className="mt-2 text-sm md:text-base text-white/90">{restaurant.description}</p>
+              
+              {/* If we're on a location page, show the location-specific details */}
+              {showLocationInfo && restaurant.location && (
+                <div className="mt-2 text-white/90 text-sm">
+                  <p>{restaurant.location.address}</p>
+                  <p>{restaurant.location.city}, {restaurant.location.state} {restaurant.location.zip}</p>
+                  <p>{restaurant.location.phoneNumber}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* If this is a chain restaurant without location, show locations picker */}
+      {!locationSlug && hasLocations && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <h2 className="font-semibold mb-2">Select a Location</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {locations.map((location: any) => (
+                <a 
+                  key={location.id} 
+                  href={`/${restaurantSlug}/${location.slug}`}
+                  className="block p-3 border rounded hover:bg-gray-50"
+                >
+                  <div className="font-medium">{location.name}</div>
+                  <div className="text-sm text-gray-600">{location.address}</div>
+                  <div className="text-sm text-gray-600">{location.city}, {location.state}</div>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Content Area */}
       <div className="flex-1 bg-gray-50">
@@ -56,13 +176,21 @@ export function RestaurantPage() {
             {/* Menu Content - Takes available space */}
             <div className="flex-1">
               <div className="space-y-6">
-                {restaurant.menuCategories?.map((category) => (
+                {hasMenuCategories && menuCategories.map((category: any) => (
                   <MenuCategory 
                     key={category.id} 
                     categoryId={category.id} 
-                    restaurantId={restaurant.id}
+                    restaurantId={restaurant.id || ''}
+                    locationId={locationSlug ? restaurant.location?.id : undefined}
                   />
                 ))}
+                
+                {/* If there are no menu categories */}
+                {!hasMenuCategories && (
+                  <div className="p-4 bg-white rounded shadow">
+                    <p className="text-center text-gray-500">No menu items available</p>
+                  </div>
+                )}
               </div>
             </div>
             
