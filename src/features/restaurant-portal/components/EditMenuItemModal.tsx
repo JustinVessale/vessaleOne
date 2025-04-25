@@ -83,20 +83,52 @@ export function EditMenuItemModal({
       // If there's a new image file, upload it
       if (imageFile) {
         setIsUploading(true);
-        const uploadResult = await menuItemImageHelper.upload(
-          imageFile, 
-          restaurantId, 
-          formData.id || 'new', // Use 'new' as a placeholder for new items
-          locationId
-        );
-        
-        // Update the form data with the new image URL
-        setFormData(prev => ({
-          ...prev,
-          imageUrl: uploadResult.url
-        }));
-        
-        setIsUploading(false);
+        try {
+          const uploadResult = await menuItemImageHelper.upload(
+            imageFile, 
+            restaurantId, 
+            formData.id || 'new', // Use 'new' as a placeholder for new items
+            locationId
+          );
+          
+          // Update the form data with the new image URL
+          setFormData(prev => ({
+            ...prev,
+            imageUrl: uploadResult.url
+          }));
+        } catch (uploadError: any) {
+          // Check for specific error types
+          console.error('Image upload error:', uploadError);
+          
+          // Extract error message and status code if available
+          const statusCode = uploadError.statusCode || 
+                           (uploadError.response?.status) || 
+                           (uploadError.message?.includes('403') ? 403 : null);
+          
+          let errorMessage = 'Failed to upload image';
+          
+          // Handle specific error cases
+          if (statusCode === 403) {
+            errorMessage = 'Permission denied when uploading image. You may not have access to this storage location.';
+          } else if (uploadError.message?.includes('Network')) {
+            errorMessage = 'Network error occurred while uploading. Please check your connection.';
+          } else if (uploadError.message) {
+            errorMessage = `Upload error: ${uploadError.message}`;
+          }
+          
+          // Ensure toast is visible with longer duration and higher z-index
+          setTimeout(() => {
+            toast({
+              title: "Image Upload Failed",
+              variant: "destructive",
+              duration: 5000,
+              className: "bg-red-100 border-red-400 text-red-800 border"
+            });
+          }, 100);
+          
+          setIsUploading(false);
+          return; // Stop the form submission if image upload fails
+        }
       }
       
       // Call the onSave function with the updated data
@@ -109,13 +141,21 @@ export function EditMenuItemModal({
       // Reset state
       setImageFile(null);
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving menu item:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save the menu item. Please try again.',
-        variant: 'destructive'
-      });
+      
+      // Provide a more specific error message if possible
+      const errorMessage = error.message || 'Failed to save the menu item. Please try again.';
+      
+      // Ensure toast is visible with longer duration
+      setTimeout(() => {
+        toast({
+          title: "Save Failed",
+          variant: "destructive",
+          duration: 5000,
+          className: "bg-red-100 border-red-400 text-red-800 border"
+        });
+      }, 100);
       setIsUploading(false);
     }
   };

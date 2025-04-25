@@ -10,6 +10,7 @@ import { LoginPage } from '@/features/restaurant-portal/components/LoginPage';
 import { ProtectedRoute } from '@/features/restaurant-portal/components/ProtectedRoute';
 import { PortalLayout } from '@/features/restaurant-portal/components/PortalLayout';
 import { portalRoutes } from '@/features/restaurant-portal/routes';
+import { Toaster } from "@/components/ui/toaster";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -82,6 +83,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <CartProvider>
           <AppContent />
+          <Toaster />
         </CartProvider>
       </QueryClientProvider>
     </BrowserRouter>
