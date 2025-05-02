@@ -89,7 +89,7 @@ function OrderTable({
           <tbody className="bg-white divide-y divide-gray-200">
             {orders.map((order) => (
               <React.Fragment key={order.id}>
-                <tr className="hover:bg-gray-50 cursor-pointer">
+                <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => toggleOrderExpand(order.id)}>
                   <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-blue-600">{order.id.slice(-5)}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                     <div>{order.customerName || 'Guest'}{order.location?.name ? ` (${order.location.name})` : ''}</div>
