@@ -73,7 +73,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
       {/* Sidebar */}
       <div 
         className={`bg-white shadow-md transition-all duration-300 flex flex-col ${
-          isSidebarOpen ? 'w-64' : 'w-20'
+          isSidebarOpen ? 'w-64' : 'w-30'
         }`}
       >
         {/* Sidebar Header */}
@@ -89,12 +89,12 @@ export function PortalLayout({ children }: PortalLayoutProps) {
           )}
           <button 
             onClick={toggleSidebar}
-            className="text-gray-500 hover:text-gray-700 focus:outline-none"
+            className="text-black hover:text-black focus:outline-none"
           >
             {isSidebarOpen ? (
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-5 w-5 text-black" />
             ) : (
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-5 w-5 text-black" />
             )}
           </button>
         </div>
