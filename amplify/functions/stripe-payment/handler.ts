@@ -45,10 +45,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   console.log('Request headers:', JSON.stringify(event.headers));
   
   // Get the origin from the request headers - API Gateway normalizes headers to lowercase
-  const origin = event.headers.origin || 
-                 event.headers.Origin || 
-                 event.headers['origin'] || 
-                 '';
+  const origin = event.headers['origin'] || '';
                  
   console.log('Detected origin:', origin);
   const allowedOrigin = getAllowedOrigin(origin);
