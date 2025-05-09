@@ -13,7 +13,7 @@ interface RestaurantData {
   id?: string;
   name?: string;
   description?: string;
-  imageUrl?: string;
+  bannerImageUrl?: string;
   locations?: any[];
   menuCategories?: any[];
   location?: {
@@ -43,7 +43,7 @@ export function RestaurantPage() {
         // First, fetch the restaurant
         const { data: restaurantData, errors: restaurantErrors } = await client.models.Restaurant.list({
           filter: { slug: { eq: restaurantSlug } },
-          selectionSet: ['id', 'name', 'description', 'imageUrl', 'menuCategories.*', 'locations.*', 'isChain']
+          selectionSet: ['id', 'name', 'description', 'bannerImageUrl', 'menuCategories.*', 'locations.*', 'isChain']
         });
         
         if (restaurantErrors) throw new Error('Failed to fetch restaurant');
@@ -60,7 +60,7 @@ export function RestaurantPage() {
               slug: { eq: locationSlug },
               restaurantId: { eq: restaurantObj.id }
             },
-            selectionSet: ['id', 'name', 'slug', 'description', 'imageUrl', 'address', 'city', 'state', 'zip', 'phoneNumber', 'menuCategories.*']
+            selectionSet: ['id', 'name', 'slug', 'description', 'bannerImageUrl', 'address', 'city', 'state', 'zip', 'phoneNumber', 'menuCategories.*']
           });
           
           console.log('Location API response:', { locationData, errors: locationErrors });
@@ -76,7 +76,7 @@ export function RestaurantPage() {
             ...restaurantObj,
             name: locationObj.name || restaurantObj.name,
             description: locationObj.description || restaurantObj.description,
-            imageUrl: locationObj.imageUrl || restaurantObj.imageUrl,
+            bannerImageUrl: locationObj.bannerImageUrl || restaurantObj.bannerImageUrl,
             location: locationObj,
             // Combine menu categories from both restaurant and location
             menuCategories: [
@@ -125,7 +125,7 @@ export function RestaurantPage() {
       {/* Hero Section - Fixed height */}
       <div className="relative h-48 md:h-64">
         <StorageImage
-          src={restaurant.imageUrl ?? ''}
+          src={(restaurant).bannerImageUrl ?? ''}
           alt={restaurant.name ?? ''}
           className="absolute inset-0 w-full h-full object-cover"
         />
