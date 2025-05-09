@@ -79,6 +79,7 @@ export function EditMenuItemModal({
     e.preventDefault();
 
     let newImageUrl = formData.imageUrl;
+    const oldImageUrl = item?.imageUrl;
 
     try {
       if (imageFile) {
@@ -87,10 +88,16 @@ export function EditMenuItemModal({
           const uploadResult = await menuItemImageHelper.upload(
             imageFile, 
             restaurantId, 
-            formData.id || 'new', // Use 'new' as a placeholder for new items
+            formData.id || 'new',
             locationId
           );
-          newImageUrl = uploadResult.url; // Use the uploaded image URL
+          newImageUrl = uploadResult.url;
+          // Delete the old image if it exists and is different from the new one
+          if (oldImageUrl && oldImageUrl !== newImageUrl) {
+            menuItemImageHelper.delete(oldImageUrl).catch((deleteError) => {
+              console.warn('Failed to delete old image:', deleteError);
+            });
+          }
         } catch (uploadError: any) {
           console.error('Image upload error:', uploadError);
           let errorTitle = "Image Upload Failed";
@@ -125,7 +132,6 @@ export function EditMenuItemModal({
           }
         }
       }
-      // Always use the latest image URL (either from upload or existing)
       onSave({
         ...formData,
         imageUrl: newImageUrl,
