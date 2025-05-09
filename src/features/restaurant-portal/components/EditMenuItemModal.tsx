@@ -161,13 +161,6 @@ export function EditMenuItemModal({
               <h2 className="text-xl font-bold text-gray-900">
                 {item ? 'Edit' : 'Add'} Menu Item
               </h2>
-              <button 
-                onClick={onClose}
-                className="rounded-full p-1 hover:bg-gray-100 text-gray-500 focus:outline-none"
-                aria-label="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
             </div>
             
             <form onSubmit={handleSubmit}>
