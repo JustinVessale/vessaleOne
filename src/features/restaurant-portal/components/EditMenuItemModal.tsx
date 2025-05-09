@@ -9,7 +9,6 @@ import { menuItemImageHelper } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 import { useSelectedLocation } from '../hooks/useSelectedLocation';
 import { StorageImage } from '@/components/ui/s3-image';
-import { X } from 'lucide-react';
 import type { Schema } from '../../../../amplify/data/resource';
 
 // Define types using the generated Schema

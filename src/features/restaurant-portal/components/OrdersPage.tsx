@@ -3,7 +3,7 @@ import { generateClient } from 'aws-amplify/api';
 import { type Schema } from '../../../../amplify/data/resource';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Printer, Loader2, Search, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { Printer, Loader2, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { useSelectedLocation } from '../hooks/useSelectedLocation';
 
 const client = generateClient<Schema>();
@@ -339,7 +339,7 @@ const printOrderReceipt = (order: any) => {
 export function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery] = useState('');
   const [processingOrder, setProcessingOrder] = useState<string | null>(null);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const { locationId, locationName, hasLocation } = useSelectedLocation();

@@ -8,7 +8,7 @@ import { StorageImage } from '@/components/ui/s3-image';
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
 import { useQuery } from '@tanstack/react-query';
-import { uploadImage, getImageUrl, deleteImage } from '@/lib/storage';
+import { uploadImage, getImageUrl } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 
 const client = generateClient<Schema>();
@@ -166,7 +166,7 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
 
 export function MenuPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const { locationName, hasLocation, locationId, selectedLocation } = useSelectedLocation();
+  const { locationName, hasLocation, locationId } = useSelectedLocation();
   const { restaurant } = useRestaurantContext();
   const { toast } = useToast();
   
