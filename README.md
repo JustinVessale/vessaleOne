@@ -215,6 +215,76 @@ npm run dev
 - specialInstructions: String
 - price: Float!
 
+## Storage Implementation
+
+### S3 Storage Structure
+
+The project uses AWS S3 through Amplify Gen 2 for storing restaurant and menu images. The storage is organized in a hierarchical structure:
+
+```
+restaurant/
+  ├── {restaurantId}/
+  │   └── {locationId}/
+  │       └── image/
+  │           └── {timestamp}-{filename}
+  │
+menu/
+  └── {restaurantId}/
+      └── {locationId}/
+          └── menuItems/
+              └── {menuItemId}/
+                  └── {timestamp}-{filename}
+```
+
+### Access Control
+
+Storage access is managed through Amplify Gen 2's storage configuration:
+
+- **Public Access**: All images are publicly readable
+- **Authenticated Access**: Authenticated users can:
+  - Upload new images
+  - Delete existing images
+  - Read all images
+
+### Usage
+
+The project provides utility functions for managing images:
+
+```typescript
+// Restaurant Images
+const { key, url } = await restaurantImageHelper.upload(
+  file,
+  restaurantId,
+  locationId
+);
+
+// Menu Item Images
+const { key, url } = await menuItemImageHelper.upload(
+  file,
+  restaurantId,
+  menuItemId,
+  locationId
+);
+
+// Delete images
+await restaurantImageHelper.delete(imageUrl);
+await menuItemImageHelper.delete(imageUrl);
+```
+
+### Key Features
+
+- **Automatic File Naming**: Files are automatically renamed with timestamps to prevent conflicts
+- **Path Organization**: Images are organized by restaurant, location, and menu item
+- **URL Management**: Helper functions for generating and managing image URLs
+- **Type Safety**: Full TypeScript support for all storage operations
+
+### Best Practices
+
+1. Always use the provided helper functions instead of direct S3 operations
+2. Images are automatically made public for reading
+3. Only authenticated users can upload or delete images
+4. Use the appropriate helper function based on the image type (restaurant vs menu item)
+
 ## Contributing
 
 1. Create a feature branch
