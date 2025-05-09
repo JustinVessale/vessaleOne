@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Edit, Trash, Search, MoreVertical } from 'lucide-react';
+import { Plus, Edit, Trash, Search, MoreVertical, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSelectedLocation } from '../hooks/useSelectedLocation';
 import { EditMenuItemModal } from './EditMenuItemModal';
@@ -8,6 +8,8 @@ import { StorageImage } from '@/components/ui/s3-image';
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
 import { useQuery } from '@tanstack/react-query';
+import { uploadImage, getImageUrl } from '@/lib/storage';
+import { useToast } from '@/hooks/use-toast';
 
 const client = generateClient<Schema>();
 
@@ -166,10 +168,19 @@ export function MenuPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const { locationName, hasLocation, locationId } = useSelectedLocation();
   const { restaurant } = useRestaurantContext();
+  const { toast } = useToast();
   
   // Add state for edit modal
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItemUI | null>(null);
+
+  // Banner image state
+  const [bannerImageUrl, setBannerImageUrl] = useState<string | undefined>(
+    (location as any)?.bannerImageUrl || (restaurant as any)?.bannerImageUrl
+  );
+  const [bannerImageFile, setBannerImageFile] = useState<File | null>(null);
+  const [isBannerUploading, setIsBannerUploading] = useState(false);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
 
   // Fetch menu categories and items
   const { data: categories = [], isLoading, error, refetch } = useQuery<MenuCategoryWithItems[]>({
@@ -240,6 +251,50 @@ export function MenuPage() {
     },
     enabled: !!restaurant?.id
   });
+
+  // Fetch banner image from location or restaurant object if available
+  useEffect(() => {
+    setBannerImageUrl((location as any)?.bannerImageUrl || (restaurant as any)?.bannerImageUrl);
+  }, [location, restaurant]);
+
+  // Banner image upload handler
+  const handleBannerImageSelected = (file: File) => {
+    setBannerImageFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+  };
+
+  const handleRemoveBannerImage = () => {
+    setBannerImageFile(null);
+    setBannerPreview(null);
+  };
+
+  const handleSaveBannerImage = async () => {
+    if (!restaurant?.id || !locationId || !bannerImageFile) return;
+    setIsBannerUploading(true);
+    try {
+      // Compose S3 path
+      const path = `restaurant/${restaurant.id}/${locationId}/banner`;
+      const fileName = `${Date.now()}-${bannerImageFile.name.replace(/\s+/g, '-').toLowerCase()}`;
+      const fullPath = `${path}/${fileName}`;
+      // Upload
+      await uploadImage(bannerImageFile, path);
+      // Get public URL
+      const url = await getImageUrl(fullPath);
+      setBannerImageUrl(url);
+      setBannerImageFile(null);
+      setBannerPreview(null);
+      // Save the bannerImageUrl to the RestaurantLocation model
+      await client.models.RestaurantLocation.update({
+        id: locationId,
+        bannerImageUrl: url,
+      });
+      toast({ title: 'Banner updated', variant: 'default' });
+    } catch (err) {
+      toast({ title: 'Banner upload failed', variant: 'destructive' });
+    } finally {
+      setIsBannerUploading(false);
+    }
+  };
 
   const handleEditItem = (item: MenuItemUI) => {
     setEditingItem(item);
@@ -373,6 +428,61 @@ export function MenuPage() {
 
   return (
     <div>
+      {/* Banner Image Section */}
+      <div className="mb-8 bg-white rounded-lg shadow p-6 flex flex-col md:flex-row items-center gap-6">
+        <div className="flex-1">
+          <h2 className="text-lg font-semibold mb-2">Banner Image</h2>
+          <p className="text-gray-500 text-sm mb-4">This image will be displayed as the banner for your restaurant's menu page.</p>
+          <div className="flex items-center gap-6">
+            {/* Current or Preview Banner */}
+            <div className="relative w-64 h-32 border rounded overflow-hidden flex items-center justify-center bg-gray-50">
+              {bannerPreview ? (
+                <img src={bannerPreview} alt="Banner preview" className="object-cover w-full h-full" />
+              ) : bannerImageUrl ? (
+                <StorageImage src={bannerImageUrl} alt="Current banner" className="object-cover w-full h-full" />
+              ) : (
+                <div className="flex flex-col items-center justify-center w-full h-full text-gray-400">
+                  <ImageIcon className="h-10 w-10 mb-2" />
+                  <span>No banner image</span>
+                </div>
+              )}
+              {bannerPreview && (
+                <button
+                  type="button"
+                  onClick={handleRemoveBannerImage}
+                  className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
+                  aria-label="Remove image"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {/* Upload Controls */}
+            <div className="flex flex-col gap-2">
+              <input
+                type="file"
+                accept="image/*"
+                id="banner-upload"
+                className="hidden"
+                onChange={e => {
+                  if (e.target.files?.[0]) handleBannerImageSelected(e.target.files[0]);
+                }}
+                disabled={isBannerUploading}
+              />
+              <label htmlFor="banner-upload">
+                <Button asChild variant="outline" disabled={isBannerUploading}>
+                  <span><Upload className="h-4 w-4 mr-2" />{bannerPreview ? 'Change' : 'Upload'} Banner</span>
+                </Button>
+              </label>
+              {bannerPreview && (
+                <Button onClick={handleSaveBannerImage} disabled={isBannerUploading}>
+                  {isBannerUploading ? 'Saving...' : 'Save Banner'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Menu</h1>
         {hasLocation && locationName && (

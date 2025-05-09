@@ -74,6 +74,7 @@ const paymentApi = new RestApi(apiStack, "PaymentApi", {
   },
   defaultCorsPreflightOptions: {
     allowOrigins: [
+      'http://localhost:5173',
       'https://develop.d2g0w15slq5y17.amplifyapp.com', // Explicit develop domain
       'https://main.d2g0w15slq5y17.amplifyapp.com',    // Explicit main domain
       'https://*.amplifyapp.com',                     // Generic pattern for other environments
