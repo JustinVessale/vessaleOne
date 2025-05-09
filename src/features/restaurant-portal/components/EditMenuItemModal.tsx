@@ -77,9 +77,10 @@ export function EditMenuItemModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    let newImageUrl = formData.imageUrl;
+
     try {
-      // If there's a new image file, upload it
       if (imageFile) {
         setIsUploading(true);
         try {
@@ -89,29 +90,17 @@ export function EditMenuItemModal({
             formData.id || 'new', // Use 'new' as a placeholder for new items
             locationId
           );
-          
-          // Update the form data with the new image URL
-          setFormData(prev => ({
-            ...prev,
-            imageUrl: uploadResult.url
-          }));
+          newImageUrl = uploadResult.url; // Use the uploaded image URL
         } catch (uploadError: any) {
-          // Log the full error for debugging
           console.error('Image upload error:', uploadError);
-          
           let errorTitle = "Image Upload Failed";
           let continueWithSave = false;
-          
-          // Check if it's an S3 permission error
           if (uploadError.message?.includes('AccessDenied') || 
               uploadError.message?.includes('not authorized') ||
               uploadError.code === 'AccessDenied') {
-            
-            // Ask user if they want to continue without the image
             const confirmed = window.confirm(
               "Unable to upload the image due to permission issues. Would you like to save the item without updating the image?"
             );
-            
             if (confirmed) {
               continueWithSave = true;
             } else {
@@ -119,7 +108,6 @@ export function EditMenuItemModal({
               return; // Stop the form submission
             }
           } else {
-            // For other errors, just show the toast
             setTimeout(() => {
               toast({
                 title: errorTitle,
@@ -128,33 +116,24 @@ export function EditMenuItemModal({
                 className: "bg-red-100 border-red-400 text-red-800 border"
               });
             }, 100);
-            
             setIsUploading(false);
             return; // Stop the form submission
           }
-          
-          // If we're not continuing with the save, stop here
           if (!continueWithSave) {
             setIsUploading(false);
             return;
           }
-          // Otherwise we'll continue without the new image
         }
       }
-      
-      // Call the onSave function with the updated data
+      // Always use the latest image URL (either from upload or existing)
       onSave({
         ...formData,
-        // Only update the imageUrl if we successfully uploaded a new image
-        // Keep the existing imageUrl if upload failed but user chose to continue
+        imageUrl: newImageUrl,
       });
-      
-      // Reset state
       setImageFile(null);
       onClose();
     } catch (error: any) {
       console.error('Error saving menu item:', error);
-      
       setTimeout(() => {
         toast({
           title: "Save Failed",
