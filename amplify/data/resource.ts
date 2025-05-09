@@ -59,7 +59,7 @@ const schema = a.schema({
       name: a.string(),
       slug: a.string(),
       description: a.string(),
-      imageUrl: a.string(),
+      bannerImageUrl: a.string(),
       address: a.string(),
       city: a.string(),
       state: a.string(),
@@ -87,7 +87,7 @@ const schema = a.schema({
       name: a.string(),
       slug: a.string(),
       description: a.string(),
-      imageUrl: a.string(),
+      bannerImageUrl: a.string(),
       menuCategories: a.hasMany('MenuCategory', 'restaurantId'),
       orders: a.hasMany('Order', 'restaurantId'),
       // Add locations relationship
