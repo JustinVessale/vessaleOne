@@ -269,25 +269,41 @@ export function MenuPage() {
   };
 
   const handleSaveBannerImage = async () => {
-    if (!restaurant?.id || !locationId || !bannerImageFile) return;
+    if (!restaurant?.id || !bannerImageFile) return;
     setIsBannerUploading(true);
     try {
-      // Compose S3 path
-      const path = `restaurant/${restaurant.id}/${locationId}/banner`;
-      const fileName = `${Date.now()}-${bannerImageFile.name.replace(/\s+/g, '-').toLowerCase()}`;
-      const fullPath = `${path}/${fileName}`;
-      // Upload
-      await uploadImage(bannerImageFile, path);
-      // Get public URL
-      const url = await getImageUrl(fullPath);
-      setBannerImageUrl(url);
-      setBannerImageFile(null);
-      setBannerPreview(null);
-      // Save the bannerImageUrl to the RestaurantLocation model
-      await client.models.RestaurantLocation.update({
-        id: locationId,
-        bannerImageUrl: url,
-      });
+      let url: string;
+      if (locationId) {
+        // Compose S3 path for location
+        const path = `restaurant/${restaurant.id}/${locationId}/banner`;
+        const fileName = `${Date.now()}-${bannerImageFile.name.replace(/\s+/g, '-').toLowerCase()}`;
+        const fullPath = `${path}/${fileName}`;
+        await uploadImage(bannerImageFile, path);
+        url = await getImageUrl(fullPath);
+        setBannerImageUrl(url);
+        setBannerImageFile(null);
+        setBannerPreview(null);
+        // Save the bannerImageUrl to the RestaurantLocation model
+        await client.models.RestaurantLocation.update({
+          id: locationId,
+          bannerImageUrl: url,
+        });
+      } else {
+        // Compose S3 path for restaurant
+        const path = `restaurant/${restaurant.id}/banner`;
+        const fileName = `${Date.now()}-${bannerImageFile.name.replace(/\s+/g, '-').toLowerCase()}`;
+        const fullPath = `${path}/${fileName}`;
+        await uploadImage(bannerImageFile, path);
+        url = await getImageUrl(fullPath);
+        setBannerImageUrl(url);
+        setBannerImageFile(null);
+        setBannerPreview(null);
+        // Save the bannerImageUrl to the Restaurant model
+        await client.models.Restaurant.update({
+          id: restaurant.id,
+          bannerImageUrl: url,
+        });
+      }
       toast({ title: 'Banner updated', variant: 'default' });
     } catch (err) {
       toast({ title: 'Banner upload failed', variant: 'destructive' });
