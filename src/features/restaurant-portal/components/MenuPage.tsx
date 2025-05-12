@@ -38,6 +38,7 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [imageError, setImageError] = useState(false);
   
   // Handle click outside to close menu
   useEffect(() => {
@@ -66,12 +67,16 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
       });
     }
   }, [showActions]);
+  
+  const handleImageError = () => {
+    setImageError(true);
+  };
 
   return (
     <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
       <div className="p-4">
         <div className="flex justify-between items-start">
-          <div className="flex-1">
+          <div className={`${item.imageUrl && !imageError ? "flex-1" : "w-full"}`}>
             <div className="flex items-center mb-1">
               <h3 className="text-lg font-medium">{item.name}</h3>
               {item.isPopular && (
@@ -85,7 +90,7 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
               <span className="font-semibold">${(item.price || 0).toFixed(2)}</span>
             </div>
           </div>
-          {item.imageUrl && (
+          {item.imageUrl && !imageError && (
             <div className="ml-4">
               <StorageImage 
                 src={item.imageUrl} 
@@ -93,7 +98,7 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
                 className="h-16 w-16 object-cover rounded-md"
                 width={64}
                 height={64}
-                fallbackSrc="/placeholder-food.jpg"
+                onError={handleImageError}
               />
             </div>
           )}
@@ -272,36 +277,36 @@ export function MenuPage() {
     if (!restaurant?.id || !bannerImageFile) return;
     setIsBannerUploading(true);
     try {
-      let url: string;
+      let storageKey: string;
       if (locationId) {
         // Compose S3 path for location
         const path = `restaurant/${restaurant.id}/${locationId}/banner`;
         const fileName = `${Date.now()}-${bannerImageFile.name.replace(/\s+/g, '-').toLowerCase()}`;
         const fullPath = `${path}/${fileName}`;
-        await uploadImage(bannerImageFile, path);
-        url = await getImageUrl(fullPath);
-        setBannerImageUrl(url);
+        const uploadResult = await uploadImage(bannerImageFile, path);
+        storageKey = uploadResult.key;
+        setBannerImageUrl(storageKey);
         setBannerImageFile(null);
         setBannerPreview(null);
         // Save the bannerImageUrl to the RestaurantLocation model
         await client.models.RestaurantLocation.update({
           id: locationId,
-          bannerImageUrl: url,
+          bannerImageUrl: storageKey,
         });
       } else {
         // Compose S3 path for restaurant
         const path = `restaurant/${restaurant.id}/banner`;
         const fileName = `${Date.now()}-${bannerImageFile.name.replace(/\s+/g, '-').toLowerCase()}`;
         const fullPath = `${path}/${fileName}`;
-        await uploadImage(bannerImageFile, path);
-        url = await getImageUrl(fullPath);
-        setBannerImageUrl(url);
+        const uploadResult = await uploadImage(bannerImageFile, path);
+        storageKey = uploadResult.key;
+        setBannerImageUrl(storageKey);
         setBannerImageFile(null);
         setBannerPreview(null);
         // Save the bannerImageUrl to the Restaurant model
         await client.models.Restaurant.update({
           id: restaurant.id,
-          bannerImageUrl: url,
+          bannerImageUrl: storageKey,
         });
       }
       toast({ title: 'Banner updated', variant: 'default' });

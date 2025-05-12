@@ -22,7 +22,7 @@ export const getMenuItemImageKey = (restaurantId: string, locationId = 'default'
  * Uploads an image file to storage
  * @param file - The file to upload
  * @param path - The storage key path
- * @returns The URL of the uploaded file
+ * @returns The storage key and URL of the uploaded file
  */
 export const uploadImage = async (file: File, path: string) => {
   try {
@@ -59,17 +59,26 @@ export const uploadImage = async (file: File, path: string) => {
  */
 export const getImageUrl = async (key: string) => {
   try {
+    // Remove validateObjectExistence to prevent 403 errors
     const { url } = await getUrl({
       path: key,
       options: {
-        validateObjectExistence: true,
-        expiresIn: 3600 // URL expires in 1 hour
+        expiresIn: 86400 // URL expires in 24 hours
       }
     });
     
     return url.toString();
   } catch (error) {
     console.error('Error getting image URL:', error);
+    // If we get a 403 error, it might be because the object doesn't exist
+    // or because of CORS issues. Let's log more details to help debug.
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+    }
     throw error;
   }
 };
@@ -94,12 +103,21 @@ export const deleteImage = async (key: string) => {
  * @returns The storage key
  */
 export const getKeyFromUrl = (url: string) => {
-  // Extract the key portion from the URL
-  // This is a simple implementation and might need adjustments based on your URL structure
-  const urlObj = new URL(url);
-  const path = urlObj.pathname;
-  // Remove the leading slash if present
-  return path.startsWith('/') ? path.substring(1) : path;
+  // If the URL is already a storage key (doesn't start with http), return it as is
+  if (!url.startsWith('http')) {
+    return url;
+  }
+  
+  try {
+    // Extract the key portion from the URL
+    const urlObj = new URL(url);
+    const path = urlObj.pathname;
+    // Remove the leading slash if present
+    return path.startsWith('/') ? path.substring(1) : path;
+  } catch (error) {
+    console.error('Error extracting key from URL:', error);
+    return url; // Return the original URL if we can't parse it
+  }
 };
 
 /**

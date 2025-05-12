@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSelectedLocation } from '../hooks/useSelectedLocation';
 import { StorageImage } from '@/components/ui/s3-image';
 import type { Schema } from '../../../../amplify/data/resource';
+import { Trash } from 'lucide-react';
 
 // Define types using the generated Schema
 type MenuItemType = Schema['MenuItem']['type'];
@@ -54,6 +55,7 @@ export function EditMenuItemModal({
   
   const [isUploading, setIsUploading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -72,6 +74,12 @@ export function EditMenuItemModal({
 
   const handleImageSelected = (file: File) => {
     setImageFile(file);
+    setRemoveImage(false);
+  };
+
+  const handleResetImage = () => {
+    setRemoveImage(true);
+    setImageFile(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,7 +98,8 @@ export function EditMenuItemModal({
             formData.id || 'new',
             locationId
           );
-          newImageUrl = uploadResult.url;
+          // Store the storage key instead of the pre-signed URL
+          newImageUrl = uploadResult.key;
           // Delete the old image if it exists and is different from the new one
           if (oldImageUrl && oldImageUrl !== newImageUrl) {
             menuItemImageHelper.delete(oldImageUrl).catch((deleteError) => {
@@ -130,12 +139,29 @@ export function EditMenuItemModal({
             return;
           }
         }
+      } else if (removeImage) {
+        // If user clicked the remove button, clear the image URL
+        newImageUrl = '';
+        
+        // Delete the old image if it exists
+        if (oldImageUrl) {
+          try {
+            await menuItemImageHelper.delete(oldImageUrl).catch(err => {
+              console.warn('Failed to delete old image:', err);
+            });
+          } catch (deleteError) {
+            console.warn('Failed to delete old image:', deleteError);
+            // Continue with save even if deletion fails
+          }
+        }
       }
+      
       onSave({
         ...formData,
         imageUrl: newImageUrl,
       });
       setImageFile(null);
+      setRemoveImage(false);
       onClose();
     } catch (error: any) {
       console.error('Error saving menu item:', error);
@@ -209,21 +235,10 @@ export function EditMenuItemModal({
                   <Label className="text-gray-700">Image</Label>
                   <ImageUploader
                     onImageSelected={handleImageSelected}
-                    previewUrl={formData.imageUrl || undefined}
+                    onReset={handleResetImage}
+                    previewUrl={removeImage ? undefined : (formData.imageUrl || undefined)}
                     isUploading={isUploading}
                   />
-                  {formData.imageUrl && !imageFile && (
-                    <div className="mt-2">
-                      <p className="text-xs text-gray-500 mb-1">Current image:</p>
-                      <div className="w-32 h-32 relative rounded overflow-hidden border border-gray-200">
-                        <StorageImage 
-                          src={formData.imageUrl} 
-                          alt="Menu item image"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
                 
                 <div className="flex items-center space-x-8 mt-2">
