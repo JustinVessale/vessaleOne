@@ -90,7 +90,8 @@ export function EditMenuItemModal({
             formData.id || 'new',
             locationId
           );
-          newImageUrl = uploadResult.url;
+          // Store the storage key instead of the pre-signed URL
+          newImageUrl = uploadResult.key;
           // Delete the old image if it exists and is different from the new one
           if (oldImageUrl && oldImageUrl !== newImageUrl) {
             menuItemImageHelper.delete(oldImageUrl).catch((deleteError) => {

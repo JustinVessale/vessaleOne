@@ -272,36 +272,36 @@ export function MenuPage() {
     if (!restaurant?.id || !bannerImageFile) return;
     setIsBannerUploading(true);
     try {
-      let url: string;
+      let storageKey: string;
       if (locationId) {
         // Compose S3 path for location
         const path = `restaurant/${restaurant.id}/${locationId}/banner`;
         const fileName = `${Date.now()}-${bannerImageFile.name.replace(/\s+/g, '-').toLowerCase()}`;
         const fullPath = `${path}/${fileName}`;
-        await uploadImage(bannerImageFile, path);
-        url = await getImageUrl(fullPath);
-        setBannerImageUrl(url);
+        const uploadResult = await uploadImage(bannerImageFile, path);
+        storageKey = uploadResult.key;
+        setBannerImageUrl(storageKey);
         setBannerImageFile(null);
         setBannerPreview(null);
         // Save the bannerImageUrl to the RestaurantLocation model
         await client.models.RestaurantLocation.update({
           id: locationId,
-          bannerImageUrl: url,
+          bannerImageUrl: storageKey,
         });
       } else {
         // Compose S3 path for restaurant
         const path = `restaurant/${restaurant.id}/banner`;
         const fileName = `${Date.now()}-${bannerImageFile.name.replace(/\s+/g, '-').toLowerCase()}`;
         const fullPath = `${path}/${fileName}`;
-        await uploadImage(bannerImageFile, path);
-        url = await getImageUrl(fullPath);
-        setBannerImageUrl(url);
+        const uploadResult = await uploadImage(bannerImageFile, path);
+        storageKey = uploadResult.key;
+        setBannerImageUrl(storageKey);
         setBannerImageFile(null);
         setBannerPreview(null);
         // Save the bannerImageUrl to the Restaurant model
         await client.models.Restaurant.update({
           id: restaurant.id,
-          bannerImageUrl: url,
+          bannerImageUrl: storageKey,
         });
       }
       toast({ title: 'Banner updated', variant: 'default' });
