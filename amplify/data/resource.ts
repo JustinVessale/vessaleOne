@@ -107,6 +107,8 @@ const schema = a.schema({
         port: a.integer(),
         isEnabled: a.boolean(),
       }),
+      stripeAccountId: a.string(),
+      stripeAccountStatus: a.enum(['PENDING', 'ACTIVE', 'REJECTED']),
     })
     .authorization((allow) => [
       allow.publicApiKey(),
@@ -153,6 +155,7 @@ const schema = a.schema({
       items: a.hasMany('OrderItem', 'orderId'),
       total: a.float(),
       status: a.enum(['PENDING', 'PAYMENT_PROCESSING', 'PAID', 'RESTAURANT_ACCEPTED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED']),
+      stripeCheckoutSessionId: a.string(),
       stripePaymentIntentId: a.string(),
       specialInstructions: a.string(),
       deliveryAddress: a.string(),

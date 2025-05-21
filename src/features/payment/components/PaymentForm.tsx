@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js';
 import { Button } from '@/components/ui/button';
-import { StripeError, PaymentIntent } from '@stripe/stripe-js';
 import { useCart } from '@/features/cart/context/CartContext';
 import { formatCurrency } from '@/utils/currency';
 import type { Schema } from '../../../../amplify/data/resource';
@@ -9,68 +7,51 @@ import type { Schema } from '../../../../amplify/data/resource';
 type Order = Schema['Order']['type'];
 
 export type PaymentFormProps = {
-  onSuccess: (paymentIntent: PaymentIntent) => Promise<void>;
-  onError: (error: StripeError) => void;
+  onSuccess: () => Promise<void>;
+  onError: (error: Error) => void;
   order: Order | null;
 };
 
 export function PaymentForm({ onSuccess, onError, order }: PaymentFormProps) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { state, total } = useCart();
 
-  // Log order details for debugging
-  console.log('PaymentForm order details:', {
-    id: order?.id,
-    total: order?.total,
-    isDelivery: order?.isDelivery,
-    deliveryFee: order?.deliveryFee,
-    deliveryInfo: order?.deliveryInfo
-  });
+  const handleCheckout = async () => {
+    if (!order) return;
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    if (!stripe || !elements) {
-      return;
-    }
-
-    setIsProcessing(true);
+    setIsLoading(true);
 
     try {
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        redirect: 'if_required',
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          restaurantId: order.restaurantId,
+        }),
       });
 
-      if (error) {
-        onError(error);
-      } else if (paymentIntent) {
-        await onSuccess(paymentIntent);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session');
       }
-    } catch (e) {
-      onError(e as StripeError);
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (error) {
+      onError(error as Error);
     } finally {
-      setIsProcessing(false);
+      setIsLoading(false);
     }
   };
 
   const deliveryFee = order?.deliveryFee || 0;
   const isDelivery = order?.isDelivery || false;
   const subtotal = total;
-  
-  // Calculate the total by adding the subtotal and delivery fee
-  // Use toFixed(2) and parseFloat to avoid floating-point precision issues
   const orderTotal = parseFloat((subtotal + deliveryFee).toFixed(2));
-  
-  // Log calculated totals for debugging
-  console.log('PaymentForm calculated totals:', {
-    subtotal,
-    deliveryFee,
-    orderTotal,
-    orderTotalFromOrder: order?.total
-  });
 
   return (
     <div className="space-y-6">
@@ -115,18 +96,14 @@ export function PaymentForm({ onSuccess, onError, order }: PaymentFormProps) {
         </div>
       </div>
       
-      {/* Payment Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Payment Details</h3>
-        <PaymentElement />
-        <Button
-          type="submit"
-          disabled={!stripe || isProcessing}
-          className="w-full"
-        >
-          {isProcessing ? 'Processing...' : `Pay ${formatCurrency(orderTotal)}`}
-        </Button>
-      </form>
+      {/* Checkout Button */}
+      <Button
+        onClick={handleCheckout}
+        disabled={isLoading}
+        className="w-full"
+      >
+        {isLoading ? 'Processing...' : `Proceed to Checkout - ${formatCurrency(orderTotal)}`}
+      </Button>
     </div>
   );
 } 
