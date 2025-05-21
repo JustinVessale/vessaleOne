@@ -225,15 +225,11 @@ The project uses AWS S3 through Amplify Gen 2 for storing restaurant and menu im
 restaurant/
   ├── {restaurantId}/
   │   └── {locationId}/
-  │       └── image/
-  │           └── {timestamp}-{filename}
-  │
-menu/
-  └── {restaurantId}/
-      └── {locationId}/
-          └── menuItems/
-              └── {menuItemId}/
-                  └── {timestamp}-{filename}
+  │       ├── banner/
+  │       │   └── {timestamp}-{filename}
+  │       └── menuItems/
+  │           └── {menuItemId}/
+  │               └── {timestamp}-{filename}
 ```
 
 ### Access Control
@@ -245,14 +241,15 @@ Storage access is managed through Amplify Gen 2's storage configuration:
   - Upload new images
   - Delete existing images
   - Read all images
+- **CORS Configuration**: Configured to allow image access from all origins with appropriate security headers
 
-### Usage
+### Image Management
 
-The project provides utility functions for managing images:
+The project provides utility functions for managing images with robust error handling:
 
 ```typescript
-// Restaurant Images
-const { key, url } = await restaurantImageHelper.upload(
+// Restaurant Banner Images
+const { key, url } = await restaurantImageHelper.uploadBanner(
   file,
   restaurantId,
   locationId
@@ -277,19 +274,99 @@ await menuItemImageHelper.delete(imageUrl);
 - **Path Organization**: Images are organized by restaurant, location, and menu item
 - **URL Management**: Helper functions for generating and managing image URLs
 - **Type Safety**: Full TypeScript support for all storage operations
+- **Error Handling**: Comprehensive error handling for upload failures and CORS issues
+- **Image Removal**: Support for removing images from menu items and restaurants
 
 ### Best Practices
 
 1. Always use the provided helper functions instead of direct S3 operations
 2. Images are automatically made public for reading
 3. Only authenticated users can upload or delete images
-4. Use the appropriate helper function based on the image type (restaurant vs menu item)
+4. Use the appropriate helper function based on the image type (banner vs menu item)
+5. Handle image upload errors gracefully with user feedback
+6. Implement proper loading states during image operations
 
-## Contributing
+## Order Flow
 
-1. Create a feature branch
-2. Make your changes
-3. Submit a pull request
+The application implements a comprehensive order flow with the following stages:
+
+1. **Cart Creation**
+   - Users add items to cart
+   - Cart state is managed through CartContext
+   - Real-time updates for item quantities and special instructions
+
+2. **Checkout Process**
+   - User enters delivery information
+   - Payment processing through Stripe
+   - Order creation in the system
+
+3. **Payment Processing**
+   - Secure payment handling with Stripe
+   - Order status updated to "PAID" upon successful payment
+   - Nash delivery API integration triggered after payment
+
+4. **Delivery Management**
+   - Nash delivery request created after payment
+   - Driver dispatch occurs after restaurant accepts order
+   - Real-time delivery tracking available
+   - Webhook handlers for delivery status updates
+
+5. **Order Fulfillment**
+   - Restaurant receives and accepts order
+   - Driver dispatched through Nash
+   - Real-time status updates to customer
+   - Order completion and feedback collection
+
+## Project Structure
+
+```
+src/
+├── features/
+│   ├── restaurant/
+│   │   ├── components/
+│   │   │   ├── RestaurantPage.tsx
+│   │   │   └── LocationSelector.tsx
+│   │   └── hooks/
+│   │       └── useRestaurant.ts
+│   ├── menu/
+│   │   ├── components/
+│   │   │   ├── MenuCategory.tsx
+│   │   │   ├── MenuItem.tsx
+│   │   │   └── EditMenuItemModal.tsx
+│   │   └── hooks/
+│   │       └── useMenu.ts
+│   ├── cart/
+│   │   ├── components/
+│   │   │   └── Cart.tsx
+│   │   └── context/
+│   │       └── CartContext.tsx
+│   ├── payment/
+│   │   ├── components/
+│   │   │   ├── CheckoutPage.tsx
+│   │   │   ├── PaymentForm.tsx
+│   │   │   └── StripeProvider.tsx
+│   │   └── api/
+│   │       └── paymentApi.ts
+│   ├── delivery/
+│   │   ├── components/
+│   │   │   ├── DeliveryForm.tsx
+│   │   │   ├── DeliveryQuote.tsx
+│   │   │   └── DeliveryTracking.tsx
+│   │   └── hooks/
+│   │       └── useDelivery.ts
+│   ├── orders/
+│   │   └── components/
+│   │       └── OrderConfirmationPage.tsx
+│   └── shared/
+│       └── components/
+│           └── Layout.tsx
+├── lib/
+│   ├── storage.ts
+│   └── utils.ts
+├── hooks/
+│   └── [custom hooks]
+└── App.tsx
+```
 
 ## Completed Features
 - [x] Restaurant menu display
