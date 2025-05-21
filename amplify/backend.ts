@@ -99,7 +99,7 @@ const paymentApi = new RestApi(apiStack, "PaymentApi", {
 });
 
 // Create Lambda integrations
-const paymentIntegration = new LambdaIntegration(
+const stripeWebhookIntegration = new LambdaIntegration(
   backend.stripePayment.resources.lambda
 );
 
@@ -107,24 +107,12 @@ const nashWebhookIntegration = new LambdaIntegration(
   backend.nashWebhook.resources.lambda
 );
 
-// Add payment endpoint
-const paymentPath = paymentApi.root.addResource("create-payment-intent");
-paymentPath.addMethod("POST", paymentIntegration);
-
 // Add webhook endpoints
-const webhookRoot = paymentApi.root.addResource("webhook");
+const webhookPath = paymentApi.root.addResource("webhook");
+webhookPath.addMethod("POST", stripeWebhookIntegration);
 
-// Stripe webhook
-const stripeWebhook = webhookRoot.addResource("stripe");
-stripeWebhook.addMethod("POST", paymentIntegration, {
-  apiKeyRequired: false // Stripe needs to call this endpoint directly
-});
-
-// Nash webhook
-const nashWebhookPath = webhookRoot.addResource("nash");
-nashWebhookPath.addMethod("POST", nashWebhookIntegration, {
-  apiKeyRequired: false // Nash needs to call this endpoint directly
-});
+const nashWebhookPath = paymentApi.root.addResource("nash-webhook");
+nashWebhookPath.addMethod("POST", nashWebhookIntegration);
 
 // Add outputs to configuration
 backend.addOutput({

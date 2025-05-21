@@ -8,6 +8,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { DeliveryCheckout } from '@/features/delivery/components/DeliveryCheckout';
 import { useQuery } from '@tanstack/react-query';
 import { handlePaymentSuccess as processPaymentSuccess } from '../api/checkoutService';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const client = generateClient<Schema>();
 
@@ -30,6 +31,10 @@ export function CheckoutPage() {
   const [checkoutStep, setCheckoutStep] = useState<'delivery-option' | 'delivery' | 'payment'>('delivery-option');
   const [useDelivery, setUseDelivery] = useState(false);
   const orderAttemptedRef = useRef(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Reset the ref when component mounts
   useEffect(() => {
@@ -340,43 +345,13 @@ export function CheckoutPage() {
     }
   }, [state.items, total, useDelivery, deliveryData, toast, locationId]);
 
-  const handlePaymentSuccess = async (_paymentIntentId: string) => {
-    try {
-      if (!order) {
-        console.error('No order found for payment success');
-        return;
-      }
-
-      // Use the payment success handler from checkoutService
-      // Only pass the Nash order ID if this is a delivery order
-      await processPaymentSuccess(
-        order.id,
-        order.isDelivery && order.deliveryInfo?.deliveryId ? 
-          order.deliveryInfo.deliveryId : undefined
-      );
-
-      // Clear the cart
-      clearCart();
-      
-      // Navigate to order confirmation page
-      navigate(`/orders/${order.id}`);
-    } catch (error) {
-      console.error('Error handling payment success:', error);
-      toast({
-        title: "Error processing order",
-        description: "There was a problem processing your order after payment.",
-        variant: "destructive",
-      });
-    }
+  const handlePaymentSuccess = async () => {
+    // The webhook will handle the order status update
+    router.push('/order/confirmation');
   };
 
-  const handlePaymentError = (error: any) => {
-    console.error('Payment error:', error);
-    toast({
-      title: "Payment failed",
-      description: error.message || "There was a problem processing your payment. Please try again.",
-      variant: "destructive",
-    });
+  const handlePaymentError = (error: Error) => {
+    setError(error.message);
   };
 
   // If we're loading restaurant data and on delivery step, show loading state
@@ -414,69 +389,45 @@ export function CheckoutPage() {
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <span className="ml-2">Loading checkout...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-red-600 p-4 bg-red-50 rounded-md">
+        <p className="font-medium">Error: {error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-2 text-sm text-red-700 hover:text-red-800"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="text-red-600 p-4 bg-red-50 rounded-md">
+        Failed to create order. Please try again.
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto p-4">
-      {/* Delivery Option Selection */}
-      {checkoutStep === 'delivery-option' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-medium mb-4">Choose Delivery Option</h2>
-          <div className="space-y-4">
-            <button
-              onClick={() => handleDeliveryOptionSelect(true)}
-              className="w-full p-4 border rounded-lg hover:bg-gray-50 flex items-center"
-            >
-              <span className="flex-1 text-left">Delivery</span>
-              <span className="text-gray-500">→</span>
-            </button>
-            <button
-              onClick={() => handleDeliveryOptionSelect(false)}
-              className="w-full p-4 border rounded-lg hover:bg-gray-50 flex items-center"
-            >
-              <span className="flex-1 text-left">Pickup</span>
-              <span className="text-gray-500">→</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Delivery Details */}
-      {checkoutStep === 'delivery' && restaurantData && order?.id && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-medium mb-4">Delivery Details</h2>
-          <DeliveryCheckout
-            restaurantAddress={restaurantData.address}
-            restaurantName={restaurantData.name}
-            restaurantPhone={restaurantData.phone}
-            orderId={order.id}
-            onContinue={handleDeliveryContinue}
-            onSwitchToPickup={() => handleDeliveryOptionSelect(false)}
-          />
-        </div>
-      )}
-
-      {/* Show loading state if we're on delivery step but don't have an order ID yet */}
-      {checkoutStep === 'delivery' && restaurantData && !order?.id && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-medium mb-4">Delivery Details</h2>
-          <div className="flex justify-center items-center p-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-            <p className="ml-3">Creating your order...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Form */}
-      {checkoutStep === 'payment' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-medium mb-4">Payment</h2>
-          <CheckoutContainer
-            onSuccess={handlePaymentSuccess}
-            onError={handlePaymentError}
-            createInitialOrder={createInitialOrder}
-            existingOrder={order}
-          />
-        </div>
-      )}
+      <h1 className="text-2xl font-bold mb-6">Checkout</h1>
+      <CheckoutContainer
+        order={order}
+        onSuccess={handlePaymentSuccess}
+        onError={handlePaymentError}
+      />
     </div>
   );
 } 

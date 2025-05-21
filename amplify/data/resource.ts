@@ -156,7 +156,6 @@ const schema = a.schema({
       total: a.float(),
       status: a.enum(['PENDING', 'PAYMENT_PROCESSING', 'PAID', 'RESTAURANT_ACCEPTED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED']),
       stripeCheckoutSessionId: a.string(),
-      stripePaymentIntentId: a.string(),
       specialInstructions: a.string(),
       deliveryAddress: a.string(),
       driver: a.ref('Driver'),

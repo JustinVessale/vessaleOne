@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateServerClient } from '@/lib/amplify-utils';
 import { createStripe } from '@/config/stripe';
-import type { Schema } from '../../../../amplify/data/resource';
 import Stripe from 'stripe';
-
-type Order = Schema['Order']['type'];
-type Restaurant = Schema['Restaurant']['type'];
 
 export async function POST(request: Request) {
   try {

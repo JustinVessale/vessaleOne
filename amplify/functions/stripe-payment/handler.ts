@@ -41,104 +41,53 @@ const getAllowedOrigin = (origin?: string): string => {
 };
 
 export const handler: APIGatewayProxyHandler = async (event) => {
-  // Log headers for debugging
-  console.log('Request headers:', JSON.stringify(event.headers));
-  
-  // Get the origin from the request headers - API Gateway normalizes headers to lowercase
-  const origin = event.headers['origin'] || '';
-                 
-  console.log('Detected origin:', origin);
-  const allowedOrigin = getAllowedOrigin(origin);
-  
-  // Handle OPTIONS request for CORS preflight
+  // Set up CORS headers
+  const headers = {
+    'Access-Control-Allow-Origin': getAllowedOrigin(event.headers.origin),
+    'Access-Control-Allow-Credentials': true,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
+  };
+
+  // Handle preflight requests
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': allowedOrigin,
-        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
-        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-        'Access-Control-Allow-Credentials': 'true'
-      },
-      body: ''
+      headers,
+      body: '',
     };
   }
-  
+
   try {
-    const { total, orderId, restaurantId } = JSON.parse(event.body || '{}');
+    const body = JSON.parse(event.body || '{}');
+    const { type, data } = body;
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(total * 100), // Stripe expects amount in cents as an integer
-      currency: 'usd',
-      metadata: {
-        orderId,
-        restaurantId
-      }
-    });
+    // Handle webhook events
+    switch (type) {
+      case 'checkout.session.completed':
+      case 'checkout.session.async_payment_succeeded':
+      case 'checkout.session.expired':
+      case 'checkout.session.async_payment_failed':
+        // These events are handled by the Next.js webhook handler
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ received: true }),
+        };
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': allowedOrigin,
-        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
-        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-        'Access-Control-Allow-Credentials': 'true'
-      },
-      body: JSON.stringify({
-        clientSecret: paymentIntent.client_secret,
-        orderId
-      })
-    };
+      default:
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Unhandled event type' }),
+        };
+    }
   } catch (error) {
-    console.error('Stripe error:', error);
-    
-    if (error instanceof Stripe.errors.StripeAuthenticationError) {
-      return {
-        statusCode: 401,
-        headers: {
-          'Access-Control-Allow-Origin': allowedOrigin,
-          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
-          'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-          'Access-Control-Allow-Credentials': 'true'
-        },
-        body: JSON.stringify({
-          error: 'Stripe Authentication Error',
-          details: `Invalid or missing API key. Please check your Stripe configuration. ${error.message}`,
-          type: 'StripeAuthenticationError'
-        })
-      };
-    }
-
-    if (error instanceof Stripe.errors.StripeError) {
-      return {
-        statusCode: error.statusCode || 500,
-        headers: {
-          'Access-Control-Allow-Origin': allowedOrigin,
-          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
-          'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-          'Access-Control-Allow-Credentials': 'true'
-        },
-        body: JSON.stringify({
-          error: 'Failed to create payment intent',
-          details: error.message,
-          type: error.type
-        })
-      };
-    }
-
-    // Handle non-Stripe errors
+    console.error('Error processing webhook:', error);
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': allowedOrigin,
-        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
-        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-        'Access-Control-Allow-Credentials': 'true'
-      },
-      body: JSON.stringify({
-        error: 'An unexpected error occurred',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      })
+      headers,
+      body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
 }; 
