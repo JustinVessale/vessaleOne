@@ -106,6 +106,7 @@ export async function POST(request: Request) {
         transfer_data: {
           destination: restaurant.stripeAccountId,
         },
+        application_fee_amount: 199, // $1.99 in cents
       },
       automatic_tax: {
         enabled: true,

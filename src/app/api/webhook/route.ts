@@ -1,32 +1,14 @@
-import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createStripe } from '@/config/stripe';
 import { generateServerClient } from '@/lib/amplify-utils';
 import Stripe from 'stripe';
 
-const stripe = createStripe();
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
-// Helper function to handle webhook errors
-const handleWebhookError = (error: unknown) => {
-  console.error('Webhook error:', error);
-  if (error instanceof Stripe.errors.StripeError) {
-    return NextResponse.json(
-      { error: error.message },
-      { status: error.statusCode || 500 }
-    );
-  }
-  return NextResponse.json(
-    { error: 'Webhook handler failed' },
-    { status: 500 }
-  );
-};
 
 export async function POST(request: Request) {
   try {
     const body = await request.text();
-    const headersList = await headers();
-    const signature = headersList.get('stripe-signature');
+    const signature = request.headers.get('stripe-signature');
 
     if (!signature) {
       return NextResponse.json(
@@ -35,6 +17,7 @@ export async function POST(request: Request) {
       );
     }
 
+    const stripe = createStripe();
     let event: Stripe.Event;
 
     try {
@@ -64,8 +47,8 @@ export async function POST(request: Request) {
           status: 'PAID',
           customerEmail: session.customer_details?.email || undefined,
           customerPhone: session.customer_details?.phone || undefined,
-          deliveryAddress: session.shipping_details?.address?.line1 
-            ? `${session.shipping_details.address.line1}, ${session.shipping_details.address.city}, ${session.shipping_details.address.state} ${session.shipping_details.address.postal_code}`
+          deliveryAddress: session.collected_information?.shipping_details?.address?.line1 
+            ? `${session.collected_information.shipping_details.address.line1}, ${session.collected_information.shipping_details.address.city}, ${session.collected_information.shipping_details.address.state} ${session.collected_information.shipping_details.address.postal_code}`
             : undefined,
           updatedAt: new Date().toISOString()
         });
@@ -85,7 +68,7 @@ export async function POST(request: Request) {
           throw new Error('No orderId in session metadata');
         }
 
-        // Update order status
+        // Update order status to cancelled
         const { errors } = await client.models.Order.update({
           id: orderId,
           status: 'CANCELLED',
@@ -143,11 +126,16 @@ export async function POST(request: Request) {
         break;
       }
 
-      // Add more event handlers as needed
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
     }
 
     return NextResponse.json({ received: true });
   } catch (err) {
-    return handleWebhookError(err);
+    console.error('Webhook error:', err);
+    return NextResponse.json(
+      { error: 'Webhook handler failed' },
+      { status: 500 }
+    );
   }
 } 
