@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../../cart/context/CartContext';
 import { CheckoutContainer } from './CheckoutContainer';
 import { generateClient } from 'aws-amplify/api';
@@ -8,7 +8,6 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { DeliveryCheckout } from '@/features/delivery/components/DeliveryCheckout';
 import { useQuery } from '@tanstack/react-query';
 import { handlePaymentSuccess as processPaymentSuccess } from '../api/checkoutService';
-import { useRouter, useSearchParams } from 'next/navigation';
 
 const client = generateClient<Schema>();
 
@@ -24,6 +23,7 @@ type DeliveryData = {
 
 export function CheckoutPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { state, total, clearCart } = useCart();
   const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
@@ -33,8 +33,6 @@ export function CheckoutPage() {
   const orderAttemptedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
   // Reset the ref when component mounts
   useEffect(() => {
@@ -347,7 +345,7 @@ export function CheckoutPage() {
 
   const handlePaymentSuccess = async () => {
     // The webhook will handle the order status update
-    router.push('/order/confirmation');
+    navigate('/order/confirmation');
   };
 
   const handlePaymentError = (error: Error) => {
