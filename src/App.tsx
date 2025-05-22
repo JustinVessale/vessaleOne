@@ -3,7 +3,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RestaurantPage } from './features/restaurant/components/RestaurantPage';
 import { CartProvider } from './features/cart/context/CartContext';
 import { CheckoutPage } from './features/payment/components/CheckoutPage';
-import { OrderConfirmationPage } from '@/features/orders/components/OrderConfirmationPage';
 import { Cart } from './features/cart/components/Cart';
 import { LoginPage } from '@/features/restaurant-portal/components/LoginPage';
 import { ProtectedRoute } from '@/features/restaurant-portal/components/ProtectedRoute';
@@ -42,7 +41,6 @@ function AppContent() {
         
         {/* Checkout and order confirmation routes */}
         <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/orders/:orderId" element={<OrderConfirmationPage />} />
         
         {/* Restaurant Portal Routes */}
         <Route path="/portal">
