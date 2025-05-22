@@ -4,10 +4,10 @@ import { CheckoutContainer } from './CheckoutContainer';
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DeliveryCheckout } from '@/features/delivery/components/DeliveryCheckout';
 import { useQuery } from '@tanstack/react-query';
-import { handlePaymentSuccess as processPaymentSuccess } from '../api/checkoutService';
+import { handlePaymentSuccess as processPaymentSuccess, createCheckoutSession } from '../api/checkoutService';
 
 const client = generateClient<Schema>();
 
@@ -30,9 +30,10 @@ export function CheckoutPage() {
   const [deliveryData, setDeliveryData] = useState<DeliveryData | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<'delivery-option' | 'delivery' | 'payment'>('delivery-option');
   const [useDelivery, setUseDelivery] = useState(false);
-  const orderAttemptedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const orderAttemptedRef = useRef(false);
 
   // Get the locationId from the first cart item (if available)
   const locationId = state.items[0]?.locationId;
@@ -81,6 +82,59 @@ export function CheckoutPage() {
     enabled: !!state.items[0]?.restaurantId
   });
 
+  // Create the order as soon as the checkout page loads (if not already created)
+  useEffect(() => {
+    if (order || orderAttemptedRef.current) return;
+    if (state.items.length === 0) return;
+    orderAttemptedRef.current = true;
+    (async () => {
+      setIsLoading(true);
+      setLoadingMessage('Creating Order...');
+      try {
+        const timestamp = Date.now();
+        const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        const externalId = `ord_${timestamp}${randomSuffix}`;
+        const { data: newOrder, errors } = await client.models.Order.create({
+          total,
+          status: 'PENDING',
+          customerEmail: '',
+          restaurantId: state.items[0]?.restaurantId || '',
+          ...(locationId ? { locationId } : {}),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          externalId,
+          isDelivery: false,
+          deliveryAddress: '',
+          deliveryFee: 0,
+        });
+        if (errors || !newOrder) throw new Error('Failed to create order');
+        // Create order items
+        const orderItemPromises = state.items.map(item =>
+          client.models.OrderItem.create({
+            orderId: newOrder.id,
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            specialInstructions: item.specialInstructions
+          })
+        );
+        await Promise.all(orderItemPromises);
+        setOrder(newOrder);
+        console.log('Order created successfully:', newOrder);
+        setIsLoading(false);
+        setLoadingMessage('');
+      } catch (err) {
+        setIsLoading(false);
+        setLoadingMessage('');
+        setError('Failed to create order. Please try again.');
+        toast({
+          title: 'Order Creation Failed',
+          description: 'Could not create your order. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    })();
+  }, [order, state.items, total, locationId, toast]);
+
   // Cart summary component (read-only)
   function CartSummary() {
     return (
@@ -118,6 +172,30 @@ export function CheckoutPage() {
   }
 
   // Step 1: Delivery or Pickup selection
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <span className="ml-2">{loadingMessage || 'Loading...'}</span>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="text-red-600 p-4 bg-red-50 rounded-md">
+        <p className="font-medium">Error: {error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-2 text-sm text-red-700 hover:text-red-800"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+  if (!order) {
+    return null;
+  }
   if (checkoutStep === 'delivery-option') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-start bg-gray-50 p-2 sm:p-4">
@@ -126,19 +204,51 @@ export function CheckoutPage() {
           <h3 className="text-lg font-medium text-gray-900">How would you like to receive your order?</h3>
           <div className="flex flex-col gap-4">
             <button
+              type="button"
               className="w-full py-3 rounded-lg border border-primary-600 text-primary-700 font-semibold bg-white hover:bg-primary-50 transition-colors"
-              onClick={() => {
+              onClick={async (e) => {
+                e.preventDefault();
+                console.log('Pickup button clicked');
                 setUseDelivery(false);
-                setCheckoutStep('payment');
                 setIsLoading(true);
-                createInitialOrder(false);
+                setLoadingMessage('Redirecting to payment...');
+                //PICKUP ORDERS
+                try {
+                  // Update order to pickup
+                  const { data: updatedOrder, errors } = await client.models.Order.update({
+                    id: order.id,
+                    isDelivery: false,
+                    deliveryFee: 0,
+                    deliveryAddress: '',
+                    deliveryInfo: null,
+                    updatedAt: new Date().toISOString(),
+                  });
+                  if (errors || !updatedOrder) throw new Error('Failed to update order');
+                  setOrder(updatedOrder);
+                  const { url } = await createCheckoutSession({
+                    orderId: updatedOrder.id,
+                    restaurantId: updatedOrder.restaurantId!,
+                  });
+                  window.location.href = url;
+                } catch (err) {
+                  setIsLoading(false);
+                  setLoadingMessage('');
+                  toast({
+                    title: 'Payment Redirect Failed',
+                    description: 'Could not start payment. Please try again.',
+                    variant: 'destructive',
+                  });
+                }
               }}
             >
               Pickup
             </button>
             <button
+              type="button"
               className="w-full py-3 rounded-lg border border-primary-600 text-primary-700 font-semibold bg-white hover:bg-primary-50 transition-colors"
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                console.log('Delivery button clicked');
                 setUseDelivery(true);
                 setCheckoutStep('delivery');
               }}
@@ -150,8 +260,6 @@ export function CheckoutPage() {
       </div>
     );
   }
-
-  // Step 2: Delivery address entry and fee calculation
   if (checkoutStep === 'delivery') {
     if (isLoadingRestaurant || !restaurantData) {
       return (
@@ -161,6 +269,8 @@ export function CheckoutPage() {
         </div>
       );
     }
+
+    //DELIVERY ORDERS
     return (
       <div className="min-h-screen flex flex-col items-center justify-start bg-gray-50 p-2 sm:p-4">
         <CartSummary />
@@ -174,156 +284,83 @@ export function CheckoutPage() {
             }}
             restaurantName={restaurantData.name || ''}
             restaurantPhone={restaurantData.phone || ''}
-            orderId={order?.id || ''}
+            orderId={order.id}
             locationId={locationId}
             onContinue={async (deliveryData) => {
               setDeliveryData(deliveryData);
               setIsLoading(true);
-              await createInitialOrder(true, deliveryData);
-              setCheckoutStep('payment');
+              setLoadingMessage('Redirecting to payment...');
+              try {
+                // Update order to delivery
+                const { data: updatedOrder, errors } = await client.models.Order.update({
+                  id: order.id,
+                  isDelivery: true,
+                  deliveryFee: deliveryData.deliveryFee,
+                  deliveryAddress: deliveryData.address,
+                  updatedAt: new Date().toISOString(),
+                  deliveryInfo: {
+                    deliveryId: deliveryData.nashOrderId || '',
+                    quoteId: deliveryData.quoteId,
+                    provider: 'Nash',
+                    fee: deliveryData.deliveryFee,
+                    estimatedDeliveryTime: deliveryData.estimatedDeliveryTime,
+                    estimatedPickupTime: new Date().toISOString(),
+                    trackingUrl: '',
+                    status: 'PENDING' as 'PENDING',
+                  },
+                });
+                if (errors || !updatedOrder) throw new Error('Failed to update order');
+                setOrder(updatedOrder);
+                const { url } = await createCheckoutSession({
+                  orderId: updatedOrder.id,
+                  restaurantId: updatedOrder.restaurantId!,
+                });
+                window.location.href = url;
+              } catch (err) {
+                setIsLoading(false);
+                setLoadingMessage('');
+                toast({
+                  title: 'Payment Redirect Failed',
+                  description: 'Could not start payment. Please try again.',
+                  variant: 'destructive',
+                });
+              }
             }}
-            onSwitchToPickup={() => {
+            onSwitchToPickup={async () => {
               setUseDelivery(false);
-              setCheckoutStep('payment');
               setIsLoading(true);
-              createInitialOrder(false);
+              setLoadingMessage('Redirecting to payment...');
+              try {
+                // Update order to pickup
+                const { data: updatedOrder, errors } = await client.models.Order.update({
+                  id: order.id,
+                  isDelivery: false,
+                  deliveryFee: 0,
+                  deliveryAddress: '',
+                  deliveryInfo: null,
+                  updatedAt: new Date().toISOString(),
+                });
+                if (errors || !updatedOrder) throw new Error('Failed to update order');
+                setOrder(updatedOrder);
+                const { url } = await createCheckoutSession({
+                  orderId: updatedOrder.id,
+                  restaurantId: updatedOrder.restaurantId!,
+                });
+                window.location.href = url;
+              } catch (err) {
+                setIsLoading(false);
+                setLoadingMessage('');
+                toast({
+                  title: 'Payment Redirect Failed',
+                  description: 'Could not start payment. Please try again.',
+                  variant: 'destructive',
+                });
+              }
             }}
           />
         </div>
       </div>
     );
   }
-
-  // Step 3: Payment
-  if (checkoutStep === 'payment') {
-    if (isLoading) {
-      return (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          <span className="ml-2">Preparing checkout...</span>
-        </div>
-      );
-    }
-    if (error) {
-      return (
-        <div className="text-red-600 p-4 bg-red-50 rounded-md">
-          <p className="font-medium">Error: {error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="mt-2 text-sm text-red-700 hover:text-red-800"
-          >
-            Try Again
-          </button>
-        </div>
-      );
-    }
-    if (!order) {
-      return (
-        <div className="text-red-600 p-4 bg-red-50 rounded-md">
-          Failed to create order. Please try again.
-        </div>
-      );
-    }
-    return (
-      <div className="max-w-md mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-6">Checkout</h1>
-        <CheckoutContainer
-          order={order}
-          onSuccess={handlePaymentSuccess}
-          onError={handlePaymentError}
-        />
-      </div>
-    );
-  }
-
-  // Fallback
   return null;
-
-  // ---
-  // Order creation logic
-  async function createInitialOrder(isDelivery: boolean, deliveryDataArg?: DeliveryData) {
-    if (orderAttemptedRef.current) {
-      setIsLoading(false);
-      return null;
-    }
-    orderAttemptedRef.current = true;
-    setIsLoading(true);
-    try {
-      if (state.items.length === 0) {
-        toast({
-          title: "Error creating order",
-          description: "Your cart is empty. Please add items before checkout.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return null;
-      }
-      const orderTotal = isDelivery
-        ? total + (deliveryDataArg?.deliveryFee || 0)
-        : total;
-      const timestamp = Date.now();
-      const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      const externalId = `ord_${timestamp}${randomSuffix}`;
-      const { data: newOrder, errors } = await client.models.Order.create({
-        total: orderTotal,
-        status: 'PENDING',
-        customerEmail: '',
-        restaurantId: state.items[0]?.restaurantId || '',
-        ...(locationId ? { locationId } : {}),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        externalId,
-        isDelivery,
-        deliveryAddress: isDelivery ? (deliveryDataArg?.address || '') : '',
-        deliveryFee: isDelivery ? (deliveryDataArg?.deliveryFee || 0) : 0,
-        ...(isDelivery && deliveryDataArg ? {
-          deliveryInfo: {
-            deliveryId: deliveryDataArg.nashOrderId || '',
-            quoteId: deliveryDataArg.quoteId || '',
-            provider: 'Nash',
-            fee: deliveryDataArg.deliveryFee,
-            estimatedDeliveryTime: deliveryDataArg.estimatedDeliveryTime,
-            estimatedPickupTime: new Date().toISOString(),
-            trackingUrl: '',
-            status: 'PENDING' as 'PENDING'
-          }
-        } : {})
-      });
-      if (errors) {
-        setError('Failed to create order. Please try again.');
-        setIsLoading(false);
-        return null;
-      }
-      if (!newOrder) {
-        setError('No order data returned.');
-        setIsLoading(false);
-        return null;
-      }
-      // Create order items
-      const orderItemPromises = state.items.map(item =>
-        client.models.OrderItem.create({
-          orderId: newOrder.id,
-          menuItemId: item.menuItemId,
-          quantity: item.quantity,
-          specialInstructions: item.specialInstructions
-        })
-      );
-      await Promise.all(orderItemPromises);
-      setOrder(newOrder);
-      setIsLoading(false);
-      return newOrder;
-    } catch (error) {
-      setError('Error creating initial order.');
-      setIsLoading(false);
-      return null;
-    }
-  }
-
-  function handlePaymentSuccess() {
-    navigate('/order/confirmation');
-  }
-
-  function handlePaymentError(error: Error) {
-    setError(error.message);
-  }
 } 
