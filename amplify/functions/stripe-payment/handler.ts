@@ -1,14 +1,30 @@
 import type { APIGatewayProxyHandler } from "aws-lambda";
 import Stripe from 'stripe';
-import { generateClient } from '@aws-amplify/api';
-import type { Schema } from '../../data/resource';
-
+import { generateClient } from 'aws-amplify/data';
+import { Amplify } from 'aws-amplify';
+import type { Schema } from '../../data/resource.js';
+import { getAmplifyDataClientConfig } from '@aws-amplify/backend/function/runtime';
+import { env } from '$amplify/env/stripe-payment.js';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-04-30.basil'
 });
 
-// Initialize Amplify client
-const client = generateClient<Schema>();
+// Initialize client outside the handler for reuse across invocations
+let client: ReturnType<typeof generateClient<Schema>>;
+
+// Helper function to initialize Amplify client
+const initializeAmplifyClient = async () => {
+  try {
+    const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
+    Amplify.configure(resourceConfig, libraryOptions);
+    client = generateClient<Schema>();
+    console.log('Amplify client initialized successfully');
+    return client;
+  } catch (error) {
+    console.error('Failed to initialize Amplify client:', error);
+    throw error;
+  }
+};
 
 // Helper function to determine the appropriate origin for CORS
 const getAllowedOrigin = (origin?: string): string => {
@@ -54,20 +70,25 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
   };
 
-  // Handle preflight requests
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers,
-      body: '',
-    };
-  }
-
-  // Check if this is a request to create a checkout session
-  const path = event.path || '';
-  const isCreateCheckoutSession = path.endsWith('/create-checkout-session');
-
   try {
+    // Initialize Amplify and client if not already done
+    if (!client) {
+      client = await initializeAmplifyClient();
+    }
+
+    // Handle preflight requests
+    if (event.httpMethod === 'OPTIONS') {
+      return {
+        statusCode: 200,
+        headers,
+        body: '',
+      };
+    }
+
+    // Check if this is a request to create a checkout session
+    const path = event.path || '';
+    const isCreateCheckoutSession = path.endsWith('/create-checkout-session');
+
     // Parse the request body
     const body = JSON.parse(event.body || '{}');
     

@@ -27,6 +27,33 @@ export const backend = defineBackend({
 // Add secrets to the Lambda functions
 backend.stripePayment.addEnvironment('STRIPE_SECRET_KEY', secret('VITE_STRIPE_SECRET_KEY'));
 backend.stripePayment.addEnvironment('STRIPE_WEBHOOK_SECRET', secret('STRIPE_WEBHOOK_SECRET'));
+
+// Add API configuration for the stripe-payment Lambda
+backend.stripePayment.addEnvironment('API_ID', backend.data.resources.graphqlApi.apiId);
+backend.stripePayment.addEnvironment('API_ENDPOINT', `https://${backend.data.resources.graphqlApi.apiId}.appsync-api.${Stack.of(backend.data.resources.graphqlApi).region}.amazonaws.com/graphql`);
+backend.stripePayment.addEnvironment('REGION', Stack.of(backend.data.resources.graphqlApi).region);
+
+// Add necessary permissions for the stripe-payment Lambda
+backend.stripePayment.resources.lambda.addToRolePolicy(
+  new PolicyStatement({
+    actions: [
+      'dynamodb:GetItem',
+      'dynamodb:PutItem',
+      'dynamodb:UpdateItem',
+      'dynamodb:Query',
+      'dynamodb:Scan',
+      'appsync:GraphQL'
+    ],
+    resources: [
+      `${backend.data.resources.tables.Order.tableArn}`,
+      `${backend.data.resources.tables.OrderItem.tableArn}`,
+      `${backend.data.resources.tables.Restaurant.tableArn}`,
+      `${backend.data.resources.tables.MenuItem.tableArn}`,
+      `${backend.data.resources.graphqlApi.arn}/*`
+    ]
+  })
+);
+
 backend.nashWebhook.addEnvironment('NASH_API_KEY', secret('NASH_API_KEY'));
 backend.nashWebhook.addEnvironment('NASH_ORG_ID', secret('NASH_ORG_ID'));
 backend.nashWebhook.addEnvironment('NASH_WEBHOOK_SECRET', secret('NASH_WEBHOOK_SECRET'));
