@@ -212,7 +212,6 @@ export function CheckoutPage() {
                 setUseDelivery(false);
                 setIsLoading(true);
                 setLoadingMessage('Redirecting to payment...');
-                //PICKUP ORDERS
                 try {
                   // Update order to pickup
                   const { data: updatedOrder, errors } = await client.models.Order.update({
@@ -225,14 +224,18 @@ export function CheckoutPage() {
                   });
                   if (errors || !updatedOrder) throw new Error('Failed to update order');
                   setOrder(updatedOrder);
+                  // Use restaurantId from updatedOrder, fallback to order.restaurantId
+                  const restaurantId = updatedOrder.restaurantId || order.restaurantId;
+                  if (!restaurantId) throw new Error('Missing restaurantId for checkout session');
                   const { url } = await createCheckoutSession({
                     orderId: updatedOrder.id,
-                    restaurantId: updatedOrder.restaurantId!,
+                    restaurantId,
                   });
                   window.location.href = url;
                 } catch (err) {
                   setIsLoading(false);
                   setLoadingMessage('');
+                  console.error('Pickup payment redirect error:', err);
                   toast({
                     title: 'Payment Redirect Failed',
                     description: 'Could not start payment. Please try again.',
@@ -311,14 +314,18 @@ export function CheckoutPage() {
                 });
                 if (errors || !updatedOrder) throw new Error('Failed to update order');
                 setOrder(updatedOrder);
+                // Use restaurantId from updatedOrder, fallback to order.restaurantId
+                const restaurantId = updatedOrder.restaurantId || order.restaurantId;
+                if (!restaurantId) throw new Error('Missing restaurantId for checkout session');
                 const { url } = await createCheckoutSession({
                   orderId: updatedOrder.id,
-                  restaurantId: updatedOrder.restaurantId!,
+                  restaurantId,
                 });
                 window.location.href = url;
               } catch (err) {
                 setIsLoading(false);
                 setLoadingMessage('');
+                console.error('Delivery payment redirect error:', err);
                 toast({
                   title: 'Payment Redirect Failed',
                   description: 'Could not start payment. Please try again.',
@@ -342,14 +349,18 @@ export function CheckoutPage() {
                 });
                 if (errors || !updatedOrder) throw new Error('Failed to update order');
                 setOrder(updatedOrder);
+                // Use restaurantId from updatedOrder, fallback to order.restaurantId
+                const restaurantId = updatedOrder.restaurantId || order.restaurantId;
+                if (!restaurantId) throw new Error('Missing restaurantId for checkout session');
                 const { url } = await createCheckoutSession({
                   orderId: updatedOrder.id,
-                  restaurantId: updatedOrder.restaurantId!,
+                  restaurantId,
                 });
                 window.location.href = url;
               } catch (err) {
                 setIsLoading(false);
                 setLoadingMessage('');
+                console.error('Switch to Pickup payment redirect error:', err);
                 toast({
                   title: 'Payment Redirect Failed',
                   description: 'Could not start payment. Please try again.',

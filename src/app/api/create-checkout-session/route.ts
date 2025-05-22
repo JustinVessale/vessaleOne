@@ -3,6 +3,20 @@ import { generateServerClient } from '@/lib/amplify-utils';
 import { createStripe } from '@/config/stripe';
 import Stripe from 'stripe';
 
+// Helper to add CORS headers
+function withCORS(response: Response) {
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature');
+  return response;
+}
+
+export async function OPTIONS() {
+  // Preflight CORS support
+  return withCORS(new Response(null, { status: 200 }));
+}
+
 export async function POST(request: Request) {
   try {
     const { orderId, restaurantId } = await request.json();
@@ -133,15 +147,17 @@ export async function POST(request: Request) {
       throw new Error('Failed to update order with checkout session');
     }
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       sessionId: session.id,
       url: session.url,
     });
+    return withCORS(res);
   } catch (err) {
     console.error('Error:', err);
-    return NextResponse.json(
+    const res = NextResponse.json(
       { error: 'Failed to create checkout session' },
       { status: 500 }
     );
+    return withCORS(res);
   }
 } 

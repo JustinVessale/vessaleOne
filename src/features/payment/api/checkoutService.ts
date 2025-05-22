@@ -1,6 +1,7 @@
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
 import { autodispatchOrder } from '@/lib/services/nashService';
+import outputs from '../../../../amplify_outputs.json';
 
 const client = generateClient<Schema>();
 
@@ -17,19 +18,14 @@ type CreateCheckoutSessionResponse = {
   url: string;
 };
 
-async function mockCreateCheckoutSession(_params: CreateCheckoutSessionParams): Promise<CreateCheckoutSessionResponse> {
-  return {
-    sessionId: 'mock_session_id',
-    url: 'https://checkout.stripe.com/mock',
-  };
-}
-
 export async function createCheckoutSession(params: CreateCheckoutSessionParams): Promise<CreateCheckoutSessionResponse> {
-  if (process.env.NEXT_PUBLIC_USE_MOCK_API === 'true') {
-    return mockCreateCheckoutSession(params);
+  const paymentApiBase = outputs.custom?.API?.['payment-api']?.endpoint;
+  if (!paymentApiBase) {
+    throw new Error('Payment API endpoint not found in amplify_outputs.json');
   }
+  const createCheckoutSessionUrl = `${paymentApiBase.replace(/\/$/, '')}/create-checkout-session`;
 
-  const response = await fetch('/api/create-checkout-session', {
+  const response = await fetch(createCheckoutSessionUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

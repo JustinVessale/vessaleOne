@@ -1,9 +1,14 @@
 import type { APIGatewayProxyHandler } from "aws-lambda";
 import Stripe from 'stripe';
+import { generateClient } from '@aws-amplify/api';
+import type { Schema } from '../../data/resource';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-04-30.basil'
 });
+
+// Initialize Amplify client
+const client = generateClient<Schema>();
 
 // Helper function to determine the appropriate origin for CORS
 const getAllowedOrigin = (origin?: string): string => {
@@ -44,7 +49,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   // Set up CORS headers
   const headers = {
     'Access-Control-Allow-Origin': getAllowedOrigin(event.headers.origin),
-    'Access-Control-Allow-Credentials': true,
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,stripe-signature',
   };
@@ -58,36 +63,214 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     };
   }
 
+  // Check if this is a request to create a checkout session
+  const path = event.path || '';
+  const isCreateCheckoutSession = path.endsWith('/create-checkout-session');
+
   try {
+    // Parse the request body
     const body = JSON.parse(event.body || '{}');
-    const { type, data } = body;
-
-    // Handle webhook events
-    switch (type) {
-      case 'checkout.session.completed':
-      case 'checkout.session.async_payment_succeeded':
-      case 'checkout.session.expired':
-      case 'checkout.session.async_payment_failed':
-        // These events are handled by the Next.js webhook handler
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ received: true }),
-        };
-
-      default:
+    
+    if (isCreateCheckoutSession) {
+      // Handle create-checkout-session request
+      const { orderId, restaurantId } = body;
+      
+      if (!orderId || !restaurantId) {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ error: 'Unhandled event type' }),
+          body: JSON.stringify({ 
+            error: 'Missing required parameters: orderId and restaurantId are required' 
+          }),
         };
+      }
+
+      console.log(`Creating checkout session for order ${orderId} and restaurant ${restaurantId}`);
+      
+      // Get the order details from the database
+      const { data: order, errors: orderErrors } = await client.models.Order.get({
+        id: orderId
+      });
+
+      if (orderErrors || !order) {
+        console.error('Failed to fetch order:', orderErrors);
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ error: 'Failed to fetch order' }),
+        };
+      }
+
+      // Get restaurant details to get their Stripe account
+      const { data: restaurant, errors: restaurantErrors } = await client.models.Restaurant.get({
+        id: restaurantId
+      });
+
+      if (restaurantErrors || !restaurant) {
+        console.error('Failed to fetch restaurant:', restaurantErrors);
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ error: 'Failed to fetch restaurant' }),
+        };
+      }
+
+      if (!restaurant.stripeAccountId) {
+        console.error('Restaurant has no Stripe account connected');
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Restaurant has not connected their Stripe account' }),
+        };
+      }
+
+      // Get the order items with menu items
+      const { data: orderItems, errors: itemsErrors } = await client.models.OrderItem.list({
+        filter: {
+          orderId: { eq: orderId }
+        }
+      });
+
+      if (itemsErrors || !orderItems || orderItems.length === 0) {
+        console.error('Failed to fetch order items:', itemsErrors);
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Failed to fetch order items' }),
+        };
+      }
+
+      // Create line items from order items
+      const lineItems = await Promise.all(
+        orderItems.map(async (item) => {
+          if (!item.menuItemId) {
+            throw new Error('Order item missing menuItemId');
+          }
+
+          const { data: menuItem } = await client.models.MenuItem.get({
+            id: item.menuItemId
+          });
+
+          return {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: menuItem?.name || 'Item',
+                description: menuItem?.description || undefined,
+              },
+              unit_amount: Math.round((menuItem?.price || 0) * 100), // Convert to cents
+            },
+            quantity: item.quantity || 1,
+          };
+        })
+      );
+
+      // Add delivery fee if applicable
+      if (order.isDelivery && order.deliveryFee) {
+        lineItems.push({
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: 'Delivery Fee',
+              description: "Fee for delivery of your order",
+            },
+            unit_amount: Math.round(order.deliveryFee * 100),
+          },
+          quantity: 1,
+        });
+      }
+
+      // Construct success and cancel URLs
+      const baseUrl = process.env.APP_URL || 'http://localhost:5173';
+      const successUrl = new URL('/order/success', baseUrl);
+      const cancelUrl = new URL('/order/cancel', baseUrl);
+      
+      // Add query parameters
+      successUrl.searchParams.set('session_id', '{CHECKOUT_SESSION_ID}');
+      successUrl.searchParams.set('order_id', orderId);
+
+      // Create the checkout session
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: lineItems,
+        mode: 'payment',
+        success_url: successUrl.toString(),
+        cancel_url: cancelUrl.toString(),
+        customer_email: order.customerEmail || undefined,
+        metadata: {
+          orderId,
+          restaurantId,
+        },
+        payment_intent_data: {
+          transfer_data: {
+            destination: restaurant.stripeAccountId,
+          },
+          application_fee_amount: 199, // $1.99 in cents
+        },
+        automatic_tax: {
+          enabled: true,
+        },
+        // Add shipping address collection if delivery
+        shipping_address_collection: order.isDelivery ? {
+          allowed_countries: ['US'], // Add more countries as needed
+        } : undefined,
+        // Add phone number collection
+        phone_number_collection: {
+          enabled: true,
+        },
+      });
+
+      // Update order with checkout session ID
+      const { errors: updateErrors } = await client.models.Order.update({
+        id: orderId,
+        status: 'PAYMENT_PROCESSING',
+        stripeCheckoutSessionId: session.id,
+        updatedAt: new Date().toISOString()
+      });
+
+      if (updateErrors) {
+        console.error('Failed to update order with checkout session:', updateErrors);
+        // Continue anyway since the checkout session was created
+      }
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          sessionId: session.id,
+          url: session.url,
+        }),
+      };
+    } else {
+      // Handle webhook events
+      const { type } = body;
+
+      switch (type) {
+        case 'checkout.session.completed':
+        case 'checkout.session.async_payment_succeeded':
+        case 'checkout.session.expired':
+        case 'checkout.session.async_payment_failed':
+          // These events are handled by the Next.js webhook handler
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ received: true }),
+          };
+
+        default:
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ error: 'Unhandled event type' }),
+          };
+      }
     }
   } catch (error) {
-    console.error('Error processing webhook:', error);
+    console.error('Error processing request:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) }),
     };
   }
 }; 

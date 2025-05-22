@@ -114,6 +114,10 @@ webhookPath.addMethod("POST", stripeWebhookIntegration);
 const nashWebhookPath = paymentApi.root.addResource("nash-webhook");
 nashWebhookPath.addMethod("POST", nashWebhookIntegration);
 
+// Add create-checkout-session endpoint
+const checkoutSessionPath = paymentApi.root.addResource("create-checkout-session");
+checkoutSessionPath.addMethod("POST", stripeWebhookIntegration);
+
 // Add outputs to configuration
 backend.addOutput({
   custom: {
