@@ -24,14 +24,12 @@ export const backend = defineBackend({
   storage
 });
 
-// Add secrets to the Lambda functions
-backend.stripePayment.addEnvironment('STRIPE_SECRET_KEY', secret('VITE_STRIPE_SECRET_KEY'));
-backend.stripePayment.addEnvironment('STRIPE_WEBHOOK_SECRET', secret('STRIPE_WEBHOOK_SECRET'));
 
-// Add API configuration for the stripe-payment Lambda
+// Add API configuration for the stripe-payment Lambda - FIXED VERSION
 backend.stripePayment.addEnvironment('API_ID', backend.data.resources.graphqlApi.apiId);
 backend.stripePayment.addEnvironment('API_ENDPOINT', `https://${backend.data.resources.graphqlApi.apiId}.appsync-api.${Stack.of(backend.data.resources.graphqlApi).region}.amazonaws.com/graphql`);
 backend.stripePayment.addEnvironment('REGION', Stack.of(backend.data.resources.graphqlApi).region);
+backend.stripePayment.addEnvironment('AMPLIFY_DATA_DEFAULT_NAME', 'default');
 
 // Add necessary permissions for the stripe-payment Lambda
 backend.stripePayment.resources.lambda.addToRolePolicy(

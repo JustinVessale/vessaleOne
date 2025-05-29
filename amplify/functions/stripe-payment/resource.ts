@@ -5,7 +5,7 @@ export const stripePayment = defineFunction({
   environment: {
     STRIPE_SECRET_KEY: secret('VITE_STRIPE_SECRET_KEY'),
     STRIPE_WEBHOOK_SECRET: secret('STRIPE_WEBHOOK_SECRET'),
-    AMPLIFY_DATA_DEFAULT_NAME: 'default'
+    AMPLIFY_DATA_API_KEY: secret('AMPLIFY_API_KEY')
   },
   resourceGroupName: 'data'
 }); 
