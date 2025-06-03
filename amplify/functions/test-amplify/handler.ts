@@ -1,8 +1,15 @@
 import type { APIGatewayProxyHandler } from "aws-lambda";
-import { generateClient } from 'aws-amplify/data';
+import type { Schema } from '../../data/resource';
 import { Amplify } from 'aws-amplify';
-import type { Schema } from '../../data/resource.js';
-import { env } from '$amplify/env/test-amplify.js';
+import { generateClient } from 'aws-amplify/data';
+import { getAmplifyDataClientConfig } from '@aws-amplify/backend/function/runtime';
+import { env } from '$amplify/env/test-amplify';
+
+const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
+
+Amplify.configure(resourceConfig, libraryOptions);
+
+const client = generateClient<Schema>();
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   const headers = {
@@ -13,34 +20,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   };
 
   try {
-    console.log('Starting Amplify initialization test with environment:', {
-      API_ID: env.API_ID,
-      API_ENDPOINT: env.API_ENDPOINT,
-      REGION: env.REGION,
-      AMPLIFY_DATA_API_KEY: env.AMPLIFY_DATA_API_KEY ? '***' : undefined,
-      AMPLIFY_DATA_DEFAULT_NAME: env.AMPLIFY_DATA_DEFAULT_NAME
-    });
-
-    // Simplified Amplify configuration using apiKey mode (like seed-develop handler)
-    console.log('Configuring Amplify with apiKey mode...');
-    Amplify.configure({
-      API: {
-        GraphQL: {
-          endpoint: env.API_ENDPOINT,
-          region: env.REGION,
-          defaultAuthMode: 'apiKey',
-          apiKey: env.AMPLIFY_DATA_API_KEY
-        }
-      }
-    });
-    console.log('Amplify configured successfully');
-
-    console.log('Generating client...');
-    const client = generateClient<Schema>();
-    console.log('Client generated successfully');
+    console.log('Testing Amplify function with official documentation pattern');
 
     // Test a simple query to verify the client works
-    console.log('Testing client with a simple query...');
+    console.log('Testing client with a Restaurant query...');
     const { data: restaurants, errors } = await client.models.Restaurant.list({
       limit: 1
     });
@@ -52,7 +35,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         headers,
         body: JSON.stringify({
           success: false,
-          message: 'Amplify client configured but query failed',
+          message: 'Query failed',
           errors: errors
         }),
       };
@@ -65,14 +48,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers,
       body: JSON.stringify({
         success: true,
-        message: 'Amplify client initialized and tested successfully',
+        message: 'Amplify Lambda function test successful using official pattern',
         restaurantCount: restaurants?.length || 0,
         timestamp: new Date().toISOString()
       }),
     };
 
   } catch (error) {
-    console.error('Error in Amplify initialization test:', error);
+    console.error('Error in Amplify test:', error);
     return {
       statusCode: 500,
       headers,

@@ -11,48 +11,12 @@ const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-04-30.basil'
 });
 
-// Initialize client outside the handler for reuse across invocations
-let client: ReturnType<typeof generateClient<Schema>>;
+// Initialize Amplify using the official pattern
+const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
 
-// Helper function to initialize Amplify client - matching the Nash handler pattern
-const initializeAmplifyClient = async () => {
-  try {
-    console.log('Initializing Amplify client with environment:', {
-      API_ID: env.API_ID,
-      API_ENDPOINT: env.API_ENDPOINT,
-      REGION: env.REGION,
-      AMPLIFY_DATA_DEFAULT_NAME: env.AMPLIFY_DATA_DEFAULT_NAME,
-      STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY ? '***' : undefined,
-      STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET ? '***' : undefined
-    });
-;
-    const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
-    console.log('Got Amplify data client config:', {
-      resourceConfig,
-      libraryOptions
-    });
-    
-    Amplify.configure(resourceConfig, libraryOptions);
-    console.log('Amplify configured');
-    
-    client = generateClient<Schema>();
-    console.log('Amplify client initialized successfully');
-    return client;
-  } catch (error) {
-    console.error('Failed to initialize Amplify client:', {
-      error,
-      errorMessage: error instanceof Error ? error.message : String(error),
-      errorStack: error instanceof Error ? error.stack : undefined,
-      env: {
-        API_ID: process.env.API_ID,
-        API_ENDPOINT: process.env.API_ENDPOINT,
-        REGION: process.env.REGION,
-        AMPLIFY_DATA_DEFAULT_NAME: process.env.AMPLIFY_DATA_DEFAULT_NAME
-      }
-    });
-    throw error;
-  }
-};
+Amplify.configure(resourceConfig, libraryOptions);
+
+const client = generateClient<Schema>();
 
 // Helper function to determine the appropriate origin for CORS
 const getAllowedOrigin = (origin?: string): string => {
@@ -99,11 +63,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   };
 
   try {
-    // Initialize Amplify and client if not already done
-    if (!client) {
-      client = await initializeAmplifyClient();
-    }
-
     // Handle preflight requests
     if (event.httpMethod === 'OPTIONS') {
       return {
