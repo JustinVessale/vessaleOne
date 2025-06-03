@@ -1,35 +1,22 @@
-import { useNavigate, useSearchParams } from 'react-router-dom';
+
 import { useCart } from '../../cart/context/CartContext';
-import { CheckoutContainer } from './CheckoutContainer';
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect, useRef } from 'react';
 import { DeliveryCheckout } from '@/features/delivery/components/DeliveryCheckout';
 import { useQuery } from '@tanstack/react-query';
-import { handlePaymentSuccess as processPaymentSuccess, createCheckoutSession } from '../api/checkoutService';
+import { createCheckoutSession } from '../api/checkoutService';
 
 const client = generateClient<Schema>();
 
 type Order = Schema['Order']['type'];
 
-type DeliveryData = {
-  address: string;
-  deliveryFee: number;
-  quoteId: string;
-  estimatedDeliveryTime: string;
-  nashOrderId?: string;
-};
-
 export function CheckoutPage() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { state, total, clearCart } = useCart();
+  const { state, total } = useCart();
   const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
-  const [deliveryData, setDeliveryData] = useState<DeliveryData | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<'delivery-option' | 'delivery' | 'payment'>('delivery-option');
-  const [useDelivery, setUseDelivery] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -209,7 +196,6 @@ export function CheckoutPage() {
               onClick={async (e) => {
                 e.preventDefault();
                 console.log('Pickup button clicked');
-                setUseDelivery(false);
                 setIsLoading(true);
                 setLoadingMessage('Redirecting to payment...');
                 try {
@@ -252,7 +238,6 @@ export function CheckoutPage() {
               onClick={(e) => {
                 e.preventDefault();
                 console.log('Delivery button clicked');
-                setUseDelivery(true);
                 setCheckoutStep('delivery');
               }}
             >
@@ -290,7 +275,6 @@ export function CheckoutPage() {
             orderId={order.id}
             locationId={locationId}
             onContinue={async (deliveryData) => {
-              setDeliveryData(deliveryData);
               setIsLoading(true);
               setLoadingMessage('Redirecting to payment...');
               try {
@@ -334,7 +318,6 @@ export function CheckoutPage() {
               }
             }}
             onSwitchToPickup={async () => {
-              setUseDelivery(false);
               setIsLoading(true);
               setLoadingMessage('Redirecting to payment...');
               try {

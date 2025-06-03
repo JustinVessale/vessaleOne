@@ -1,16 +1,14 @@
 import { useState } from 'react';
-import { Dialog, DialogContent} from '@/components/ui/dialog';
+import type { Schema } from '../../../../amplify/data/resource';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 import { ImageUploader } from '@/components/ui/image-uploader';
 import { menuItemImageHelper } from '@/lib/storage';
-import { useToast } from '@/hooks/use-toast';
 import { useSelectedLocation } from '../hooks/useSelectedLocation';
-import { StorageImage } from '@/components/ui/s3-image';
-import type { Schema } from '../../../../amplify/data/resource';
-import { Trash } from 'lucide-react';
 
 // Define types using the generated Schema
 type MenuItemType = Schema['MenuItem']['type'];

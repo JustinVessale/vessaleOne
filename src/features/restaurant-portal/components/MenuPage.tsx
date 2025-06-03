@@ -8,7 +8,7 @@ import { StorageImage } from '@/components/ui/s3-image';
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
 import { useQuery } from '@tanstack/react-query';
-import { uploadImage, getImageUrl } from '@/lib/storage';
+import { uploadImage } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 
 const client = generateClient<Schema>();
@@ -281,8 +281,6 @@ export function MenuPage() {
       if (locationId) {
         // Compose S3 path for location
         const path = `restaurant/${restaurant.id}/${locationId}/banner`;
-        const fileName = `${Date.now()}-${bannerImageFile.name.replace(/\s+/g, '-').toLowerCase()}`;
-        const fullPath = `${path}/${fileName}`;
         const uploadResult = await uploadImage(bannerImageFile, path);
         storageKey = uploadResult.key;
         setBannerImageUrl(storageKey);
@@ -296,8 +294,6 @@ export function MenuPage() {
       } else {
         // Compose S3 path for restaurant
         const path = `restaurant/${restaurant.id}/banner`;
-        const fileName = `${Date.now()}-${bannerImageFile.name.replace(/\s+/g, '-').toLowerCase()}`;
-        const fullPath = `${path}/${fileName}`;
         const uploadResult = await uploadImage(bannerImageFile, path);
         storageKey = uploadResult.key;
         setBannerImageUrl(storageKey);

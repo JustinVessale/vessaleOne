@@ -86,9 +86,10 @@ export default function OrderSuccessPage() {
           }
           
           // Fetch order directly by ID
-          const { data: order, errors } = await client.models.Order.get({
-            id: orderId,
-            selectionSet: [
+          const { data: order, errors } = await client.models.Order.get(
+            { id: orderId },
+            { 
+              selectionSet: [
               'id', 
               'status', 
               'total', 
@@ -115,8 +116,9 @@ export default function OrderSuccessPage() {
               'restaurant.state',
               'restaurant.zip',
               'restaurant.phone'
-            ]
-          });
+            ] 
+          }
+          );
 
           if (errors || !order) {
             throw new Error('Order not found');

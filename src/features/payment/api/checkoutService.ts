@@ -5,9 +5,6 @@ import outputs from '../../../../amplify_outputs.json';
 
 const client = generateClient<Schema>();
 
-const MOCK_API = import.meta.env.VITE_USE_MOCK_PAYMENT_API === 'true';
-const MOCK_DELAY = 1000; // Simulate network delay
-
 type CreateCheckoutSessionParams = {
   orderId: string;
   restaurantId: string;
@@ -52,9 +49,9 @@ export async function handlePaymentSuccess(
     console.log(`Payment successful for order ${orderId}`);
     
     // Fetch the order to check if it's a delivery order
-    const { data: orderData, errors: getErrors } = await client.models.Order.get(
-      { id: orderId }
-    );
+    const { data: orderData, errors: getErrors } = await client.models.Order.get({
+      id: orderId
+    });
     
     if (getErrors || !orderData) {
       console.error('Failed to fetch order after payment:', getErrors);
