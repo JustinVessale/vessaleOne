@@ -11,6 +11,7 @@ import {
 import { stripePayment } from "./functions/stripe-payment/resource";
 import { nashWebhook } from "./functions/nash-webhook/resource";
 import { seedDevelop } from "./functions/seed-develop/resource";
+import { testAmplify } from "./functions/test-amplify/resource";
 import { secret } from '@aws-amplify/backend';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { storage } from './storage/resource';
@@ -21,12 +22,38 @@ export const backend = defineBackend({
   stripePayment,
   nashWebhook,
   seedDevelop,
+  testAmplify,
   storage
 });
 
-// Add secrets to the Lambda functions
-backend.stripePayment.addEnvironment('STRIPE_SECRET_KEY', secret('VITE_STRIPE_SECRET_KEY'));
-backend.stripePayment.addEnvironment('STRIPE_WEBHOOK_SECRET', secret('STRIPE_WEBHOOK_SECRET'));
+
+// Add API configuration for the stripe-payment Lambda - FIXED VERSION
+backend.stripePayment.addEnvironment('API_ID', backend.data.resources.graphqlApi.apiId);
+backend.stripePayment.addEnvironment('API_ENDPOINT', `https://${backend.data.resources.graphqlApi.apiId}.appsync-api.${Stack.of(backend.data.resources.graphqlApi).region}.amazonaws.com/graphql`);
+backend.stripePayment.addEnvironment('REGION', Stack.of(backend.data.resources.graphqlApi).region);
+backend.stripePayment.addEnvironment('AMPLIFY_DATA_DEFAULT_NAME', 'default');
+
+// Add necessary permissions for the stripe-payment Lambda
+backend.stripePayment.resources.lambda.addToRolePolicy(
+  new PolicyStatement({
+    actions: [
+      'dynamodb:GetItem',
+      'dynamodb:PutItem',
+      'dynamodb:UpdateItem',
+      'dynamodb:Query',
+      'dynamodb:Scan',
+      'appsync:GraphQL'
+    ],
+    resources: [
+      `${backend.data.resources.tables.Order.tableArn}`,
+      `${backend.data.resources.tables.OrderItem.tableArn}`,
+      `${backend.data.resources.tables.Restaurant.tableArn}`,
+      `${backend.data.resources.tables.MenuItem.tableArn}`,
+      `${backend.data.resources.graphqlApi.arn}/*`
+    ]
+  })
+);
+
 backend.nashWebhook.addEnvironment('NASH_API_KEY', secret('NASH_API_KEY'));
 backend.nashWebhook.addEnvironment('NASH_ORG_ID', secret('NASH_ORG_ID'));
 backend.nashWebhook.addEnvironment('NASH_WEBHOOK_SECRET', secret('NASH_WEBHOOK_SECRET'));
@@ -61,6 +88,11 @@ backend.seedDevelop.resources.lambda.addToRolePolicy(
     resources: [backend.auth.resources.userPool.userPoolArn]
   })
 );
+
+// Configure test-amplify function
+backend.testAmplify.addEnvironment('API_ID', backend.data.resources.graphqlApi.apiId);
+backend.testAmplify.addEnvironment('API_ENDPOINT', `https://${backend.data.resources.graphqlApi.apiId}.appsync-api.${Stack.of(backend.data.resources.graphqlApi).region}.amazonaws.com/graphql`);
+backend.testAmplify.addEnvironment('REGION', Stack.of(backend.data.resources.graphqlApi).region);
 
 // Create API stack
 const apiStack = backend.createStack("api-stack");
@@ -99,7 +131,7 @@ const paymentApi = new RestApi(apiStack, "PaymentApi", {
 });
 
 // Create Lambda integrations
-const paymentIntegration = new LambdaIntegration(
+const stripeWebhookIntegration = new LambdaIntegration(
   backend.stripePayment.resources.lambda
 );
 
@@ -107,24 +139,20 @@ const nashWebhookIntegration = new LambdaIntegration(
   backend.nashWebhook.resources.lambda
 );
 
-// Add payment endpoint
-const paymentPath = paymentApi.root.addResource("create-payment-intent");
-paymentPath.addMethod("POST", paymentIntegration);
-
 // Add webhook endpoints
-const webhookRoot = paymentApi.root.addResource("webhook");
+const webhookPath = paymentApi.root.addResource("webhook");
+webhookPath.addMethod("POST", stripeWebhookIntegration);
 
-// Stripe webhook
-const stripeWebhook = webhookRoot.addResource("stripe");
-stripeWebhook.addMethod("POST", paymentIntegration, {
-  apiKeyRequired: false // Stripe needs to call this endpoint directly
-});
+const nashWebhookPath = paymentApi.root.addResource("nash-webhook");
+nashWebhookPath.addMethod("POST", nashWebhookIntegration);
 
-// Nash webhook
-const nashWebhookPath = webhookRoot.addResource("nash");
-nashWebhookPath.addMethod("POST", nashWebhookIntegration, {
-  apiKeyRequired: false // Nash needs to call this endpoint directly
-});
+// Add create-checkout-session endpoint
+const checkoutSessionPath = paymentApi.root.addResource("create-checkout-session");
+checkoutSessionPath.addMethod("POST", stripeWebhookIntegration);
+
+// Add test-amplify endpoint
+const testAmplifyPath = paymentApi.root.addResource("test-amplify");
+testAmplifyPath.addMethod("GET", new LambdaIntegration(backend.testAmplify.resources.lambda));
 
 // Add outputs to configuration
 backend.addOutput({

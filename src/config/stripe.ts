@@ -31,7 +31,7 @@ export const createStripe = () => {
     throw new Error('Missing Stripe secret key environment variable');
   }
   return new Stripe(key, {
-    apiVersion: '2025-01-27.acacia',
+    apiVersion: '2025-04-30.basil',
   });
 };
 
