@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../amplify/data/resource';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '@/utils/currency';
 import { format } from 'date-fns';
 import { DeliveryTracking } from '@/features/delivery/components/DeliveryTracking';
@@ -54,15 +54,76 @@ export default function OrderSuccessPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const searchParams = useSearchParams();
-  const router = useRouter();
+  const [searchParams] = useSearchParams();
+  const { restaurantSlug, locationSlug } = useParams<{ 
+    restaurantSlug: string;
+    locationSlug?: string;
+  }>();
+  const navigate = useNavigate();
+
+  // Helper function to navigate back to restaurant
+  const navigateToRestaurant = () => {
+    if (restaurantSlug) {
+      const path = locationSlug 
+        ? `/${restaurantSlug}/${locationSlug}` 
+        : `/${restaurantSlug}`;
+      navigate(path);
+    } else {
+      navigate('/');
+    }
+  };
 
   useEffect(() => {
     async function fetchOrder() {
       try {
         const sessionId = searchParams.get('session_id');
-        if (!sessionId) {
-          throw new Error('No session ID found');
+        const orderId = searchParams.get('order_id');
+        
+        // If no session ID found or it's still the placeholder, try to use order_id
+        if (!sessionId || sessionId === '{CHECKOUT_SESSION_ID}') {
+          if (!orderId) {
+            throw new Error('No session ID or order ID found');
+          }
+          
+          // Fetch order directly by ID
+          const { data: order, errors } = await client.models.Order.get({
+            id: orderId,
+            selectionSet: [
+              'id', 
+              'status', 
+              'total', 
+              'createdAt', 
+              'items.*', 
+              'items.menuItem.*',
+              'isDelivery',
+              'deliveryFee',
+              'deliveryAddress',
+              'customerName',
+              'customerPhone',
+              'deliveryInfo.*',
+              'locationId',
+              'location.name',
+              'location.address',
+              'location.city',
+              'location.state',
+              'location.zip',
+              'location.phoneNumber',
+              'restaurantId',
+              'restaurant.name',
+              'restaurant.address',
+              'restaurant.city',
+              'restaurant.state',
+              'restaurant.zip',
+              'restaurant.phone'
+            ]
+          });
+
+          if (errors || !order) {
+            throw new Error('Order not found');
+          }
+
+          setOrder(order as Order);
+          return;
         }
 
         // Find the order with this session ID
@@ -132,10 +193,10 @@ export default function OrderSuccessPage() {
         <div className="text-red-600 p-4 bg-red-50 rounded-md">
           <p className="font-medium">Error: {error}</p>
           <Button 
-            onClick={() => router.push('/')}
+            onClick={() => navigateToRestaurant()}
             className="mt-2"
           >
-            Return to Home
+            Return to Restaurant
           </Button>
         </div>
       </div>
@@ -290,10 +351,10 @@ export default function OrderSuccessPage() {
           </p>
           <div className="mt-4">
             <Button
-              onClick={() => router.push('/')}
+              onClick={() => navigateToRestaurant()}
               className="w-full"
             >
-              Return to Home
+              Return to Restaurant
             </Button>
           </div>
         </div>

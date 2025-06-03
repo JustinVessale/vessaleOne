@@ -9,6 +9,8 @@ import { ProtectedRoute } from '@/features/restaurant-portal/components/Protecte
 import { PortalLayout } from '@/features/restaurant-portal/components/PortalLayout';
 import { portalRoutes } from '@/features/restaurant-portal/routes';
 import { Toaster } from "@/components/ui/toaster";
+import OrderSuccessPage from './app/order/successPage';
+import OrderCancelPage from './app/order/cancelPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,6 +37,12 @@ function AppContent() {
         {/* Restaurant routes - now as top-level routes */}
         <Route path="/:restaurantSlug" element={<RestaurantPage />} />
         <Route path="/:restaurantSlug/:locationSlug" element={<RestaurantPage />} />
+        
+        {/* Restaurant-specific order success and cancel routes */}
+        <Route path="/:restaurantSlug/order/success" element={<OrderSuccessPage />} />
+        <Route path="/:restaurantSlug/order/cancel" element={<OrderCancelPage />} />
+        <Route path="/:restaurantSlug/:locationSlug/order/success" element={<OrderSuccessPage />} />
+        <Route path="/:restaurantSlug/:locationSlug/order/cancel" element={<OrderCancelPage />} />
         
         {/* Redirect root to handle empty path (optional, can be customized) */}
         <Route path="/" element={<Navigate to="/not-found" replace />} />

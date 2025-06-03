@@ -1,10 +1,26 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import { useNavigate, useParams } from 'react-router-dom';
 
 export default function OrderCancelPage() {
-  const router = useRouter();
+  const navigate = useNavigate();
+  const { restaurantSlug, locationSlug } = useParams<{ 
+    restaurantSlug: string;
+    locationSlug?: string;
+  }>();
+
+  // Helper function to navigate back to restaurant
+  const navigateToRestaurant = () => {
+    if (restaurantSlug) {
+      const path = locationSlug 
+        ? `/${restaurantSlug}/${locationSlug}` 
+        : `/${restaurantSlug}`;
+      navigate(path);
+    } else {
+      navigate('/');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -25,13 +41,13 @@ export default function OrderCancelPage() {
 
             <div className="mt-8 space-y-4">
               <Button
-                onClick={() => router.push('/')}
+                onClick={() => navigateToRestaurant()}
                 className="w-full"
               >
-                Return to Home
+                Return to Restaurant
               </Button>
               <Button
-                onClick={() => router.back()}
+                onClick={() => navigate('/checkout')}
                 variant="outline"
                 className="w-full"
               >

@@ -95,22 +95,41 @@ export async function POST(request: Request) {
       });
     }
 
-    // Construct success and cancel URLs
+    // Construct success and cancel URLs with restaurant context
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const successUrl = new URL('/order/success', baseUrl);
-    const cancelUrl = new URL('/order/cancel', baseUrl);
     
-    // Add query parameters
-    successUrl.searchParams.set('session_id', '{CHECKOUT_SESSION_ID}');
-    successUrl.searchParams.set('order_id', orderId);
-
+    // Get restaurant and location slugs for proper redirect
+    let restaurantSlug = restaurant.slug;
+    let locationSlug = null;
+    
+    // If order has a location, get the location slug
+    if (order.locationId) {
+      const { data: location } = await client.models.RestaurantLocation.get({
+        id: order.locationId
+      });
+      locationSlug = location?.slug;
+    }
+    
+    // Construct the redirect path based on whether we have a location
+    const redirectPath = locationSlug 
+      ? `/${restaurantSlug}/${locationSlug}/order/success`
+      : `/${restaurantSlug}/order/success`;
+    
+    const cancelPath = locationSlug 
+      ? `/${restaurantSlug}/${locationSlug}/order/cancel`
+      : `/${restaurantSlug}/order/cancel`;
+    
+    // Build the URLs manually to avoid encoding issues with Stripe placeholders
+    const successUrl = `${baseUrl}${redirectPath}?session_id={CHECKOUT_SESSION_ID}&order_id=${orderId}`;
+    const cancelUrl = `${baseUrl}${cancelPath}?order_id=${orderId}`;
+    
     // Create the checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      success_url: successUrl.toString(),
-      cancel_url: cancelUrl.toString(),
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       customer_email: order.customerEmail || undefined,
       metadata: {
         orderId,
