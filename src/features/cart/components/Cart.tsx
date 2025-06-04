@@ -6,7 +6,7 @@ import { useState } from 'react';
 import outputs from '../../../../amplify_outputs.json';
 
 export function Cart() {
-  const { state, removeItem, updateQuantity, toggleCart } = useCart();
+  const { state, removeItem, updateQuantity, toggleCart, subtotal, serviceFee, total } = useCart();
   const navigate = useNavigate();
   const [testResult, setTestResult] = useState<string>('');
   const [isTesting, setIsTesting] = useState(false);
@@ -103,11 +103,22 @@ export function Cart() {
       {/* Cart Footer */}
       {state.items.length > 0 && (
         <div className="border-t p-4 space-y-4">
-          <div className="flex justify-between items-center">
-            <span className="text-lg font-semibold">Subtotal</span>
-            <span className="text-lg font-semibold">
-              ${state.items.reduce((acc, item) => acc + (item.price * item.quantity), 0).toFixed(2)}
-            </span>
+          {/* Subtotal */}
+          <div className="flex justify-between items-center text-gray-700">
+            <span>Subtotal</span>
+            <span>${subtotal.toFixed(2)}</span>
+          </div>
+          
+          {/* Service Fee */}
+          <div className="flex justify-between items-center text-gray-700">
+            <span>Service Fee</span>
+            <span>${serviceFee.toFixed(2)}</span>
+          </div>
+          
+          {/* Total */}
+          <div className="flex justify-between items-center text-lg font-semibold border-t pt-2">
+            <span>Total</span>
+            <span>${total.toFixed(2)}</span>
           </div>
           
           <button 

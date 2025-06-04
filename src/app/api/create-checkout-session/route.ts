@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { generateServerClient } from '@/lib/amplify-utils';
 import { createStripe } from '@/config/stripe';
 import Stripe from 'stripe';
+import { PLATFORM_CONFIG } from '@/config/constants';
 
 // Helper to add CORS headers
 function withCORS(response: Response) {
@@ -95,6 +96,19 @@ export async function POST(request: Request) {
       });
     }
 
+    // Add platform service fee as a visible line item
+    lineItems.push({
+      price_data: {
+        currency: 'usd',
+        product_data: {
+          name: 'Service Fee',
+          description: 'Platform service fee',
+        },
+        unit_amount: PLATFORM_CONFIG.SERVICE_FEE_CENTS,
+      },
+      quantity: 1,
+    });
+
     // Construct success and cancel URLs with restaurant context
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     
@@ -139,7 +153,7 @@ export async function POST(request: Request) {
         transfer_data: {
           destination: restaurant.stripeAccountId,
         },
-        application_fee_amount: 199, // $1.99 in cents
+        application_fee_amount: PLATFORM_CONFIG.SERVICE_FEE_CENTS,
       },
       automatic_tax: {
         enabled: true,

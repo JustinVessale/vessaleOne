@@ -5,6 +5,7 @@ import { Amplify } from 'aws-amplify';
 import type { Schema } from '../../data/resource.js';
 import { getAmplifyDataClientConfig } from '@aws-amplify/backend/function/runtime';
 import { env } from '$amplify/env/stripe-payment.js';
+import { generateClient as apiGenerateClient } from 'aws-amplify/api';
 
 // Initialize Stripe client using env object
 const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
@@ -17,6 +18,11 @@ const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env)
 Amplify.configure(resourceConfig, libraryOptions);
 
 const client = generateClient<Schema>();
+
+// Platform configuration
+const PLATFORM_CONFIG = {
+  SERVICE_FEE_CENTS: 199, // $1.99 in cents for Stripe
+} as const;
 
 // Helper function to determine the appropriate origin for CORS
 const getAllowedOrigin = (origin?: string): string => {
@@ -188,6 +194,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         });
       }
 
+      // Add platform service fee as a visible line item
+      lineItems.push({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Service Fee',
+            description: 'Platform service fee',
+          },
+          unit_amount: PLATFORM_CONFIG.SERVICE_FEE_CENTS,
+        },
+        quantity: 1,
+      });
+
       // Construct success and cancel URLs with restaurant context
       const baseUrl = process.env.APP_URL || 'http://localhost:5173';
       
@@ -232,7 +251,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           transfer_data: {
             destination: restaurant.stripeAccountId,
           },
-          application_fee_amount: 199, // $1.99 in cents
+          // Calculate application fee: total amount minus restaurant's portion
+          // Restaurant gets: order total - service fee ($1.99)
+          // We keep: service fee ($1.99) minus Stripe processing fees
+          application_fee_amount: PLATFORM_CONFIG.SERVICE_FEE_CENTS,
         },
         automatic_tax: {
           enabled: true,

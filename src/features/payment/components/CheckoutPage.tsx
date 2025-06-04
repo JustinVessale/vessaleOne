@@ -1,4 +1,3 @@
-
 import { useCart } from '../../cart/context/CartContext';
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
@@ -13,7 +12,7 @@ const client = generateClient<Schema>();
 type Order = Schema['Order']['type'];
 
 export function CheckoutPage() {
-  const { state, total } = useCart();
+  const { state, subtotal, serviceFee, total } = useCart();
   const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<'delivery-option' | 'delivery' | 'payment'>('delivery-option');
@@ -152,6 +151,14 @@ export function CheckoutPage() {
         </ul>
         <div className="flex justify-between items-center border-t pt-4 mt-2">
           <span className="text-lg font-semibold">Subtotal</span>
+          <span className="text-lg font-semibold">${subtotal.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between items-center border-t pt-4 mt-2">
+          <span className="text-lg font-semibold">Service Fee</span>
+          <span className="text-lg font-semibold">${serviceFee.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between items-center border-t pt-4 mt-2">
+          <span className="text-lg font-semibold">Total</span>
           <span className="text-lg font-semibold">${total.toFixed(2)}</span>
         </div>
       </div>
