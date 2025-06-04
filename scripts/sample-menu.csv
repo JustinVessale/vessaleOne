@@ -1,0 +1,11 @@
+name,description,price,category,imageUrl,isActive
+"Chicken Wings","Crispy wings tossed in your choice of sauce",13.99,"Appetizers","https://images.unsplash.com/photo-1608039829572-78524f79c4c7",true
+"Hummus Platter","Creamy house-made hummus served with warm pita bread",8.99,"Appetizers","https://images.unsplash.com/photo-1577805947697-89e18249d767",true
+"Greek Salad","Fresh mixed greens with feta cheese, olives, and tomatoes",11.99,"Salads",,true
+"Caesar Salad","Crisp romaine lettuce with parmesan cheese and croutons",9.99,"Salads",,true
+"Chicken Gyro","Tender chicken wrapped in pita with tzatziki sauce",12.99,"Main Courses","https://images.unsplash.com/photo-1603360946369-dc9bb6258143",true
+"Beef Kebab","Grilled beef skewers with Mediterranean seasonings",18.99,"Main Courses","https://images.unsplash.com/photo-1544025162-d76694265947",true
+"Lamb Chops","Grilled lamb chops with herbs and garlic",24.99,"Main Courses",,true
+"French Fries","Crispy golden fries",5.99,"Sides","https://images.unsplash.com/photo-1573080496219-bb080dd4f877",true
+"Garlic Bread","Warm bread with garlic butter",4.99,"Sides",,true
+"Baklava","Traditional honey pastry with nuts",6.99,"Desserts",,true 
