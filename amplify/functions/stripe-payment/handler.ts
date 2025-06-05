@@ -251,10 +251,25 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           transfer_data: {
             destination: restaurant.stripeAccountId,
           },
-          // Calculate application fee: total amount minus restaurant's portion
-          // Restaurant gets: order total - service fee ($1.99)
-          // We keep: service fee ($1.99) minus Stripe processing fees
-          application_fee_amount: PLATFORM_CONFIG.SERVICE_FEE_CENTS,
+          // Calculate application fee: service fee + delivery fee (both go to platform)
+          // Restaurant gets: order total - service fee - delivery fee  
+          // We keep: service fee + delivery fee (minus Stripe processing fees)
+          // We'll handle paying Nash for delivery separately
+          application_fee_amount: (() => {
+            let totalPlatformFee = PLATFORM_CONFIG.SERVICE_FEE_CENTS; // Always include $1.99 service fee
+            
+            // Add delivery fee if this is a delivery order (Nash provides dynamic amount)
+            if (order.isDelivery && order.deliveryFee) {
+              const deliveryFeeCents = Math.round(order.deliveryFee * 100);
+              totalPlatformFee += deliveryFeeCents;
+              
+              console.log(`Order ${orderId}: Adding delivery fee to platform: $${order.deliveryFee} (${deliveryFeeCents} cents)`);
+            }
+            
+            console.log(`Order ${orderId}: Total platform fee: $${totalPlatformFee / 100} (${totalPlatformFee} cents) - Service: $1.99, Delivery: $${order.isDelivery && order.deliveryFee ? order.deliveryFee : 0}`);
+            
+            return totalPlatformFee;
+          })(),
         },
         automatic_tax: {
           enabled: true,
