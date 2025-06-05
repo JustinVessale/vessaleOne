@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '@/utils/currency';
 import { format } from 'date-fns';
 import { DeliveryTracking } from '@/features/delivery/components/DeliveryTracking';
+import { PLATFORM_CONFIG } from '@/config/constants';
 
 const client = generateClient<Schema>();
 
@@ -322,25 +323,47 @@ export default function OrderSuccessPage() {
 
             {/* Total */}
             <div className="border-t border-gray-200 mt-6 pt-6">
-              {/* Subtotal */}
-              <div className="flex justify-between text-gray-700">
-                <span>Subtotal</span>
-                <span>{formatCurrency((order.total ?? 0) - (order.deliveryFee ?? 0))}</span>
-              </div>
-              
-              {/* Delivery Fee (if applicable) */}
-              {order.isDelivery && order.deliveryFee && (
-                <div className="flex justify-between text-gray-700 mt-2">
-                  <span>Delivery Fee</span>
-                  <span>{formatCurrency(order.deliveryFee)}</span>
-                </div>
-              )}
-              
-              {/* Total */}
-              <div className="flex justify-between text-lg font-medium mt-2 pt-2 border-t border-gray-100">
-                <span>Total</span>
-                <span>{formatCurrency(order.total ?? 0)}</span>
-              </div>
+              {/* Calculate the actual item subtotal */}
+              {(() => {
+                // Calculate the actual item subtotal by summing individual items
+                const itemSubtotal = order.items.reduce((sum, item) => {
+                  return sum + (item.menuItem?.price ?? 0) * (item.quantity ?? 1);
+                }, 0);
+                
+                const serviceFee = PLATFORM_CONFIG.SERVICE_FEE;
+                const deliveryFee = order.isDelivery ? (order.deliveryFee ?? 0) : 0;
+                const calculatedTotal = itemSubtotal + serviceFee + deliveryFee;
+                
+                return (
+                  <>
+                    {/* Subtotal */}
+                    <div className="flex justify-between text-gray-700">
+                      <span>Subtotal</span>
+                      <span>{formatCurrency(itemSubtotal)}</span>
+                    </div>
+                    
+                    {/* Service Fee */}
+                    <div className="flex justify-between text-gray-700 mt-2">
+                      <span>Service Fee</span>
+                      <span>{formatCurrency(serviceFee)}</span>
+                    </div>
+                    
+                    {/* Delivery Fee (if applicable) */}
+                    {order.isDelivery && deliveryFee > 0 && (
+                      <div className="flex justify-between text-gray-700 mt-2">
+                        <span>Delivery Fee</span>
+                        <span>{formatCurrency(deliveryFee)}</span>
+                      </div>
+                    )}
+                    
+                    {/* Total */}
+                    <div className="flex justify-between text-lg font-medium mt-2 pt-2 border-t border-gray-100">
+                      <span>Total</span>
+                      <span>{formatCurrency(order.total ?? calculatedTotal)}</span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
