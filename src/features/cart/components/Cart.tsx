@@ -3,41 +3,16 @@ import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { StorageImage } from '@/components/ui/s3-image';
 import { useState } from 'react';
-import outputs from '../../../../amplify_outputs.json';
 
 export function Cart() {
   const { state, removeItem, updateQuantity, toggleCart, subtotal, serviceFee, total } = useCart();
   const navigate = useNavigate();
-  const [testResult, setTestResult] = useState<string>('');
-  const [isTesting, setIsTesting] = useState(false);
 
   const handleCheckout = () => {
     if (state.isOpen) {
       toggleCart(); // Close mobile cart if open
     }
     navigate('/checkout');
-  };
-
-  const testAmplifyInit = async () => {
-    setIsTesting(true);
-    setTestResult('');
-    try {
-      // Get the API URL from Amplify outputs
-      const apiUrl = outputs.custom?.API?.['payment-api']?.endpoint;
-      if (!apiUrl) {
-        throw new Error('Payment API endpoint not found in Amplify outputs');
-      }
-      
-      console.log('Testing Amplify with API URL:', apiUrl);
-      const response = await fetch(`${apiUrl}/test-amplify`);
-      const data = await response.json();
-      setTestResult(JSON.stringify(data, null, 2));
-    } catch (error) {
-      console.error('Test failed:', error);
-      setTestResult(error instanceof Error ? error.message : String(error));
-    } finally {
-      setIsTesting(false);
-    }
   };
 
   const CartContent = () => (
@@ -130,25 +105,6 @@ export function Cart() {
           >
             Go to Checkout
           </button>
-
-          {/* Test Button */}
-          <button
-            className="w-full bg-gray-200 text-gray-700 py-2 px-4 rounded-lg 
-                     hover:bg-gray-300 transition-colors font-medium
-                     border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2
-                     shadow-sm mt-2"
-            onClick={testAmplifyInit}
-            disabled={isTesting}
-          >
-            {isTesting ? 'Testing...' : 'Test Amplify Init'}
-          </button>
-
-          {/* Test Results */}
-          {testResult && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg overflow-auto max-h-48">
-              <pre className="text-sm text-gray-700 whitespace-pre-wrap">{testResult}</pre>
-            </div>
-          )}
         </div>
       )}
     </div>

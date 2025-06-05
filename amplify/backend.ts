@@ -11,7 +11,6 @@ import {
 import { stripePayment } from "./functions/stripe-payment/resource";
 import { nashWebhook } from "./functions/nash-webhook/resource";
 import { seedDevelop } from "./functions/seed-develop/resource";
-import { testAmplify } from "./functions/test-amplify/resource";
 import { secret } from '@aws-amplify/backend';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { storage } from './storage/resource';
@@ -22,7 +21,6 @@ export const backend = defineBackend({
   stripePayment,
   nashWebhook,
   seedDevelop,
-  testAmplify,
   storage
 });
 
@@ -89,11 +87,6 @@ backend.seedDevelop.resources.lambda.addToRolePolicy(
   })
 );
 
-// Configure test-amplify function
-backend.testAmplify.addEnvironment('API_ID', backend.data.resources.graphqlApi.apiId);
-backend.testAmplify.addEnvironment('API_ENDPOINT', `https://${backend.data.resources.graphqlApi.apiId}.appsync-api.${Stack.of(backend.data.resources.graphqlApi).region}.amazonaws.com/graphql`);
-backend.testAmplify.addEnvironment('REGION', Stack.of(backend.data.resources.graphqlApi).region);
-
 // Create API stack
 const apiStack = backend.createStack("api-stack");
 
@@ -149,10 +142,6 @@ nashWebhookPath.addMethod("POST", nashWebhookIntegration);
 // Add create-checkout-session endpoint
 const checkoutSessionPath = paymentApi.root.addResource("create-checkout-session");
 checkoutSessionPath.addMethod("POST", stripeWebhookIntegration);
-
-// Add test-amplify endpoint
-const testAmplifyPath = paymentApi.root.addResource("test-amplify");
-testAmplifyPath.addMethod("GET", new LambdaIntegration(backend.testAmplify.resources.lambda));
 
 // Add outputs to configuration
 backend.addOutput({
