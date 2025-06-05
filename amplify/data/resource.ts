@@ -1,6 +1,5 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { nashWebhook } from '../functions/nash-webhook/resource';
-import { testAmplify } from '../functions/test-amplify/resource';
 import { stripePayment } from '../functions/stripe-payment/resource';
 
 const schema = a.schema({
@@ -193,7 +192,7 @@ const schema = a.schema({
       allow.publicApiKey()
     ])
 })
-.authorization(allow => [allow.resource(nashWebhook), allow.resource(testAmplify), allow.resource(stripePayment)]); // allow query and subscription operations but not mutations
+.authorization(allow => [allow.resource(nashWebhook), allow.resource(stripePayment)]); // allow query and subscription operations but not mutations
 
 
 export type Schema = ClientSchema<typeof schema>;

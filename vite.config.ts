@@ -7,9 +7,14 @@ export default defineConfig(({ mode }) => {
   // Load env variables
   const env = loadEnv(mode, process.cwd(), '')
   
+  // Use the same environment variable names as the Nash service
+  const nashApiKey = mode === 'development' ? env.VITE_NASH_API_KEY_DEV : env.VITE_NASH_API_KEY_PROD;
+  const nashOrgId = mode === 'development' ? env.VITE_NASH_ORG_ID_DEV : env.VITE_NASH_ORG_ID_PROD;
+  
   console.log('Configuring Vite with Nash API proxy...');
-  console.log('Nash API Key available:', !!env.VITE_NASH_API_KEY);
-  console.log('Nash Org ID available:', !!env.VITE_NASH_ORG_ID);
+  console.log('Mode:', mode);
+  console.log('Nash API Key available:', !!nashApiKey);
+  console.log('Nash Org ID available:', !!nashOrgId);
   
   return {
     plugins: [react()],
@@ -24,10 +29,8 @@ export default defineConfig(({ mode }) => {
           target: 'https://api.sandbox.usenash.com',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/nash-api/, ''),
-          headers: {
-            'Authorization': `Bearer ${env.VITE_NASH_API_KEY || ''}`,
-            'X-Nash-Org-ID': env.VITE_NASH_ORG_ID || ''
-          },
+          // Don't set headers here - let the client handle authentication
+          // This prevents duplicate headers that can cause 401 errors
           configure: (proxy, _options) => {
             proxy.on('error', (err, _req, _res) => {
               console.log('Proxy error:', err);
@@ -36,17 +39,12 @@ export default defineConfig(({ mode }) => {
               console.log('Proxying request:', req.method, req.url);
               console.log('To target:', proxyReq.method, proxyReq.path);
               
-              // Only log headers without sensitive information
-              const safeHeaders = { ...proxyReq.getHeaders() };
-              delete safeHeaders['authorization'];
-              delete safeHeaders['x-nash-org-id'];
-              console.log('With headers:', safeHeaders);
-              
-              // Log if credentials are being sent
-              console.log('API credentials included:', 
-                !!proxyReq.getHeader('authorization') && 
-                !!proxyReq.getHeader('x-nash-org-id')
-              );
+              // Log headers for debugging (without sensitive info)
+              const headers = proxyReq.getHeaders();
+              const safeHeaders = { ...headers };
+              if (safeHeaders['authorization']) safeHeaders['authorization'] = '[REDACTED]';
+              if (safeHeaders['x-nash-org-id']) safeHeaders['x-nash-org-id'] = '[REDACTED]';
+              console.log('Proxy headers:', safeHeaders);
             });
             proxy.on('proxyRes', (proxyRes, req, _res) => {
               console.log('Received response for:', req.url);
