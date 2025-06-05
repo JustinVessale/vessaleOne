@@ -2,7 +2,6 @@ import { XMarkIcon, ShoppingBagIcon } from '@heroicons/react/24/solid';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { StorageImage } from '@/components/ui/s3-image';
-import { useState } from 'react';
 
 export function Cart() {
   const { state, removeItem, updateQuantity, toggleCart, subtotal, serviceFee, total } = useCart();
