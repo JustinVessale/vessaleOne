@@ -1,6 +1,6 @@
 import { generateClient } from "aws-amplify/api";
 import { type Schema } from "../amplify/data/resource";
-import outputs from "../amplify_outputs.json";
+import outputs from "../amplify_outputs_dev_6.5.2025.json";
 import { Amplify } from "aws-amplify";
 import * as fs from "fs";
 import * as path from "path";
@@ -60,8 +60,39 @@ function parseCsv(csvContent: string): CsvMenuItem[] {
     throw new Error('CSV file is empty');
   }
 
+  // Helper function to parse a CSV line with proper quote handling
+  function parseCsvLine(line: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        // Handle escaped quotes (double quotes)
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++; // Skip the next quote
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    // Add the last field
+    result.push(current.trim());
+    
+    return result;
+  }
+
   // Parse header row
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase());
   
   // Validate required headers
   const requiredHeaders = ['name', 'description', 'price', 'category'];
@@ -75,7 +106,7 @@ function parseCsv(csvContent: string): CsvMenuItem[] {
   const items: CsvMenuItem[] = [];
   
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim());
+    const values = parseCsvLine(lines[i]);
     
     if (values.length < headers.length) {
       console.warn(`⚠️  Row ${i + 1} has fewer columns than expected, skipping...`);
@@ -186,17 +217,12 @@ async function createMenuItem(item: CsvMenuItem, categoryId: string, rowNumber: 
     throw new Error(`Invalid price: ${item.price}`);
   }
 
-  const isActive = item.isActive ? 
-    (item.isActive.toLowerCase() === 'true' || item.isActive === '1') : 
-    true;
-
   const menuItemData = {
     name: item.name,
     description: item.description,
     price: price,
     categoryId: categoryId,
-    imageUrl: item.imageUrl || undefined,
-    isActive: isActive
+    imageUrl: item.imageUrl || undefined
   };
 
   const result = await client.models.MenuItem.create(menuItemData);
