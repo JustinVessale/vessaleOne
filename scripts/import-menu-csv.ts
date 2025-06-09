@@ -1,6 +1,6 @@
 import { generateClient } from "aws-amplify/api";
 import { type Schema } from "../amplify/data/resource";
-import outputs from "../amplify_outputs.json";
+import outputs from "../amplify_outputs_dev_6.5.2025.json";
 import { Amplify } from "aws-amplify";
 import * as fs from "fs";
 import * as path from "path";
@@ -51,7 +51,7 @@ function askQuestion(rl: readline.Interface, question: string): Promise<string> 
 }
 
 /**
- * Parse CSV content into menu items
+ * Parse CSV content into menu items with proper quote handling
  */
 function parseCsv(csvContent: string): CsvMenuItem[] {
   const lines = csvContent.split('\n').filter(line => line.trim());
@@ -60,8 +60,53 @@ function parseCsv(csvContent: string): CsvMenuItem[] {
     throw new Error('CSV file is empty');
   }
 
+  // More robust CSV parsing function
+  function parseCSVLine(text: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    let i = 0;
+    
+    while (i < text.length) {
+      const char = text[i];
+      
+      if (char === '"') {
+        if (inQuotes) {
+          // Check if this is an escaped quote (double quote)
+          if (i + 1 < text.length && text[i + 1] === '"') {
+            current += '"';
+            i += 2; // Skip both quotes
+            continue;
+          } else {
+            // End of quoted field
+            inQuotes = false;
+          }
+        } else {
+          // Start of quoted field
+          inQuotes = true;
+        }
+      } else if (char === ',' && !inQuotes) {
+        // Field separator - add current field to result
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+      
+      i++;
+    }
+    
+    // Add the last field
+    result.push(current.trim());
+    
+    return result;
+  }
+
   // Parse header row
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const headerLine = lines[0];
+  console.log('Header line:', headerLine);
+  const headers = parseCSVLine(headerLine).map(h => h.toLowerCase());
+  console.log('Parsed headers:', headers);
   
   // Validate required headers
   const requiredHeaders = ['name', 'description', 'price', 'category'];
@@ -75,10 +120,14 @@ function parseCsv(csvContent: string): CsvMenuItem[] {
   const items: CsvMenuItem[] = [];
   
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim());
+    const line = lines[i];
+    console.log(`Parsing line ${i + 1}:`, line);
+    
+    const values = parseCSVLine(line);
+    console.log(`Parsed values:`, values);
     
     if (values.length < headers.length) {
-      console.warn(`⚠️  Row ${i + 1} has fewer columns than expected, skipping...`);
+      console.warn(`⚠️  Row ${i + 1} has fewer columns than expected (${values.length} vs ${headers.length}), skipping...`);
       continue;
     }
 
@@ -117,13 +166,21 @@ function parseCsv(csvContent: string): CsvMenuItem[] {
       }
     });
 
+    console.log(`Parsed item:`, item);
+
     if (item.name && item.description && item.price && item.category) {
       items.push(item);
     } else {
-      console.warn(`⚠️  Row ${i + 1} is missing required fields, skipping...`);
+      console.warn(`⚠️  Row ${i + 1} is missing required fields:`, {
+        name: !!item.name,
+        description: !!item.description,
+        price: !!item.price,
+        category: !!item.category
+      });
     }
   }
 
+  console.log(`Final parsed items count: ${items.length}`);
   return items;
 }
 
@@ -186,17 +243,12 @@ async function createMenuItem(item: CsvMenuItem, categoryId: string, rowNumber: 
     throw new Error(`Invalid price: ${item.price}`);
   }
 
-  const isActive = item.isActive ? 
-    (item.isActive.toLowerCase() === 'true' || item.isActive === '1') : 
-    true;
-
   const menuItemData = {
     name: item.name,
     description: item.description,
     price: price,
     categoryId: categoryId,
-    imageUrl: item.imageUrl || undefined,
-    isActive: isActive
+    imageUrl: item.imageUrl || undefined
   };
 
   const result = await client.models.MenuItem.create(menuItemData);
