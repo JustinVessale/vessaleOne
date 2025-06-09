@@ -51,7 +51,7 @@ function askQuestion(rl: readline.Interface, question: string): Promise<string> 
 }
 
 /**
- * Parse CSV content into menu items
+ * Parse CSV content into menu items with proper quote handling
  */
 function parseCsv(csvContent: string): CsvMenuItem[] {
   const lines = csvContent.split('\n').filter(line => line.trim());
@@ -60,29 +60,40 @@ function parseCsv(csvContent: string): CsvMenuItem[] {
     throw new Error('CSV file is empty');
   }
 
-  // Helper function to parse a CSV line with proper quote handling
-  function parseCsvLine(line: string): string[] {
+  // More robust CSV parsing function
+  function parseCSVLine(text: string): string[] {
     const result: string[] = [];
     let current = '';
     let inQuotes = false;
+    let i = 0;
     
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
+    while (i < text.length) {
+      const char = text[i];
       
       if (char === '"') {
-        // Handle escaped quotes (double quotes)
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"';
-          i++; // Skip the next quote
+        if (inQuotes) {
+          // Check if this is an escaped quote (double quote)
+          if (i + 1 < text.length && text[i + 1] === '"') {
+            current += '"';
+            i += 2; // Skip both quotes
+            continue;
+          } else {
+            // End of quoted field
+            inQuotes = false;
+          }
         } else {
-          inQuotes = !inQuotes;
+          // Start of quoted field
+          inQuotes = true;
         }
       } else if (char === ',' && !inQuotes) {
+        // Field separator - add current field to result
         result.push(current.trim());
         current = '';
       } else {
         current += char;
       }
+      
+      i++;
     }
     
     // Add the last field
@@ -92,7 +103,10 @@ function parseCsv(csvContent: string): CsvMenuItem[] {
   }
 
   // Parse header row
-  const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase());
+  const headerLine = lines[0];
+  console.log('Header line:', headerLine);
+  const headers = parseCSVLine(headerLine).map(h => h.toLowerCase());
+  console.log('Parsed headers:', headers);
   
   // Validate required headers
   const requiredHeaders = ['name', 'description', 'price', 'category'];
@@ -106,10 +120,14 @@ function parseCsv(csvContent: string): CsvMenuItem[] {
   const items: CsvMenuItem[] = [];
   
   for (let i = 1; i < lines.length; i++) {
-    const values = parseCsvLine(lines[i]);
+    const line = lines[i];
+    console.log(`Parsing line ${i + 1}:`, line);
+    
+    const values = parseCSVLine(line);
+    console.log(`Parsed values:`, values);
     
     if (values.length < headers.length) {
-      console.warn(`⚠️  Row ${i + 1} has fewer columns than expected, skipping...`);
+      console.warn(`⚠️  Row ${i + 1} has fewer columns than expected (${values.length} vs ${headers.length}), skipping...`);
       continue;
     }
 
@@ -148,13 +166,21 @@ function parseCsv(csvContent: string): CsvMenuItem[] {
       }
     });
 
+    console.log(`Parsed item:`, item);
+
     if (item.name && item.description && item.price && item.category) {
       items.push(item);
     } else {
-      console.warn(`⚠️  Row ${i + 1} is missing required fields, skipping...`);
+      console.warn(`⚠️  Row ${i + 1} is missing required fields:`, {
+        name: !!item.name,
+        description: !!item.description,
+        price: !!item.price,
+        category: !!item.category
+      });
     }
   }
 
+  console.log(`Final parsed items count: ${items.length}`);
   return items;
 }
 

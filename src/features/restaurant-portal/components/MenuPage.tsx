@@ -196,22 +196,20 @@ export function MenuPage() {
       }
       
       // Define filter to fetch restaurant or location-specific menu categories
-      const categoryFilter = locationId 
-        ? { 
-            and: [
-              { restaurantId: { eq: restaurant.id } },
-              { or: [
-                { locationId: { eq: locationId } },
-                { locationId: { attributeExists: false } }
-              ]}
-            ] 
-          }
-        : { restaurantId: { eq: restaurant.id } };
-        
+      // First, try to get restaurant-level categories (no locationId set)
+      const restaurantFilter = { 
+        restaurantId: { eq: restaurant.id },
+        locationId: { attributeExists: false }
+      };
+      
+      console.log('Fetching restaurant-level categories with filter:', restaurantFilter);
+      
       const { data: categoriesData, errors: categoryErrors } = await client.models.MenuCategory.list({
-        filter: categoryFilter,
-        selectionSet: ['id', 'name', 'description']
+        filter: restaurantFilter,
+        selectionSet: ['id', 'name', 'description', 'restaurantId', 'locationId']
       });
+      
+      console.log('Categories response:', { categoriesData, categoryErrors });
       
       if (categoryErrors) {
         console.error('Error fetching menu categories:', categoryErrors);
@@ -219,16 +217,26 @@ export function MenuPage() {
       }
       
       if (!categoriesData || categoriesData.length === 0) {
+        console.log('No restaurant-level categories found');
         return [];
       }
       
-      // For each category, fetch its menu items
+      console.log(`Found ${categoriesData.length} categories`);
+      
+      // For each category, fetch its menu items using relational query
       const categoriesWithItems = await Promise.all(
         categoriesData.map(async (category) => {
-          const { data: menuItems, errors: menuItemErrors } = await client.models.MenuItem.list({
-            filter: { categoryId: { eq: category.id } },
-            selectionSet: ['id', 'name', 'description', 'price', 'imageUrl', 'categoryId']
-          });
+          console.log(`Fetching menu items for category: ${category.name} (${category.id})`);
+          
+          // Use relational query approach that works correctly
+          const { data: categoryWithItems, errors: menuItemErrors } = await client.models.MenuCategory.get(
+            { id: category.id },
+            {
+              selectionSet: ['id', 'name', 'description', 'restaurantId', 'locationId', 'menuItems.*']
+            }
+          );
+          
+          console.log(`Menu items for ${category.name}:`, { count: categoryWithItems?.menuItems?.length, errors: menuItemErrors });
           
           if (menuItemErrors) {
             console.error(`Error fetching menu items for category ${category.id}:`, menuItemErrors);
@@ -239,7 +247,7 @@ export function MenuPage() {
           }
           
           // Transform menu items to match our interface by adding UI properties
-          const items = menuItems?.map(item => ({
+          const items = categoryWithItems?.menuItems?.map(item => ({
             ...item,
             isAvailable: true, // Default to true since availability status is not in the schema
             isPopular: false,   // Default to false since popularity status is not in the schema
@@ -251,6 +259,8 @@ export function MenuPage() {
           };
         })
       );
+      
+      console.log('Final categories with items:', categoriesWithItems.map(c => ({ name: c.name, itemCount: c.items.length })));
       
       return categoriesWithItems as MenuCategoryWithItems[];
     },
