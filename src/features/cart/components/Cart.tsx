@@ -2,10 +2,27 @@ import { XMarkIcon, ShoppingBagIcon } from '@heroicons/react/24/solid';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { StorageImage } from '@/components/ui/s3-image';
+import { useState, useEffect } from 'react';
 
 export function Cart() {
   const { state, removeItem, updateQuantity, toggleCart, subtotal, serviceFee, total } = useCart();
   const navigate = useNavigate();
+
+  // Track if we're on mobile screen
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024); // lg breakpoint
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+
 
   const handleCheckout = () => {
     if (state.isOpen) {
@@ -96,9 +113,9 @@ export function Cart() {
           </div>
           
           <button 
-            className="w-full bg-blue-400 text-white py-3 px-4 rounded-lg 
-                       hover:bg-blue-500 transition-colors font-medium
-                       border-2 border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg 
+                       hover:bg-blue-700 transition-colors font-medium
+                       border-2 border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
                        shadow-sm"
             onClick={handleCheckout}
           >
@@ -120,19 +137,30 @@ export function Cart() {
         <CartContent />
       </div>
 
-      {/* Mobile version (slide-up panel) */}
-      <div className={`fixed inset-0 z-[100] lg:hidden ${state.isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+      {/* Mobile version (slide-up panel) - Only show on mobile screens */}
+      {state.isOpen && isMobile && (
         <div 
-          className={`fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
-            state.isOpen ? 'opacity-100' : 'opacity-0'
-          }`} 
-          onClick={toggleCart} 
-        />
-        <div className="absolute inset-x-0 bottom-0 max-h-[80vh] flex">
+          className="fixed inset-0 bg-black/50 flex items-end"
+          style={{ 
+            zIndex: 9999,
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0 
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              toggleCart();
+            }
+          }}
+        >
           <div 
-            className={`w-full bg-white shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out rounded-t-xl ${
-              state.isOpen ? 'translate-y-0' : 'translate-y-full'
-            }`}
+            className="w-full bg-white shadow-xl rounded-t-xl"
+            style={{ 
+              maxHeight: '80vh',
+              minHeight: '50vh'
+            }}
           >
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <div className="flex-1 text-center">
@@ -148,7 +176,7 @@ export function Cart() {
             <CartContent />
           </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

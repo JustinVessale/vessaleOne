@@ -5,6 +5,8 @@ import type { Schema } from '../../../../amplify/data/resource';
 import { MenuCategory } from '../../menu/components/MenuCategory';
 import { Cart } from '../../cart/components/Cart';
 import { StorageImage } from '@/components/ui/s3-image';
+import { ShoppingCartIcon } from '@heroicons/react/24/outline';
+import { useCart } from '../../cart/context/CartContext';
 
 const client = generateClient<Schema>();
 
@@ -102,6 +104,9 @@ export function RestaurantPage() {
     }
   });
 
+  const { toggleCart, state } = useCart();
+  const itemCount = state.items.reduce((sum, item) => sum + item.quantity, 0);
+
   if (isLoading) {
     return <div className="animate-pulse h-screen bg-gray-100" />;
   }
@@ -176,7 +181,7 @@ export function RestaurantPage() {
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Menu Content - Takes available space */}
             <div className="flex-1">
-              <div className="space-y-6">
+              <div className="space-y-6 pb-20 lg:pb-0">
                 {hasMenuCategories && menuCategories.map((category: any) => (
                   <MenuCategory 
                     key={category.id} 
@@ -202,6 +207,23 @@ export function RestaurantPage() {
           </div>
         </div>
       </div>
+
+      {/* Uber Eats Style Floating Cart Button */}
+      {itemCount > 0 && (
+        <div className="lg:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 z-10">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleCart();
+            }}
+            className="bg-black text-white px-6 py-3 rounded-full shadow-lg hover:bg-gray-800 transition-all duration-200 flex items-center space-x-3 min-w-[160px] justify-center"
+          >
+            <ShoppingCartIcon className="h-5 w-5" />
+            <span className="font-medium">View cart • {itemCount}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
