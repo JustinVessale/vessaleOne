@@ -1,4 +1,5 @@
 import { createContext, useContext, useReducer, ReactNode } from 'react';
+import { PLATFORM_CONFIG } from '@/config/constants';
 
 export type CartItem = {
   id: string;
@@ -33,6 +34,8 @@ type CartContextType = {
   updateInstructions: (id: string, instructions: string) => void;
   clearCart: () => void;
   toggleCart: () => void;
+  subtotal: number;
+  serviceFee: number;
   total: number;
 };
 
@@ -136,10 +139,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'TOGGLE_CART' });
   };
 
-  const total = state.items.reduce(
+  const subtotal = state.items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
+
+  const serviceFee = PLATFORM_CONFIG.SERVICE_FEE;
+  const total = subtotal + serviceFee;
 
   return (
     <CartContext.Provider
@@ -151,6 +157,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updateInstructions,
         clearCart,
         toggleCart,
+        subtotal,
+        serviceFee,
         total,
       }}
     >

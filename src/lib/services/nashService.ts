@@ -15,17 +15,35 @@ const NASH_API_BASE_URL = import.meta.env.DEV
 // Get the appropriate Nash API key based on the environment
 const getNashAPIKey = () => {
   const isProd = import.meta.env.PROD === true;
-  return isProd 
-    ? import.meta.env.VITE_NASH_API_KEY_PROD
-    : import.meta.env.VITE_NASH_API_KEY_DEV;
+  const isDev = import.meta.env.DEV === true;
+  
+  if (isDev) {
+    // In development, use dev key (sandbox)
+    return import.meta.env.VITE_NASH_API_KEY_DEV;
+  } else if (isProd) {
+    // In production, use prod key
+    return import.meta.env.VITE_NASH_API_KEY_PROD;
+  } else {
+    // Fallback to dev key for other environments (staging, etc.)
+    return import.meta.env.VITE_NASH_API_KEY_DEV;
+  }
 };
 
 // Get the appropriate Nash Org ID based on the environment
 const getNashOrgID = () => {
   const isProd = import.meta.env.PROD === true;
-  return isProd 
-    ? import.meta.env.VITE_NASH_ORG_ID_PROD
-    : import.meta.env.VITE_NASH_ORG_ID_DEV;
+  const isDev = import.meta.env.DEV === true;
+  
+  if (isDev) {
+    // In development, use dev org ID (sandbox)
+    return import.meta.env.VITE_NASH_ORG_ID_DEV;
+  } else if (isProd) {
+    // In production, use prod org ID
+    return import.meta.env.VITE_NASH_ORG_ID_PROD;
+  } else {
+    // Fallback to dev org ID for other environments (staging, etc.)
+    return import.meta.env.VITE_NASH_ORG_ID_DEV;
+  }
 };
 
 // Nash API credentials - should be stored in environment variables
@@ -35,7 +53,9 @@ const NASH_DISPATCH_STRATEGY_ID = import.meta.env.VITE_NASH_DISPATCH_STRATEGY_ID
 
 // Log configuration on startup
 console.log('Nash Service Configuration:');
+console.log('- Environment:', import.meta.env.DEV ? 'Development' : import.meta.env.PROD ? 'Production' : 'Other');
 console.log('- API credentials configured:', !!NASH_API_KEY && !!NASH_ORG_ID);
+console.log('- Using sandbox API:', import.meta.env.DEV || !import.meta.env.PROD);
 console.log('- Dispatch strategy configured:', !!NASH_DISPATCH_STRATEGY_ID);
 console.log('- API base URL:', NASH_API_BASE_URL);
 
@@ -181,7 +201,8 @@ async function nashRequest<T>(
 ): Promise<T> {
   // Check if API credentials are configured
   if (!NASH_API_KEY || !NASH_ORG_ID) {
-    console.error('Nash API credentials not configured. Please set VITE_NASH_API_KEY and VITE_NASH_ORG_ID environment variables.');
+    const envSuffix = import.meta.env.DEV ? '_DEV' : import.meta.env.PROD ? '_PROD' : '_DEV';
+    console.error(`Nash API credentials not configured. Please set VITE_NASH_API_KEY${envSuffix} and VITE_NASH_ORG_ID${envSuffix} environment variables.`);
     throw new Error('Nash API credentials not configured');
   }
 

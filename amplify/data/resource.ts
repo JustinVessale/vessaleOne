@@ -1,5 +1,6 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { nashWebhook } from '../functions/nash-webhook/resource';
+import { stripePayment } from '../functions/stripe-payment/resource';
 
 const schema = a.schema({
   // Custom types need to be defined inside the schema
@@ -107,6 +108,8 @@ const schema = a.schema({
         port: a.integer(),
         isEnabled: a.boolean(),
       }),
+      stripeAccountId: a.string(),
+      stripeAccountStatus: a.enum(['PENDING', 'ACTIVE', 'REJECTED']),
     })
     .authorization((allow) => [
       allow.publicApiKey(),
@@ -153,7 +156,7 @@ const schema = a.schema({
       items: a.hasMany('OrderItem', 'orderId'),
       total: a.float(),
       status: a.enum(['PENDING', 'PAYMENT_PROCESSING', 'PAID', 'RESTAURANT_ACCEPTED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED']),
-      stripePaymentIntentId: a.string(),
+      stripeCheckoutSessionId: a.string(),
       specialInstructions: a.string(),
       deliveryAddress: a.string(),
       driver: a.ref('Driver'),
@@ -189,7 +192,7 @@ const schema = a.schema({
       allow.publicApiKey()
     ])
 })
-.authorization(allow => [allow.resource(nashWebhook)]); // allow query and subscription operations but not mutations
+.authorization(allow => [allow.resource(nashWebhook), allow.resource(stripePayment)]); // allow query and subscription operations but not mutations
 
 
 export type Schema = ClientSchema<typeof schema>;

@@ -35,7 +35,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.1.5",
-    "stripe": "^17.6.0",
+    "stripe": "^18.1.1",
     "svix": "^1.61.4",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7"
@@ -43,6 +43,7 @@
   "devDependencies": {
     "@aws-amplify/backend": "^1.14.3",
     "@aws-amplify/backend-cli": "^1.4.11",
+    "@types/lodash": "^4.17.17",
     "@types/node": "^22.13.1",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",

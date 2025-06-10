@@ -8,7 +8,7 @@ import { StorageImage } from '@/components/ui/s3-image';
 import { generateClient } from 'aws-amplify/api';
 import type { Schema } from '../../../../amplify/data/resource';
 import { useQuery } from '@tanstack/react-query';
-import { uploadImage, getImageUrl } from '@/lib/storage';
+import { uploadImage } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 
 const client = generateClient<Schema>();
@@ -38,6 +38,7 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [imageError, setImageError] = useState(false);
   
   // Handle click outside to close menu
   useEffect(() => {
@@ -66,12 +67,16 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
       });
     }
   }, [showActions]);
+  
+  const handleImageError = () => {
+    setImageError(true);
+  };
 
   return (
     <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
       <div className="p-4">
         <div className="flex justify-between items-start">
-          <div className="flex-1">
+          <div className={`${item.imageUrl && !imageError ? "flex-1" : "w-full"}`}>
             <div className="flex items-center mb-1">
               <h3 className="text-lg font-medium">{item.name}</h3>
               {item.isPopular && (
@@ -85,7 +90,7 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
               <span className="font-semibold">${(item.price || 0).toFixed(2)}</span>
             </div>
           </div>
-          {item.imageUrl && (
+          {item.imageUrl && !imageError && (
             <div className="ml-4">
               <StorageImage 
                 src={item.imageUrl} 
@@ -93,7 +98,7 @@ function MenuItemCard({ item, onEdit, onDelete, onToggleAvailability }: {
                 className="h-16 w-16 object-cover rounded-md"
                 width={64}
                 height={64}
-                fallbackSrc="/placeholder-food.jpg"
+                onError={handleImageError}
               />
             </div>
           )}
@@ -191,22 +196,20 @@ export function MenuPage() {
       }
       
       // Define filter to fetch restaurant or location-specific menu categories
-      const categoryFilter = locationId 
-        ? { 
-            and: [
-              { restaurantId: { eq: restaurant.id } },
-              { or: [
-                { locationId: { eq: locationId } },
-                { locationId: { attributeExists: false } }
-              ]}
-            ] 
-          }
-        : { restaurantId: { eq: restaurant.id } };
-        
+      // First, try to get restaurant-level categories (no locationId set)
+      const restaurantFilter = { 
+        restaurantId: { eq: restaurant.id },
+        locationId: { attributeExists: false }
+      };
+      
+      console.log('Fetching restaurant-level categories with filter:', restaurantFilter);
+      
       const { data: categoriesData, errors: categoryErrors } = await client.models.MenuCategory.list({
-        filter: categoryFilter,
-        selectionSet: ['id', 'name', 'description']
+        filter: restaurantFilter,
+        selectionSet: ['id', 'name', 'description', 'restaurantId', 'locationId']
       });
+      
+      console.log('Categories response:', { categoriesData, categoryErrors });
       
       if (categoryErrors) {
         console.error('Error fetching menu categories:', categoryErrors);
@@ -214,16 +217,26 @@ export function MenuPage() {
       }
       
       if (!categoriesData || categoriesData.length === 0) {
+        console.log('No restaurant-level categories found');
         return [];
       }
       
-      // For each category, fetch its menu items
+      console.log(`Found ${categoriesData.length} categories`);
+      
+      // For each category, fetch its menu items using relational query
       const categoriesWithItems = await Promise.all(
         categoriesData.map(async (category) => {
-          const { data: menuItems, errors: menuItemErrors } = await client.models.MenuItem.list({
-            filter: { categoryId: { eq: category.id } },
-            selectionSet: ['id', 'name', 'description', 'price', 'imageUrl', 'categoryId']
-          });
+          console.log(`Fetching menu items for category: ${category.name} (${category.id})`);
+          
+          // Use relational query approach that works correctly
+          const { data: categoryWithItems, errors: menuItemErrors } = await client.models.MenuCategory.get(
+            { id: category.id },
+            {
+              selectionSet: ['id', 'name', 'description', 'restaurantId', 'locationId', 'menuItems.*']
+            }
+          );
+          
+          console.log(`Menu items for ${category.name}:`, { count: categoryWithItems?.menuItems?.length, errors: menuItemErrors });
           
           if (menuItemErrors) {
             console.error(`Error fetching menu items for category ${category.id}:`, menuItemErrors);
@@ -234,7 +247,7 @@ export function MenuPage() {
           }
           
           // Transform menu items to match our interface by adding UI properties
-          const items = menuItems?.map(item => ({
+          const items = categoryWithItems?.menuItems?.map(item => ({
             ...item,
             isAvailable: true, // Default to true since availability status is not in the schema
             isPopular: false,   // Default to false since popularity status is not in the schema
@@ -246,6 +259,8 @@ export function MenuPage() {
           };
         })
       );
+      
+      console.log('Final categories with items:', categoriesWithItems.map(c => ({ name: c.name, itemCount: c.items.length })));
       
       return categoriesWithItems as MenuCategoryWithItems[];
     },
@@ -272,36 +287,32 @@ export function MenuPage() {
     if (!restaurant?.id || !bannerImageFile) return;
     setIsBannerUploading(true);
     try {
-      let url: string;
+      let storageKey: string;
       if (locationId) {
         // Compose S3 path for location
         const path = `restaurant/${restaurant.id}/${locationId}/banner`;
-        const fileName = `${Date.now()}-${bannerImageFile.name.replace(/\s+/g, '-').toLowerCase()}`;
-        const fullPath = `${path}/${fileName}`;
-        await uploadImage(bannerImageFile, path);
-        url = await getImageUrl(fullPath);
-        setBannerImageUrl(url);
+        const uploadResult = await uploadImage(bannerImageFile, path);
+        storageKey = uploadResult.key;
+        setBannerImageUrl(storageKey);
         setBannerImageFile(null);
         setBannerPreview(null);
         // Save the bannerImageUrl to the RestaurantLocation model
         await client.models.RestaurantLocation.update({
           id: locationId,
-          bannerImageUrl: url,
+          bannerImageUrl: storageKey,
         });
       } else {
         // Compose S3 path for restaurant
         const path = `restaurant/${restaurant.id}/banner`;
-        const fileName = `${Date.now()}-${bannerImageFile.name.replace(/\s+/g, '-').toLowerCase()}`;
-        const fullPath = `${path}/${fileName}`;
-        await uploadImage(bannerImageFile, path);
-        url = await getImageUrl(fullPath);
-        setBannerImageUrl(url);
+        const uploadResult = await uploadImage(bannerImageFile, path);
+        storageKey = uploadResult.key;
+        setBannerImageUrl(storageKey);
         setBannerImageFile(null);
         setBannerPreview(null);
         // Save the bannerImageUrl to the Restaurant model
         await client.models.Restaurant.update({
           id: restaurant.id,
-          bannerImageUrl: url,
+          bannerImageUrl: storageKey,
         });
       }
       toast({ title: 'Banner updated', variant: 'default' });

@@ -2,9 +2,10 @@
  * UI component that provides a user interface for selecting and previewing images before upload.
  * Handles the file selection process but delegates the actual upload to a callback function.
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from './button';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { getImageUrl } from '@/lib/storage';
 
 interface ImageUploaderProps {
   onImageSelected: (file: File) => void;
@@ -25,8 +26,33 @@ export function ImageUploader({
   label = 'Upload Image',
   isUploading = false
 }: ImageUploaderProps) {
-  const [preview, setPreview] = useState<string | null>(previewUrl || null);
+  const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle preview URL changes
+  useEffect(() => {
+    const loadPreview = async () => {
+      if (!previewUrl) {
+        setPreview(null);
+        return;
+      }
+
+      try {
+        // If it's a storage key, get a pre-signed URL
+        if (!previewUrl.startsWith('http')) {
+          const url = await getImageUrl(previewUrl);
+          setPreview(url);
+        } else {
+          setPreview(previewUrl);
+        }
+      } catch (error) {
+        console.error('Error loading preview:', error);
+        setPreview(null);
+      }
+    };
+
+    loadPreview();
+  }, [previewUrl]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,46 +86,8 @@ export function ImageUploader({
   };
 
   return (
-    <div className={`w-full ${className}`}>
-      <div className="flex flex-col items-center">
-        {preview ? (
-          <div className="relative w-full">
-            <div className="relative rounded-lg overflow-hidden border border-gray-200 w-full aspect-video flex items-center justify-center">
-              <img
-                src={preview}
-                alt="Preview"
-                className="w-full h-full object-cover"
-              />
-              <button
-                type="button"
-                onClick={handleRemoveImage}
-                className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
-                aria-label="Remove image"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div 
-            className="border-2 border-dashed border-gray-300 rounded-lg p-8 w-full flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors"
-            onClick={handleBrowseClick}
-          >
-            <ImageIcon className="h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-sm text-gray-500 mb-2">Drag and drop an image here or</p>
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="sm"
-              onClick={handleBrowseClick}
-              disabled={isUploading}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              {label}
-            </Button>
-          </div>
-        )}
-        
+    <div className={`space-y-4 ${className}`}>
+      <div className="flex items-center gap-4">
         <input
           type="file"
           ref={fileInputRef}
@@ -108,7 +96,51 @@ export function ImageUploader({
           className="hidden"
           disabled={isUploading}
         />
+        
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleBrowseClick}
+          disabled={isUploading}
+          className="flex items-center gap-2"
+        >
+          <Upload className="h-4 w-4" />
+          {label}
+        </Button>
+        
+        {preview && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleRemoveImage}
+            disabled={isUploading}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <X className="h-4 w-4" />
+            Remove
+          </Button>
+        )}
       </div>
+      
+      {preview ? (
+        <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-gray-200">
+          <img
+            src={preview}
+            alt="Preview"
+            className="w-full h-full object-cover"
+          />
+          {isUploading && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="w-32 h-32 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+          <ImageIcon className="h-8 w-8 text-gray-400" />
+        </div>
+      )}
     </div>
   );
 } 

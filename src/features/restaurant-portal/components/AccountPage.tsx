@@ -3,6 +3,7 @@ import { generateClient } from 'aws-amplify/api';
 import { type Schema } from '../../../../amplify/data/resource';
 import { Loader2, User, Building, Mail, Phone, MapPin, Clock, Upload, Trash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { StorageImage } from '@/components/ui/s3-image';
 
 const client = generateClient<Schema>();
 
@@ -237,7 +238,7 @@ export function AccountPage() {
           <div className="p-6">
             {restaurant.banner && (
               <div className="mb-6 relative">
-                <img
+                <StorageImage
                   src={restaurant.banner}
                   alt={restaurant.name}
                   className="w-full h-40 object-cover rounded-md"
@@ -258,7 +259,7 @@ export function AccountPage() {
             <div className="flex items-center space-x-4 mb-6">
               {restaurant.logo && (
                 <div className="relative">
-                  <img
+                  <StorageImage
                     src={restaurant.logo}
                     alt={restaurant.name}
                     className="w-20 h-20 rounded-full object-cover"

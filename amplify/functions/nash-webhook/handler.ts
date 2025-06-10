@@ -6,6 +6,13 @@ import type { Schema } from '../../data/resource.js';
 import { getAmplifyDataClientConfig } from '@aws-amplify/backend/function/runtime';
 import { env } from '$amplify/env/nash-webhook.js';
 
+// Initialize Amplify using the official pattern
+const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
+
+Amplify.configure(resourceConfig, libraryOptions);
+
+const client = generateClient<Schema>();
+
 // Define types for Nash webhook data
 interface NashWebhookData {
   type: string;
@@ -71,19 +78,8 @@ interface Order {
 // Get the webhook secret from environment variable
 const NASH_WEBHOOK_SECRET = process.env.NASH_WEBHOOK_SECRET || '';
 
-// Initialize client outside the handler for reuse across invocations
-let client: ReturnType<typeof generateClient<Schema>>;
-
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    // Initialize Amplify and client if not already done
-    if (!client) {
-      const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
-      Amplify.configure(resourceConfig, libraryOptions);
-      client = generateClient<Schema>();
-      console.log('Amplify client initialized');
-    }
-    
     console.log('Received webhook event:', JSON.stringify(event));
     
     // Check if environment variables are set
