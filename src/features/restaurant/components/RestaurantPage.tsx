@@ -212,7 +212,11 @@ export function RestaurantPage() {
       {itemCount > 0 && (
         <div className="lg:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 z-10">
           <button
-            onClick={toggleCart}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleCart();
+            }}
             className="bg-black text-white px-6 py-3 rounded-full shadow-lg hover:bg-gray-800 transition-all duration-200 flex items-center space-x-3 min-w-[160px] justify-center"
           >
             <ShoppingCartIcon className="h-5 w-5" />
