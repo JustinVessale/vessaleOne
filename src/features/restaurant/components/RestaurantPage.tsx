@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '../../../../amplify/data/resource';
@@ -7,6 +7,7 @@ import { Cart } from '../../cart/components/Cart';
 import { StorageImage } from '@/components/ui/s3-image';
 import { ShoppingCartIcon } from '@heroicons/react/24/outline';
 import { useCart } from '../../cart/context/CartContext';
+import { useEffect } from 'react';
 
 const client = generateClient<Schema>();
 
@@ -37,6 +38,7 @@ export function RestaurantPage() {
     restaurantSlug: string;
     locationSlug?: string;
   }>();
+  const navigate = useNavigate();
   
   const { data: restaurant, isLoading } = useQuery<RestaurantData>({
     queryKey: ['restaurant', restaurantSlug, locationSlug],
@@ -107,6 +109,17 @@ export function RestaurantPage() {
   const { toggleCart, state } = useCart();
   const itemCount = state.items.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Automatically redirect to single location when there's only one location
+  useEffect(() => {
+    if (!isLoading && restaurant && !locationSlug) {
+      const locations = restaurant.locations || [];
+      // If there's exactly one location, redirect to it
+      if (locations.length === 1 && locations[0].slug) {
+        navigate(`/${restaurantSlug}/${locations[0].slug}`, { replace: true });
+      }
+    }
+  }, [restaurant, isLoading, locationSlug, restaurantSlug, navigate]);
+
   if (isLoading) {
     return <div className="animate-pulse h-screen bg-gray-100" />;
   }
@@ -153,8 +166,8 @@ export function RestaurantPage() {
         </div>
       </div>
 
-      {/* If this is a chain restaurant without location, show locations picker */}
-      {!locationSlug && hasLocations && (
+      {/* If this is a chain restaurant without location, show locations picker only if there are multiple locations */}
+      {!locationSlug && hasLocations && locations.length > 1 && (
         <div className="bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 py-4">
             <h2 className="font-semibold mb-2">Select a Location</h2>
