@@ -42,6 +42,7 @@ const getAllowedOrigin = (origin?: string): string => {
     'https://main.d2g0w15slq5y17.amplifyapp.com',
     'https://thevessale.com',
     'https://www.thevessale.com',
+    'https://orderthevessale.com',
     'https://www.orderthevessale.com'
   ];
   
