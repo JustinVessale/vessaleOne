@@ -105,6 +105,7 @@ const paymentApi = new RestApi(apiStack, "PaymentApi", {
       'https://*.amplifyapp.com',                     // Generic pattern for other environments
       'https://*.thevessale.com',                     // Production domain
       'https://thevessale.com',                       // Root domain
+      'https://orderthevessale.com',                  // Production domain
       'https://www.orderthevessale.com'               // Additional domain
     ],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
