@@ -7,7 +7,8 @@ import { Cart } from '../../cart/components/Cart';
 import { StorageImage } from '@/components/ui/s3-image';
 import { ShoppingCartIcon } from '@heroicons/react/24/outline';
 import { useCart } from '../../cart/context/CartContext';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { CategoryScroll } from '@/components/ui/category-scroll';
 
 const client = generateClient<Schema>();
 
@@ -39,6 +40,7 @@ export function RestaurantPage() {
     locationSlug?: string;
   }>();
   const navigate = useNavigate();
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>();
   
   const { data: restaurant, isLoading } = useQuery<RestaurantData>({
     queryKey: ['restaurant', restaurantSlug, locationSlug],
@@ -194,6 +196,18 @@ export function RestaurantPage() {
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Menu Content - Takes available space */}
             <div className="flex-1">
+              {/* Category Scroll */}
+              {hasMenuCategories && (
+                <div className="mb-6">
+                  <CategoryScroll
+                    categories={menuCategories}
+                    selectedCategoryId={selectedCategoryId}
+                    onCategorySelect={setSelectedCategoryId}
+                    className="bg-white rounded-lg shadow-sm p-4"
+                  />
+                </div>
+              )}
+              
               <div className="space-y-6 pb-20 lg:pb-0">
                 {hasMenuCategories && menuCategories.map((category: any) => (
                   <MenuCategory 
