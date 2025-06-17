@@ -1,5 +1,4 @@
 import React from 'react';
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 interface CategoryScrollProps {
   categories: Array<{
@@ -51,18 +50,7 @@ export function CategoryScroll({
     scrollToCategory(categoryId);
   }, [onCategorySelect, scrollToCategory]);
 
-  // Scroll left/right
-  const scrollLeft = React.useCallback(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -200, behavior: 'smooth' });
-    }
-  }, []);
 
-  const scrollRight = React.useCallback(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 200, behavior: 'smooth' });
-    }
-  }, []);
 
   // Check scroll position on mount and when categories change
   React.useEffect(() => {
