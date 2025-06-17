@@ -79,25 +79,13 @@ export function CategoryScroll({
 
   return (
     <div className={`relative ${className}`}>
-      {/* Scroll buttons - only show on desktop when needed */}
+      {/* Left gradient indicator */}
       {canScrollLeft && (
-        <button
-          onClick={scrollLeft}
-          className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white border border-gray-200 rounded-full shadow-sm items-center justify-center hover:bg-gray-50 transition-colors"
-          aria-label="Scroll left"
-        >
-          <ChevronLeftIcon className="w-4 h-4 text-gray-600" />
-        </button>
+        <div className="pointer-events-none hidden md:block absolute left-0 top-0 h-full w-8 z-10" style={{background: 'linear-gradient(to right, rgba(0,0,0,0.08) 60%, rgba(0,0,0,0))'}} />
       )}
-      
+      {/* Right gradient indicator */}
       {canScrollRight && (
-        <button
-          onClick={scrollRight}
-          className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white border border-gray-200 rounded-full shadow-sm items-center justify-center hover:bg-gray-50 transition-colors"
-          aria-label="Scroll right"
-        >
-          <ChevronRightIcon className="w-4 h-4 text-gray-600" />
-        </button>
+        <div className="pointer-events-none hidden md:block absolute right-0 top-0 h-full w-8 z-10" style={{background: 'linear-gradient(to left, rgba(0,0,0,0.08) 60%, rgba(0,0,0,0))'}} />
       )}
 
       {/* Scroll container */}
@@ -116,6 +104,7 @@ export function CategoryScroll({
             onClick={() => handleCategoryClick(category.id)}
             className={`
               flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap
+              focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0
               ${selectedCategoryId === category.id
                 ? 'bg-black text-white shadow-md'
                 : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'
