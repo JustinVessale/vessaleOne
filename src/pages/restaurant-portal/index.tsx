@@ -4,6 +4,7 @@ import { getCurrentUser, fetchAuthSession } from 'aws-amplify/auth';
 import { generateClient } from 'aws-amplify/api';
 import { type Schema } from '../../../amplify/data/resource';
 import { Loader2 } from 'lucide-react';
+import { RestaurantSelector } from '@/features/restaurant-portal/components/RestaurantSelector';
 
 const client = generateClient<Schema>();
 
@@ -15,6 +16,8 @@ export default function RestaurantPortalPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [showRestaurantSelector, setShowRestaurantSelector] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>('');
   
   useEffect(() => {
     // Increment counter to detect loops
@@ -65,9 +68,9 @@ export default function RestaurantPortalPage() {
         // Find the restaurant that the user is associated with
         const { data: staffData, errors: staffErrors } = await client.models.RestaurantStaff.list({
           filter: {
-            email: { eq: userEmail }
-          },
-          selectionSet: ['id', 'restaurantId', 'role', 'firstName', 'lastName']
+            email: { eq: userEmail },
+            isActive: { eq: true }
+          }
         });
         
         if (staffErrors) {
@@ -82,8 +85,17 @@ export default function RestaurantPortalPage() {
           setIsLoading(false);
           return;
         }
+
+        // Check if user has access to multiple restaurants
+        if (staffData.length > 1) {
+          console.log('User has access to multiple restaurants, showing selector');
+          setUserEmail(userEmail);
+          setShowRestaurantSelector(true);
+          setIsLoading(false);
+          return;
+        }
         
-        // Store the restaurant ID and role in session storage
+        // Single restaurant access - proceed as before
         const staffMember = staffData[0];
         if (staffMember.restaurantId) sessionStorage.setItem('restaurantId', staffMember.restaurantId);
         if (staffMember.role) sessionStorage.setItem('staffRole', staffMember.role);
@@ -114,8 +126,7 @@ export default function RestaurantPortalPage() {
                 filter: {
                   restaurantId: { eq: staffMember.restaurantId },
                   isActive: { eq: true }
-                },
-                selectionSet: ['id', 'name']
+                }
               });
               
               if (locationsErrors) {
@@ -155,6 +166,13 @@ export default function RestaurantPortalPage() {
     checkAuthAndFetchRestaurant();
   }, []);
 
+  const handleRestaurantSelected = () => {
+    // Set authenticated state and hide selector
+    setIsAuthenticated(true);
+    setShowRestaurantSelector(false);
+    setIsLoading(false);
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -188,6 +206,15 @@ export default function RestaurantPortalPage() {
           Go to Login
         </button>
       </div>
+    );
+  }
+
+  if (showRestaurantSelector) {
+    return (
+      <RestaurantSelector 
+        userEmail={userEmail}
+        onRestaurantSelected={handleRestaurantSelected}
+      />
     );
   }
 
