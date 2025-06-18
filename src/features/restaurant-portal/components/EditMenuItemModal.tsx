@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Schema } from '../../../../amplify/data/resource';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,9 +9,14 @@ import { useToast } from '@/hooks/use-toast';
 import { ImageUploader } from '@/components/ui/image-uploader';
 import { menuItemImageHelper } from '@/lib/storage';
 import { useSelectedLocation } from '../hooks/useSelectedLocation';
+import { generateClient } from 'aws-amplify/api';
+import { useQuery } from '@tanstack/react-query';
+
+const client = generateClient<Schema>();
 
 // Define types using the generated Schema
 type MenuItemType = Schema['MenuItem']['type'];
+type MenuCategoryType = Schema['MenuCategory']['type'];
 
 // Extended type for UI-specific properties
 type MenuItemUI = MenuItemType & {
@@ -37,6 +42,29 @@ export function EditMenuItemModal({
   const { toast } = useToast();
   const { locationId = 'default' } = useSelectedLocation();
   
+  // Fetch available categories
+  const { data: categories = [] } = useQuery<MenuCategoryType[]>({
+    queryKey: ['menuCategories', restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return [];
+      
+      const { data, errors } = await client.models.MenuCategory.list({
+        filter: { 
+          restaurantId: { eq: restaurantId },
+          locationId: { attributeExists: false }
+        }
+      });
+      
+      if (errors) {
+        console.error('Error fetching categories:', errors);
+        return [];
+      }
+      
+      return data || [];
+    },
+    enabled: !!restaurantId
+  });
+  
   // Initialize state with the item data or defaults for a new item
   const [formData, setFormData] = useState<MenuItemUI>(
     item || {
@@ -51,11 +79,29 @@ export function EditMenuItemModal({
     } as MenuItemUI
   );
   
+  // Reset form data when modal opens/closes or when item changes
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(
+        item || {
+          id: '',
+          name: '',
+          description: '',
+          price: 0,
+          imageUrl: '',
+          isAvailable: true,
+          isPopular: false,
+          categoryId: categories.length > 0 ? categories[0].id : ''
+        } as MenuItemUI
+      );
+    }
+  }, [isOpen, item, categories]);
+  
   const [isUploading, setIsUploading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [removeImage, setRemoveImage] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -82,6 +128,22 @@ export function EditMenuItemModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate required fields
+    if (!formData.name?.trim()) {
+      toast({ title: 'Name is required', variant: 'destructive' });
+      return;
+    }
+
+    if (!formData.categoryId) {
+      toast({ title: 'Please select a category', variant: 'destructive' });
+      return;
+    }
+
+    if (!formData.price || formData.price <= 0) {
+      toast({ title: 'Price must be greater than 0', variant: 'destructive' });
+      return;
+    }
 
     let newImageUrl = formData.imageUrl;
     const oldImageUrl = item?.imageUrl;
@@ -216,6 +278,34 @@ export function EditMenuItemModal({
                     />
                   </div>
                 </div>
+
+                {/* Category Selector */}
+                <div className="space-y-2">
+                  <Label htmlFor="categoryId" className="text-gray-700">Category</Label>
+                  <select
+                    id="categoryId"
+                    name="categoryId"
+                    value={formData.categoryId || ''}
+                    onChange={handleChange}
+                    disabled={categories.length === 0}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    required
+                  >
+                    <option value="">
+                      {categories.length === 0 ? "No categories available" : "Select a category"}
+                    </option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  {categories.length === 0 && (
+                    <p className="text-sm text-red-600">
+                      No categories found. Please create a category first.
+                    </p>
+                  )}
+                </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="description" className="text-gray-700">Description</Label>
@@ -274,7 +364,7 @@ export function EditMenuItemModal({
                 </Button>
                 <Button 
                   type="submit"
-                  disabled={isUploading}
+                  disabled={isUploading || categories.length === 0}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   {isUploading ? 'Uploading...' : 'Save'}
