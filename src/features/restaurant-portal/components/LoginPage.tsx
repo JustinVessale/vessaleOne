@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import '@aws-amplify/ui-react/styles.css';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { RestaurantSelector } from './RestaurantSelector';
 
 const client = generateClient<Schema>();
 
@@ -12,6 +13,8 @@ export function LoginPage() {
   const { toast } = useToast();
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showRestaurantSelector, setShowRestaurantSelector] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>('');
   const navigate = useNavigate();
   // Counter to detect loops
   const renderCountRef = useRef(0);
@@ -90,7 +93,8 @@ export function LoginPage() {
       // Check if user is associated with a restaurant using filter
       const { data: staffMembers, errors } = await client.models.RestaurantStaff.list({
         filter: {
-          email: { eq: userEmail }
+          email: { eq: userEmail },
+          isActive: { eq: true }
         }
       });
 
@@ -107,7 +111,17 @@ export function LoginPage() {
         await listAllStaff();
         throw new Error(`User with email ${userEmail} is not associated with any restaurant. Please run the seed data script.`);
       }
+
+      // Check if user has access to multiple restaurants
+      if (staffMembers.length > 1) {
+        console.log('User has access to multiple restaurants, showing selector');
+        setUserEmail(userEmail);
+        setShowRestaurantSelector(true);
+        setIsLoading(false);
+        return true;
+      }
       
+      // Single restaurant access - proceed as before
       const staffMember = staffMembers[0];
       
       // Get restaurant details
@@ -160,6 +174,24 @@ export function LoginPage() {
     }
   };
 
+  const handleRestaurantSelected = (restaurantId: string, restaurantName: string, role: string) => {
+    // Success message
+    toast({
+      title: "Welcome back!",
+      description: `Signed in successfully to ${restaurantName}`,
+    });
+  };
+
+  // Show restaurant selector if user has multiple restaurants
+  if (showRestaurantSelector) {
+    return (
+      <RestaurantSelector 
+        userEmail={userEmail}
+        onRestaurantSelected={handleRestaurantSelected}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
@@ -205,37 +237,8 @@ export function LoginPage() {
                 )}
                 
                 {debugInfo && (
-                  <div className="mt-6 p-4 bg-gray-100 rounded text-left text-xs">
-                    <h3 className="font-bold mb-2">Debug Information:</h3>
+                  <div className="mt-4 p-3 bg-gray-100 rounded text-xs overflow-auto max-h-32">
                     <pre className="whitespace-pre-wrap">{debugInfo}</pre>
-                    
-                    <div className="mt-4 flex justify-between">
-                      <button
-                        onClick={listAllStaff}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
-                      >
-                        Check All Staff Records
-                      </button>
-                      
-                      <button
-                        onClick={() => {
-                          // Clear all session storage
-                          sessionStorage.clear();
-                          console.log('[LoginPage] Session storage cleared');
-                          setDebugInfo('Session storage cleared. You can now try logging in again.');
-                        }}
-                        className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-xs"
-                      >
-                        Clear Session
-                      </button>
-                      
-                      <button
-                        onClick={() => signOut && signOut()}
-                        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-xs"
-                      >
-                        Sign Out
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>

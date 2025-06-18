@@ -1,6 +1,6 @@
 import { generateClient } from "aws-amplify/api";
 import { type Schema } from "../amplify/data/resource";
-import outputs from "../amplify_outputs_dev_6.5.2025.json";
+import outputs from "../amplify_outputs_prod.6.17.2025.json";
 import { Amplify } from "aws-amplify";
 import * as fs from "fs";
 import * as path from "path";
@@ -51,7 +51,55 @@ function askQuestion(rl: readline.Interface, question: string): Promise<string> 
 }
 
 /**
- * Parse CSV content into menu items with proper quote handling
+ * Clean price string by removing dollar signs, commas, and converting to number
+ */
+function cleanPrice(priceStr: string): string {
+  return priceStr.replace(/[$,]/g, '').trim();
+}
+
+/**
+ * Generate a default description if none is provided
+ */
+function generateDefaultDescription(name: string): string {
+  return `${name} - Delicious menu item`;
+}
+
+/**
+ * Detect CSV format and map columns appropriately
+ */
+function detectCsvFormat(headers: string[]): { nameIndex: number; descriptionIndex: number; priceIndex: number; categoryIndex: number; imageIndex?: number; activeIndex?: number } {
+  const headerMap: { [key: string]: number } = {};
+  
+  headers.forEach((header, index) => {
+    const normalizedHeader = header.toLowerCase().trim();
+    headerMap[normalizedHeader] = index;
+  });
+
+  // Try to find required fields with flexible matching
+  const nameIndex = headerMap['name'] ?? headerMap['item'] ?? headerMap['title'] ?? -1;
+  const descriptionIndex = headerMap['description'] ?? headerMap['desc'] ?? headerMap['details'] ?? -1;
+  const priceIndex = headerMap['price'] ?? headerMap['cost'] ?? headerMap['amount'] ?? -1;
+  const categoryIndex = headerMap['category'] ?? headerMap['cat'] ?? headerMap['section'] ?? -1;
+  const imageIndex = headerMap['picture'] ?? headerMap['image'] ?? headerMap['imageurl'] ?? headerMap['image_url'] ?? headerMap['image url'] ?? -1;
+  const activeIndex = headerMap['isactive'] ?? headerMap['is_active'] ?? headerMap['active'] ?? headerMap['status'] ?? -1;
+
+  // Validate required fields
+  if (nameIndex === -1) throw new Error('Could not find "name" column (tried: name, item, title)');
+  if (priceIndex === -1) throw new Error('Could not find "price" column (tried: price, cost, amount)');
+  if (categoryIndex === -1) throw new Error('Could not find "category" column (tried: category, cat, section)');
+
+  return {
+    nameIndex,
+    descriptionIndex,
+    priceIndex,
+    categoryIndex,
+    imageIndex: imageIndex !== -1 ? imageIndex : undefined,
+    activeIndex: activeIndex !== -1 ? activeIndex : undefined
+  };
+}
+
+/**
+ * Parse CSV content into menu items with improved robustness
  */
 function parseCsv(csvContent: string): CsvMenuItem[] {
   const lines = csvContent.split('\n').filter(line => line.trim());
@@ -105,77 +153,60 @@ function parseCsv(csvContent: string): CsvMenuItem[] {
   // Parse header row
   const headerLine = lines[0];
   console.log('Header line:', headerLine);
-  const headers = parseCSVLine(headerLine).map(h => h.toLowerCase());
+  const headers = parseCSVLine(headerLine);
   console.log('Parsed headers:', headers);
   
-  // Validate required headers
-  const requiredHeaders = ['name', 'description', 'price', 'category'];
-  const missingHeaders = requiredHeaders.filter(header => !headers.includes(header));
-  
-  if (missingHeaders.length > 0) {
-    throw new Error(`Missing required CSV headers: ${missingHeaders.join(', ')}`);
-  }
+  // Detect CSV format
+  const format = detectCsvFormat(headers);
+  console.log('Detected format:', format);
 
   // Parse data rows
   const items: CsvMenuItem[] = [];
   
   for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i].trim();
+    
+    // Skip empty lines
+    if (!line) {
+      console.log(`Skipping empty line ${i + 1}`);
+      continue;
+    }
+    
     console.log(`Parsing line ${i + 1}:`, line);
     
     const values = parseCSVLine(line);
     console.log(`Parsed values:`, values);
     
-    if (values.length < headers.length) {
-      console.warn(`⚠️  Row ${i + 1} has fewer columns than expected (${values.length} vs ${headers.length}), skipping...`);
+    if (values.length < Math.max(format.nameIndex, format.priceIndex, format.categoryIndex) + 1) {
+      console.warn(`⚠️  Row ${i + 1} has fewer columns than expected (${values.length} vs expected), skipping...`);
       continue;
     }
 
-    const item: CsvMenuItem = {
-      name: '',
-      description: '',
-      price: '',
-      category: ''
-    };
+    const name = values[format.nameIndex]?.replace(/^"|"$/g, '') || ''; // Remove surrounding quotes
+    const description = values[format.descriptionIndex] || generateDefaultDescription(name);
+    const price = cleanPrice(values[format.priceIndex] || '');
+    const category = values[format.categoryIndex] || '';
+    const imageUrl = format.imageIndex !== undefined ? values[format.imageIndex] : undefined;
+    const isActive = format.activeIndex !== undefined ? values[format.activeIndex] : 'true';
 
-    headers.forEach((header, index) => {
-      const value = values[index] || '';
-      switch (header) {
-        case 'name':
-          item.name = value;
-          break;
-        case 'description':
-          item.description = value;
-          break;
-        case 'price':
-          item.price = value;
-          break;
-        case 'category':
-          item.category = value;
-          break;
-        case 'imageurl':
-        case 'image_url':
-        case 'image url':
-          item.imageUrl = value;
-          break;
-        case 'isactive':
-        case 'is_active':
-        case 'active':
-          item.isActive = value;
-          break;
-      }
-    });
+    console.log(`Parsed item:`, { name, description, price, category, imageUrl, isActive });
 
-    console.log(`Parsed item:`, item);
-
-    if (item.name && item.description && item.price && item.category) {
-      items.push(item);
+    // Only add items that have required fields and valid price
+    if (name && category && price && !isNaN(parseFloat(price))) {
+      items.push({
+        name,
+        description,
+        price,
+        category,
+        imageUrl: imageUrl || undefined,
+        isActive
+      });
     } else {
-      console.warn(`⚠️  Row ${i + 1} is missing required fields:`, {
-        name: !!item.name,
-        description: !!item.description,
-        price: !!item.price,
-        category: !!item.category
+      console.warn(`⚠️  Row ${i + 1} is missing required fields or has invalid price:`, {
+        name: !!name,
+        category: !!category,
+        price: !!price,
+        validPrice: !isNaN(parseFloat(price))
       });
     }
   }
@@ -271,7 +302,7 @@ async function importMenuItems(csvItems: CsvMenuItem[], restaurantId: string): P
   // Group items by category
   const categoryGroups = new Map<string, CsvMenuItem[]>();
   
-  csvItems.forEach((item, index) => {
+  csvItems.forEach((item) => {
     if (!categoryGroups.has(item.category)) {
       categoryGroups.set(item.category, []);
     }
@@ -295,7 +326,7 @@ async function importMenuItems(csvItems: CsvMenuItem[], restaurantId: string): P
         try {
           await createMenuItem(item, category.id, rowNumber);
           result.success++;
-          console.log(`  ✅ Created: ${item.name}`);
+          console.log(`  ✅ Created: ${item.name} - $${item.price}`);
         } catch (error) {
           result.failed++;
           const errorMessage = error instanceof Error ? error.message : String(error);
@@ -333,8 +364,8 @@ async function runImport() {
   const rl = createReadlineInterface();
   
   try {
-    console.log("🍽️  Menu CSV Import Tool");
-    console.log("========================\n");
+    console.log("🍽️  Menu CSV Import Tool (Enhanced)");
+    console.log("===================================\n");
 
     // Get restaurant ID from user
     const restaurantId = await askQuestion(rl, "Enter the Restaurant ID: ");
@@ -367,6 +398,11 @@ async function runImport() {
     console.log("🔍 Parsing CSV content...");
     const csvItems = parseCsv(csvContent);
     console.log(`✅ Found ${csvItems.length} menu items to import`);
+
+    // Show categories that will be created
+    const categories = [...new Set(csvItems.map(item => item.category))];
+    console.log(`\n📂 Categories that will be created:`);
+    categories.forEach(cat => console.log(`  - ${cat}`));
 
     // Confirm before proceeding
     const confirm = await askQuestion(rl, `\nProceed with importing ${csvItems.length} items to "${restaurant.name}"? (y/N): `);
@@ -404,26 +440,49 @@ async function runImport() {
 // Show usage information
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
   console.log(`
-🍽️  Menu CSV Import Tool
-========================
+🍽️  Menu CSV Import Tool (Enhanced)
+===================================
 
 This script imports menu items from a CSV file into a restaurant.
 
 Usage:
   npx tsx scripts/import-menu-csv.ts
 
-Required CSV format:
-  name,description,price,category[,imageUrl,isActive]
+Supported CSV formats:
+  1. Standard: name,description,price,category[,imageUrl,isActive]
+  2. Cafe Laurent: Category,Name,Price,Picture,description
+  3. Flexible: The script will auto-detect column names
 
-Example CSV:
-  name,description,price,category,imageUrl,isActive
-  "Chicken Wings","Crispy wings with sauce",12.99,"Appetizers","https://example.com/wings.jpg",true
-  "Caesar Salad","Fresh romaine with dressing",8.99,"Salads",,true
+Column name variations supported:
+  - name: name, item, title
+  - description: description, desc, details
+  - price: price, cost, amount
+  - category: category, cat, section
+  - image: picture, image, imageUrl, image_url, image url
+  - active: isActive, is_active, active, status
+
+Example CSV formats:
+  1. Standard:
+     name,description,price,category,imageUrl,isActive
+     "Chicken Wings","Crispy wings with sauce",12.99,"Appetizers","https://example.com/wings.jpg",true
+
+  2. Cafe Laurent style:
+     Category,Name,Price,Picture,description
+     "Appetizers","Chicken Wings","$12.99","","Crispy wings with sauce"
+
+Features:
+  - Auto-detects CSV format
+  - Handles dollar signs and commas in prices
+  - Skips empty rows
+  - Generates default descriptions for missing descriptions
+  - Handles quoted text properly
+  - Creates categories automatically
+  - Provides detailed error reporting
 
 Notes:
-  - name, description, price, and category are required
+  - name, price, and category are required
+  - description will be auto-generated if missing
   - imageUrl and isActive are optional
-  - isActive defaults to true if not specified
   - Script will ask for Restaurant ID interactively
   - Categories will be created automatically if they don't exist
 `);
