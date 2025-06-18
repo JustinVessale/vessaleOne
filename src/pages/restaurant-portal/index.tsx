@@ -166,7 +166,7 @@ export default function RestaurantPortalPage() {
     checkAuthAndFetchRestaurant();
   }, []);
 
-  const handleRestaurantSelected = (restaurantId: string, restaurantName: string, role: string) => {
+  const handleRestaurantSelected = () => {
     // Set authenticated state and hide selector
     setIsAuthenticated(true);
     setShowRestaurantSelector(false);
