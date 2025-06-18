@@ -174,7 +174,7 @@ export function LoginPage() {
     }
   };
 
-  const handleRestaurantSelected = (restaurantId: string, restaurantName: string, role: string) => {
+  const handleRestaurantSelected = (restaurantName: string) => {
     // Success message
     toast({
       title: "Welcome back!",
@@ -198,7 +198,7 @@ export function LoginPage() {
         <Authenticator
           signUpAttributes={['email']} 
         >
-          {({ signOut, user }) => {
+          {({ user }) => {
             // Verify restaurant access only once when user signs in
             if (user && !hasVerifiedRef.current && !isLoading) {
               console.log('Auth user object:', user);
