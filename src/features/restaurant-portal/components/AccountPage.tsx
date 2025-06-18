@@ -4,6 +4,9 @@ import { type Schema } from '../../../../amplify/data/resource';
 import { Loader2, User, Building, Mail, Phone, MapPin, Clock, Upload, Trash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StorageImage } from '@/components/ui/s3-image';
+import { BusinessHoursEditor } from './BusinessHoursEditor';
+import { useToast } from '@/hooks/use-toast';
+import { BusinessHours } from '@/utils/business-hours';
 
 const client = generateClient<Schema>();
 
@@ -53,6 +56,8 @@ export function AccountPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [restaurant, setRestaurant] = useState(sampleRestaurant);
+  const [restaurantData, setRestaurantData] = useState<any>(null);
+  const [businessHours, setBusinessHours] = useState<BusinessHours[]>([]);
   const [printerSettings, setPrinterSettings] = useState({
     printerType: '',
     ipAddress: '',
@@ -64,6 +69,7 @@ export function AccountPage() {
   const [activeTab, setActiveTab] = useState('restaurant');
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<any>({});
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchAccountData = async () => {
@@ -83,6 +89,27 @@ export function AccountPage() {
         if (!restaurantData) {
           throw new Error('Restaurant not found');
         }
+        
+        setRestaurantData(restaurantData);
+        
+        // Fetch business hours
+        const { data: businessHoursData } = await client.models.BusinessHours.list({
+          filter: { restaurantId: { eq: restaurantId } },
+          selectionSet: ['id', 'restaurantId', 'locationId', 'dayOfWeek', 'isOpen', 'openTime', 'closeTime']
+        });
+        
+        // Map Amplify data to our BusinessHours interface
+        const mappedBusinessHours: BusinessHours[] = (businessHoursData || []).map(hours => ({
+          id: hours.id,
+          restaurantId: hours.restaurantId || '',
+          locationId: hours.locationId || undefined,
+          dayOfWeek: hours.dayOfWeek || 0,
+          isOpen: hours.isOpen || false,
+          openTime: hours.openTime || '11:00',
+          closeTime: hours.closeTime || '21:00'
+        }));
+        
+        setBusinessHours(mappedBusinessHours);
         
         // Create a new restaurant object that matches the expected structure
         const restaurantForState = {
@@ -153,12 +180,52 @@ export function AccountPage() {
         printerConfig: { ...printerSettings }
       }));
       
-      alert('Printer settings saved successfully');
+      toast({
+        title: "Success",
+        description: "Printer settings saved successfully",
+      });
     } catch (error) {
       console.error('Error saving printer settings:', error);
-      alert('Failed to save printer settings');
+      toast({
+        title: "Error",
+        description: "Failed to save printer settings",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveBusinessHours = async (timezone: string, businessHours: BusinessHours[]) => {
+    if (!restaurantData) return;
+    
+    try {
+      // Update restaurant timezone
+      await client.models.Restaurant.update({
+        id: restaurantData.id,
+        timezone
+      });
+      
+      // Update local state
+      setRestaurantData((prev: any) => ({
+        ...prev,
+        timezone
+      }));
+      
+      setBusinessHours(businessHours);
+      
+      toast({
+        title: "Success",
+        description: "Business hours saved successfully",
+      });
+    } catch (error) {
+      console.error('Error saving business hours:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save business hours",
+        variant: "destructive",
+      });
+      throw error;
     }
   };
 
@@ -224,6 +291,12 @@ export function AccountPage() {
               onClick={() => setActiveTab('restaurant')}
             >
               Restaurant Details
+            </button>
+            <button
+              className={`px-4 py-2 rounded-md ${activeTab === 'hours' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'}`}
+              onClick={() => setActiveTab('hours')}
+            >
+              Business Hours
             </button>
             <button
               className={`px-4 py-2 rounded-md ${activeTab === 'staff' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'}`}
@@ -334,6 +407,25 @@ export function AccountPage() {
           </div>
         )}
 
+        {activeTab === 'hours' && (
+          <div className="p-6">
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-2">Business Hours</h2>
+              <p className="text-gray-600">Set your restaurant's operating hours and timezone</p>
+            </div>
+            
+            {restaurantData && (
+              <BusinessHoursEditor
+                timezone={restaurantData.timezone || 'America/Los_Angeles'}
+                businessHours={businessHours}
+                restaurantId={restaurantData.id}
+                onSave={handleSaveBusinessHours}
+                isLoading={isLoading}
+              />
+            )}
+          </div>
+        )}
+
         {activeTab === 'staff' && (
           <div className="p-6">
             <div className="flex items-center space-x-4 mb-6">
@@ -374,14 +466,16 @@ export function AccountPage() {
           </div>
         )}
 
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
-          <Button
-            variant={isEditing ? "default" : "outline"}
-            onClick={handleEditToggle}
-          >
-            {isEditing ? "Save Changes" : "Edit Profile"}
-          </Button>
-        </div>
+        {activeTab === 'restaurant' && (
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+            <Button
+              variant={isEditing ? "default" : "outline"}
+              onClick={handleEditToggle}
+            >
+              {isEditing ? "Save Changes" : "Edit Profile"}
+            </Button>
+          </div>
+        )}
 
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
           <Button 

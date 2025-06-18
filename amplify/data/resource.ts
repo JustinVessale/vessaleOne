@@ -16,6 +16,14 @@ const schema = a.schema({
     currentLocation: a.ref('Location'),
   }),
 
+  // Add business hours custom type
+  BusinessHours: a.customType({
+    dayOfWeek: a.integer(), // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    isOpen: a.boolean(),
+    openTime: a.string(), // Format: "HH:MM" (24-hour)
+    closeTime: a.string(), // Format: "HH:MM" (24-hour)
+  }),
+
   // Add delivery-related custom types
   DeliveryStatus: a.enum([
     'PENDING', 
@@ -54,6 +62,22 @@ const schema = a.schema({
       allow.owner()
     ]),
 
+  // Business Hours model
+  BusinessHours: a
+    .model({
+      restaurantId: a.string(),
+      restaurant: a.belongsTo('Restaurant', 'restaurantId'),
+      locationId: a.string(),
+      dayOfWeek: a.integer(), // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      isOpen: a.boolean(),
+      openTime: a.string(), // Format: "HH:MM" (24-hour)
+      closeTime: a.string(), // Format: "HH:MM" (24-hour)
+    })
+    .authorization((allow) => [
+      allow.publicApiKey(),
+      allow.owner()
+    ]),
+
   // New model for restaurant locations
   RestaurantLocation: a
     .model({
@@ -71,6 +95,8 @@ const schema = a.schema({
       menuCategories: a.hasMany('MenuCategory', 'locationId'),
       orders: a.hasMany('Order', 'locationId'),
       isActive: a.boolean(),
+      timezone: a.string(), // e.g., "America/Los_Angeles"
+      businessHours: a.hasMany('BusinessHours', 'locationId'),
       printerConfig: a.customType({
         printerType: a.string(),
         ipAddress: a.string(),
@@ -102,6 +128,8 @@ const schema = a.schema({
       staff: a.hasMany('RestaurantStaff', 'restaurantId'),
       isActive: a.boolean(),
       isChain: a.boolean(),
+      timezone: a.string(), // e.g., "America/Los_Angeles"
+      businessHours: a.hasMany('BusinessHours', 'restaurantId'),
       printerConfig: a.customType({
         printerType: a.string(),
         ipAddress: a.string(),

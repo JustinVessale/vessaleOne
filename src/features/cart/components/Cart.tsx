@@ -3,8 +3,14 @@ import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { StorageImage } from '@/components/ui/s3-image';
 import { useState, useEffect } from 'react';
+import { isRestaurantOpenFromHours, BusinessHours } from '@/utils/business-hours';
 
-export function Cart() {
+interface CartProps {
+  restaurantTimezone?: string;
+  restaurantBusinessHours?: BusinessHours[];
+}
+
+export function Cart({ restaurantTimezone, restaurantBusinessHours }: CartProps) {
   const { state, removeItem, updateQuantity, toggleCart, subtotal, serviceFee, total } = useCart();
   const navigate = useNavigate();
 
@@ -21,10 +27,17 @@ export function Cart() {
     
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  
 
+  // Check if restaurant is open
+  const isOpen = restaurantTimezone && restaurantBusinessHours 
+    ? isRestaurantOpenFromHours(restaurantTimezone, restaurantBusinessHours)
+    : true; // Default to open if no hours set
 
   const handleCheckout = () => {
+    if (!isOpen) {
+      return; // Don't allow checkout if restaurant is closed
+    }
+    
     if (state.isOpen) {
       toggleCart(); // Close mobile cart if open
     }
@@ -94,6 +107,24 @@ export function Cart() {
       {/* Cart Footer */}
       {state.items.length > 0 && (
         <div className="border-t p-4 space-y-4">
+          {/* Restaurant Closed Notice */}
+          {!isOpen && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">
+                    <strong>Restaurant is currently closed.</strong> Orders cannot be placed at this time.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Subtotal */}
           <div className="flex justify-between items-center text-gray-700">
             <span>Subtotal</span>
@@ -113,13 +144,16 @@ export function Cart() {
           </div>
           
           <button 
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg 
-                       hover:bg-blue-700 transition-colors font-medium
-                       border-2 border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                       shadow-sm"
+            className={`w-full py-3 px-4 rounded-lg transition-colors font-medium
+                       border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm
+                       ${isOpen 
+                         ? 'bg-blue-600 text-white hover:bg-blue-700 border-blue-600 focus:ring-blue-500' 
+                         : 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed'
+                       }`}
             onClick={handleCheckout}
+            disabled={!isOpen}
           >
-            Go to Checkout
+            {isOpen ? 'Go to Checkout' : 'Restaurant Closed'}
           </button>
         </div>
       )}
