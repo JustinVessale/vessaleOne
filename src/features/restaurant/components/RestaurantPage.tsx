@@ -44,7 +44,7 @@ export function RestaurantPage() {
   const navigate = useNavigate();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>();
   
-  const { data: restaurant, isLoading, refetch } = useQuery<RestaurantData>({
+  const { data: restaurant, isLoading } = useQuery<RestaurantData>({
     queryKey: ['restaurant', restaurantSlug, locationSlug],
     queryFn: async () => {
       try {

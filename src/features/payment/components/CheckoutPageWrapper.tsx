@@ -2,7 +2,7 @@ import { useCart } from '../../cart/context/CartContext';
 import { CheckoutPage } from './CheckoutPage';
 
 export function CheckoutPageWrapper() {
-  const { state, checkRestaurantStatus } = useCart();
+  const { state } = useCart();
   
   // If no items in cart, redirect or show error
   if (state.items.length === 0) {

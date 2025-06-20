@@ -30,7 +30,7 @@ export function CheckoutPage({ restaurantIsOpen = true, locationIsOpen }: Checko
 
   // Get the locationId from the first cart item (if available)
   const locationId = state.items[0]?.locationId;
-  const restaurantId = state.items[0]?.restaurantId;
+
 
   // Determine if the restaurant is open based on location or restaurant status
   const isOpen = locationIsOpen !== undefined ? locationIsOpen : restaurantIsOpen;
