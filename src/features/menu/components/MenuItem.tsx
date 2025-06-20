@@ -2,6 +2,7 @@ import { useCart } from '../../cart/context/CartContext';
 import { useState } from 'react';
 import { ItemDetailModal } from './ItemDetailModal';
 import { StorageImage } from '@/components/ui/s3-image';
+import { useToast } from '@/hooks/use-toast';
 
 type MenuItemData = {
   id: string;
@@ -20,6 +21,7 @@ type MenuItemProps = {
 export function MenuItem({ item, restaurantId, locationId }: MenuItemProps) {
   const { addItem } = useCart();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { toast } = useToast();
 
   const handleAddToCart = (item: MenuItemData, quantity: number, instructions: string) => {
     addItem({
@@ -32,12 +34,19 @@ export function MenuItem({ item, restaurantId, locationId }: MenuItemProps) {
       locationId,
       specialInstructions: instructions
     });
+
+    // Show success message
+    toast({
+      title: 'Added to Cart',
+      description: `${item.name} has been added to your cart.`,
+      variant: 'default',
+    });
   };
 
   return (
     <>
       <div 
-        className="group flex items-start gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer" 
+        className="group flex items-start gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
         onClick={() => {
           console.log('clicked');
           setIsModalOpen(true);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart3, Users, Utensils, DollarSign, AlertTriangle } from 'lucide-react';
 import { useSelectedLocation } from '../hooks/useSelectedLocation';
+import { RestaurantStatusToggle } from './RestaurantStatusToggle';
 
 // Sample dashboard card component
 function DashboardCard({ 
@@ -69,6 +70,11 @@ export function DashboardPage() {
         <p className="text-gray-600 mt-1">
           Welcome{staffName ? `, ${staffName}` : ''} to the {displayName || 'restaurant'} portal
         </p>
+      </div>
+
+      {/* Restaurant Status Toggle */}
+      <div className="mb-6">
+        <RestaurantStatusToggle />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
