@@ -20,6 +20,7 @@ interface RestaurantData {
   bannerImageUrl?: string;
   locations?: any[];
   menuCategories?: any[];
+  isOpen?: boolean;
   location?: {
     id: string;
     name: string;
@@ -31,6 +32,7 @@ interface RestaurantData {
     zip?: string;
     phoneNumber?: string;
     menuCategories?: any[];
+    isOpen?: boolean;
   };
 }
 
@@ -49,7 +51,7 @@ export function RestaurantPage() {
         // First, fetch the restaurant
         const { data: restaurantData, errors: restaurantErrors } = await client.models.Restaurant.list({
           filter: { slug: { eq: restaurantSlug } },
-          selectionSet: ['id', 'name', 'description', 'bannerImageUrl', 'menuCategories.*', 'locations.*', 'isChain']
+          selectionSet: ['id', 'name', 'description', 'bannerImageUrl', 'menuCategories.*', 'locations.*', 'isChain', 'isOpen']
         });
         
         if (restaurantErrors) throw new Error('Failed to fetch restaurant');
@@ -66,7 +68,7 @@ export function RestaurantPage() {
               slug: { eq: locationSlug },
               restaurantId: { eq: restaurantObj.id }
             },
-            selectionSet: ['id', 'name', 'slug', 'description', 'bannerImageUrl', 'address', 'city', 'state', 'zip', 'phoneNumber', 'menuCategories.*']
+            selectionSet: ['id', 'name', 'slug', 'description', 'bannerImageUrl', 'address', 'city', 'state', 'zip', 'phoneNumber', 'menuCategories.*', 'isOpen']
           });
           
           console.log('Location API response:', { locationData, errors: locationErrors });
@@ -105,7 +107,9 @@ export function RestaurantPage() {
         console.error('Error fetching restaurant:', error);
         throw error;
       }
-    }
+    },
+    // Keep the data fresh for 5 minutes, but don't auto-refetch
+    staleTime: 5 * 60 * 1000,
   });
 
   const { toggleCart, state } = useCart();
@@ -142,6 +146,25 @@ export function RestaurantPage() {
 
   return (
     <div className="flex flex-col flex-1">
+      {/* Restaurant Status Banner */}
+      {restaurant.isOpen === false || restaurant.location?.isOpen === false ? (
+        <div className="bg-red-50 border-b border-red-200 px-4 py-3">
+          <div className="max-w-7xl mx-auto flex items-center justify-center">
+            <div className="flex items-center text-red-800">
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <span className="font-medium">
+                {restaurant.location?.isOpen === false 
+                  ? `${restaurant.location.name} is currently closed` 
+                  : 'Restaurant is currently closed'
+                }
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Hero Section - Fixed height */}
       <div className="relative h-48 md:h-64">
         <StorageImage

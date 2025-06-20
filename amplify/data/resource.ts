@@ -71,6 +71,7 @@ const schema = a.schema({
       menuCategories: a.hasMany('MenuCategory', 'locationId'),
       orders: a.hasMany('Order', 'locationId'),
       isActive: a.boolean(),
+      isOpen: a.boolean().default(false),
       printerConfig: a.customType({
         printerType: a.string(),
         ipAddress: a.string(),
@@ -101,6 +102,7 @@ const schema = a.schema({
       ownerEmail: a.string(),
       staff: a.hasMany('RestaurantStaff', 'restaurantId'),
       isActive: a.boolean(),
+      isOpen: a.boolean().default(false),
       isChain: a.boolean(),
       printerConfig: a.customType({
         printerType: a.string(),

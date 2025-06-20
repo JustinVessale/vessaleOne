@@ -1,18 +1,24 @@
 import { generateClient } from "aws-amplify/api";
 import { type Schema } from "../amplify/data/resource";
-import outputs from "../amplify_outputs_prod.6.17.2025.json";
 import { Amplify } from "aws-amplify";
 import * as fs from "fs";
 import * as path from "path";
 import * as readline from "readline";
+import { fileURLToPath } from 'url';
 
-// Configure Amplify
-Amplify.configure(outputs);
+// Get current directory for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Use API key for all operations during import
-const client = generateClient<Schema>({
-  authMode: 'apiKey'
-});
+// Available environment configurations
+const ENVIRONMENT_CONFIGS = {
+  'default': '../amplify_outputs.json',
+  'production': '../amplify_outputs_prod.6.17.2025.json',
+  'development': '../amplify_outputs_dev_6.5.2025.json'
+};
+
+// Global client variable - will be initialized after environment selection
+let client: any;
 
 interface CsvMenuItem {
   name: string;
@@ -27,6 +33,52 @@ interface ImportResult {
   success: number;
   failed: number;
   errors: Array<{ row: number; item: CsvMenuItem; error: string }>;
+}
+
+/**
+ * Prompt user to select an environment
+ */
+async function selectEnvironment(rl: readline.Interface): Promise<string> {
+  return new Promise((resolve) => {
+    console.log('\n🌍 Select environment to run in:');
+    Object.keys(ENVIRONMENT_CONFIGS).forEach((env, index) => {
+      console.log(`${index + 1}. ${env}`);
+    });
+    
+    rl.question('\nEnter your choice (1-3): ', (answer) => {
+      const choice = parseInt(answer);
+      const environments = Object.keys(ENVIRONMENT_CONFIGS);
+      
+      if (choice >= 1 && choice <= environments.length) {
+        resolve(environments[choice - 1]);
+      } else {
+        console.log('Invalid choice. Using default environment.');
+        resolve('default');
+      }
+    });
+  });
+}
+
+/**
+ * Load the selected environment configuration
+ */
+async function loadEnvironmentConfig(environment: string) {
+  const configPath = ENVIRONMENT_CONFIGS[environment as keyof typeof ENVIRONMENT_CONFIGS];
+  const fullPath = path.join(__dirname, configPath);
+  
+  if (!fs.existsSync(fullPath)) {
+    throw new Error(`Environment configuration file not found: ${fullPath}`);
+  }
+  
+  console.log(`📁 Loading configuration for ${environment} environment...`);
+  
+  try {
+    // Use dynamic import for ES modules
+    const config = await import(configPath);
+    return config.default || config;
+  } catch (error) {
+    throw new Error(`Error loading configuration file: ${error}`);
+  }
 }
 
 /**
@@ -198,94 +250,90 @@ function parseCsv(csvContent: string): CsvMenuItem[] {
         description,
         price,
         category,
-        imageUrl: imageUrl || undefined,
+        imageUrl,
         isActive
       });
     } else {
-      console.warn(`⚠️  Row ${i + 1} is missing required fields or has invalid price:`, {
-        name: !!name,
-        category: !!category,
-        price: !!price,
-        validPrice: !isNaN(parseFloat(price))
-      });
+      console.warn(`⚠️  Skipping row ${i + 1}: missing required fields or invalid price`);
     }
   }
 
-  console.log(`Final parsed items count: ${items.length}`);
   return items;
 }
 
 /**
- * Validate restaurant exists
+ * Validate that the restaurant exists and return restaurant data
  */
 async function validateRestaurant(restaurantId: string) {
-  try {
-    const restaurant = await client.models.Restaurant.get({ id: restaurantId });
-    if (!restaurant.data) {
-      throw new Error(`Restaurant with ID ${restaurantId} not found`);
-    }
-    return restaurant.data;
-  } catch (error) {
-    throw new Error(`Failed to validate restaurant: ${error instanceof Error ? error.message : String(error)}`);
+  const { data: restaurant, errors } = await client.models.Restaurant.get({
+    id: restaurantId
+  });
+
+  if (errors) {
+    throw new Error(`Error fetching restaurant: ${JSON.stringify(errors)}`);
   }
+
+  if (!restaurant) {
+    throw new Error(`Restaurant with ID ${restaurantId} not found`);
+  }
+
+  return restaurant;
 }
 
 /**
- * Get or create menu category
+ * Get or create a menu category
  */
 async function getOrCreateCategory(categoryName: string, restaurantId: string) {
-  try {
-    // First try to find existing category
-    const existingCategories = await client.models.MenuCategory.list({
-      filter: {
-        restaurantId: { eq: restaurantId },
-        name: { eq: categoryName }
-      }
-    });
-
-    if (existingCategories.data && existingCategories.data.length > 0) {
-      return existingCategories.data[0];
+  // First, try to find existing category
+  const { data: existingCategories, errors: listErrors } = await client.models.MenuCategory.list({
+    filter: {
+      name: { eq: categoryName },
+      restaurantId: { eq: restaurantId }
     }
+  });
 
-    // Create new category if it doesn't exist
-    const newCategory = await client.models.MenuCategory.create({
-      name: categoryName,
-      description: `${categoryName} items`,
-      restaurantId: restaurantId
-    });
-
-    if (!newCategory.data) {
-      throw new Error(`Failed to create category: ${categoryName}`);
-    }
-
-    return newCategory.data;
-  } catch (error) {
-    throw new Error(`Failed to get or create category "${categoryName}": ${error instanceof Error ? error.message : String(error)}`);
+  if (listErrors) {
+    throw new Error(`Error listing categories: ${JSON.stringify(listErrors)}`);
   }
+
+  if (existingCategories && existingCategories.length > 0) {
+    console.log(`  📂 Using existing category: ${categoryName}`);
+    return existingCategories[0];
+  }
+
+  // Create new category if it doesn't exist
+  console.log(`  📂 Creating new category: ${categoryName}`);
+  const { data: newCategory, errors: createErrors } = await client.models.MenuCategory.create({
+    name: categoryName,
+    description: `${categoryName} menu items`,
+    restaurantId: restaurantId
+  });
+
+  if (createErrors) {
+    throw new Error(`Error creating category: ${JSON.stringify(createErrors)}`);
+  }
+
+  return newCategory;
 }
 
 /**
- * Create a single menu item
+ * Create a menu item
  */
 async function createMenuItem(item: CsvMenuItem, categoryId: string, rowNumber: number): Promise<void> {
-  const price = parseFloat(item.price);
-  
-  if (isNaN(price) || price < 0) {
-    throw new Error(`Invalid price: ${item.price}`);
-  }
-
-  const menuItemData = {
+  const { data: menuItem, errors } = await client.models.MenuItem.create({
     name: item.name,
     description: item.description,
-    price: price,
+    price: parseFloat(item.price),
     categoryId: categoryId,
     imageUrl: item.imageUrl || undefined
-  };
+  });
 
-  const result = await client.models.MenuItem.create(menuItemData);
-  
-  if (!result.data) {
-    throw new Error('Failed to create menu item - no data returned');
+  if (errors) {
+    throw new Error(`Error creating menu item: ${JSON.stringify(errors)}`);
+  }
+
+  if (!menuItem) {
+    throw new Error('Menu item creation returned no data');
   }
 }
 
@@ -367,6 +415,18 @@ async function runImport() {
     console.log("🍽️  Menu CSV Import Tool (Enhanced)");
     console.log("===================================\n");
 
+    // Select environment
+    const selectedEnvironment = await selectEnvironment(rl);
+    const outputs = await loadEnvironmentConfig(selectedEnvironment);
+    
+    // Configure Amplify with selected environment
+    Amplify.configure(outputs);
+    
+    // Use API key for all operations during import
+    client = generateClient<Schema>({
+      authMode: 'apiKey'
+    });
+
     // Get restaurant ID from user
     const restaurantId = await askQuestion(rl, "Enter the Restaurant ID: ");
     
@@ -405,7 +465,7 @@ async function runImport() {
     categories.forEach(cat => console.log(`  - ${cat}`));
 
     // Confirm before proceeding
-    const confirm = await askQuestion(rl, `\nProceed with importing ${csvItems.length} items to "${restaurant.name}"? (y/N): `);
+    const confirm = await askQuestion(rl, `\nProceed with importing ${csvItems.length} items to "${restaurant.name}" in ${selectedEnvironment} environment? (y/N): `);
     
     if (confirm.toLowerCase() !== 'y' && confirm.toLowerCase() !== 'yes') {
       console.log("Import cancelled.");
@@ -478,6 +538,7 @@ Features:
   - Handles quoted text properly
   - Creates categories automatically
   - Provides detailed error reporting
+  - Environment selection (default/production/development)
 
 Notes:
   - name, price, and category are required
@@ -485,6 +546,7 @@ Notes:
   - imageUrl and isActive are optional
   - Script will ask for Restaurant ID interactively
   - Categories will be created automatically if they don't exist
+  - You can choose which environment to run in
 `);
 } else {
   // Run the import

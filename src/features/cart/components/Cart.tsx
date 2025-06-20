@@ -5,11 +5,15 @@ import { StorageImage } from '@/components/ui/s3-image';
 import { useState, useEffect } from 'react';
 
 export function Cart() {
-  const { state, removeItem, updateQuantity, toggleCart, subtotal, serviceFee, total } = useCart();
+  const { state, removeItem, updateQuantity, toggleCart, subtotal, serviceFee, total, checkRestaurantStatus } = useCart();
   const navigate = useNavigate();
 
   // Track if we're on mobile screen
   const [isMobile, setIsMobile] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+
+  // Determine if the restaurant is open based on location or restaurant status
+  const isOpen = state.locationIsOpen !== null ? state.locationIsOpen : (state.restaurantIsOpen ?? true);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -21,14 +25,35 @@ export function Cart() {
     
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  
 
-
-  const handleCheckout = () => {
-    if (state.isOpen) {
-      toggleCart(); // Close mobile cart if open
+  // Check restaurant status when cart mounts if there are items and no recent check
+  useEffect(() => {
+    if (state.items.length > 0 && state.lastRestaurantCheck === null) {
+      setIsCheckingStatus(true);
+      checkRestaurantStatus()
+        .catch(console.error)
+        .finally(() => setIsCheckingStatus(false));
     }
-    navigate('/checkout');
+  }, [state.items.length, state.lastRestaurantCheck, checkRestaurantStatus]);
+
+  const handleCheckout = async () => {
+    setIsCheckingStatus(true);
+    try {
+      // Always check restaurant status before checkout
+      const status = await checkRestaurantStatus();
+      const currentIsOpen = status.locationIsOpen !== undefined ? status.locationIsOpen : status.restaurantIsOpen;
+      
+      if (!currentIsOpen) {
+        return; // Don't allow checkout if restaurant is closed
+      }
+      
+      if (state.isOpen) {
+        toggleCart(); // Close mobile cart if open
+      }
+      navigate('/checkout');
+    } finally {
+      setIsCheckingStatus(false);
+    }
   };
 
   const CartContent = () => (
@@ -112,14 +137,39 @@ export function Cart() {
             <span>${total.toFixed(2)}</span>
           </div>
           
+          {/* Restaurant Status Warning */}
+          {!isOpen && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-red-800 text-sm font-medium">
+                Restaurant is currently closed
+              </p>
+              <p className="text-red-600 text-xs mt-1">
+                Orders will be disabled until the restaurant reopens
+              </p>
+            </div>
+          )}
+          
+          {isCheckingStatus && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-blue-800 text-sm font-medium flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                Checking restaurant status...
+              </p>
+            </div>
+          )}
+          
           <button 
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg 
-                       hover:bg-blue-700 transition-colors font-medium
-                       border-2 border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                       shadow-sm"
+            className={`w-full py-3 px-4 rounded-lg font-medium
+                       border-2 focus:outline-none focus:ring-2 focus:ring-offset-2
+                       shadow-sm transition-colors ${
+                         isOpen && !isCheckingStatus
+                           ? 'bg-blue-600 text-white hover:bg-blue-700 border-blue-600 focus:ring-blue-500'
+                           : 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed'
+                       }`}
             onClick={handleCheckout}
+            disabled={!isOpen || isCheckingStatus}
           >
-            Go to Checkout
+            {isCheckingStatus ? 'Checking...' : (isOpen ? 'Go to Checkout' : 'Currently Closed')}
           </button>
         </div>
       )}

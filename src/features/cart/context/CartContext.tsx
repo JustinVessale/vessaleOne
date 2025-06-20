@@ -1,5 +1,9 @@
 import { createContext, useContext, useReducer, ReactNode } from 'react';
 import { PLATFORM_CONFIG } from '@/config/constants';
+import { generateClient } from 'aws-amplify/api';
+import type { Schema } from '../../../../amplify/data/resource';
+
+const client = generateClient<Schema>();
 
 export type CartItem = {
   id: string;
@@ -16,6 +20,9 @@ export type CartItem = {
 type CartState = {
   items: CartItem[];
   isOpen: boolean;
+  lastRestaurantCheck: number | null;
+  restaurantIsOpen: boolean | null;
+  locationIsOpen: boolean | null;
 };
 
 type CartAction =
@@ -24,11 +31,12 @@ type CartAction =
   | { type: 'UPDATE_QUANTITY'; payload: { id: string; quantity: number } }
   | { type: 'UPDATE_INSTRUCTIONS'; payload: { id: string; instructions: string } }
   | { type: 'CLEAR_CART' }
-  | { type: 'TOGGLE_CART' };
+  | { type: 'TOGGLE_CART' }
+  | { type: 'UPDATE_RESTAURANT_STATUS'; payload: { restaurantIsOpen: boolean; locationIsOpen?: boolean } };
 
 type CartContextType = {
   state: CartState;
-  addItem: (item: Omit<CartItem, 'id'>) => void;
+  addItem: (item: Omit<CartItem, 'id'>) => Promise<void>;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   updateInstructions: (id: string, instructions: string) => void;
@@ -37,6 +45,7 @@ type CartContextType = {
   subtotal: number;
   serviceFee: number;
   total: number;
+  checkRestaurantStatus: () => Promise<{ restaurantIsOpen: boolean; locationIsOpen?: boolean }>;
 };
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -103,6 +112,14 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         isOpen: !state.isOpen,
       };
 
+    case 'UPDATE_RESTAURANT_STATUS':
+      return {
+        ...state,
+        restaurantIsOpen: action.payload.restaurantIsOpen,
+        locationIsOpen: action.payload.locationIsOpen || null,
+        lastRestaurantCheck: Date.now(),
+      };
+
     default:
       return state;
   }
@@ -112,11 +129,78 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(cartReducer, {
     items: [],
     isOpen: false,
+    lastRestaurantCheck: null,
+    restaurantIsOpen: null,
+    locationIsOpen: null,
   });
 
-  const addItem = (item: Omit<CartItem, 'id'>) => {
+  const checkRestaurantStatus = async (): Promise<{ restaurantIsOpen: boolean; locationIsOpen?: boolean }> => {
+    if (state.items.length === 0) {
+      return { restaurantIsOpen: true }; // Default to open if no items
+    }
+
+    const restaurantId = state.items[0].restaurantId;
+    const locationId = state.items[0].locationId;
+
+    try {
+      if (locationId) {
+        // Check location status
+        const { data: location, errors } = await client.models.RestaurantLocation.get({
+          id: locationId
+        });
+        
+        if (errors) {
+          console.error('Error fetching location status:', errors);
+          return { restaurantIsOpen: true }; // Default to open on error
+        }
+        
+        const locationIsOpen = (location as any)?.isOpen ?? false;
+        dispatch({ 
+          type: 'UPDATE_RESTAURANT_STATUS', 
+          payload: { restaurantIsOpen: locationIsOpen, locationIsOpen } 
+        });
+        return { restaurantIsOpen: locationIsOpen, locationIsOpen };
+      } else {
+        // Check restaurant status
+        const { data: restaurant, errors } = await client.models.Restaurant.get({
+          id: restaurantId
+        });
+        
+        if (errors) {
+          console.error('Error fetching restaurant status:', errors);
+          return { restaurantIsOpen: true }; // Default to open on error
+        }
+        
+        const restaurantIsOpen = (restaurant as any)?.isOpen ?? false;
+        dispatch({ 
+          type: 'UPDATE_RESTAURANT_STATUS', 
+          payload: { restaurantIsOpen } 
+        });
+        return { restaurantIsOpen };
+      }
+    } catch (error) {
+      console.error('Error checking restaurant status:', error);
+      return { restaurantIsOpen: true }; // Default to open on error
+    }
+  };
+
+  const addItem = async (item: Omit<CartItem, 'id'>) => {
     const id = crypto.randomUUID();
     dispatch({ type: 'ADD_ITEM', payload: { ...item, id } });
+
+    // Check if we need to verify restaurant status (if data is stale or we don't have it)
+    const now = Date.now();
+    const fiveMinutes = 5 * 60 * 1000; // 5 minutes in milliseconds
+    const isStale = !state.lastRestaurantCheck || (now - state.lastRestaurantCheck) > fiveMinutes;
+
+    if (isStale) {
+      // Check restaurant status immediately and update the state
+      try {
+        await checkRestaurantStatus();
+      } catch (error) {
+        console.error('Error checking restaurant status:', error);
+      }
+    }
   };
 
   const removeItem = (id: string) => {
@@ -160,6 +244,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         subtotal,
         serviceFee,
         total,
+        checkRestaurantStatus,
       }}
     >
       {children}
