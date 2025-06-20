@@ -1,22 +1,73 @@
 import { generateClient } from "aws-amplify/api";
 import { type Schema } from "../amplify/data/resource";
-import outputs from "../amplify_outputs_prod.6.17.2025.json";
 import { Amplify } from "aws-amplify";
 import * as readline from 'readline';
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
 
-// Configure Amplify
-Amplify.configure(outputs);
+// Get current directory for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Use API key for all operations during creation
-const client = generateClient<Schema>({
-  authMode: 'apiKey'
-});
+// Available environment configurations
+const ENVIRONMENT_CONFIGS = {
+  'default': '../amplify_outputs.json',
+  'production': '../amplify_outputs_prod.6.17.2025.json',
+  'development': '../amplify_outputs_dev_6.5.2025.json'
+};
 
 // Create readline interface for user input
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
+
+/**
+ * Prompt user to select an environment
+ */
+async function selectEnvironment(): Promise<string> {
+  return new Promise((resolve) => {
+    console.log('\n🌍 Select environment to run in:');
+    Object.keys(ENVIRONMENT_CONFIGS).forEach((env, index) => {
+      console.log(`${index + 1}. ${env}`);
+    });
+    
+    rl.question('\nEnter your choice (1-3): ', (answer) => {
+      const choice = parseInt(answer);
+      const environments = Object.keys(ENVIRONMENT_CONFIGS);
+      
+      if (choice >= 1 && choice <= environments.length) {
+        resolve(environments[choice - 1]);
+      } else {
+        console.log('Invalid choice. Using default environment.');
+        resolve('default');
+      }
+    });
+  });
+}
+
+/**
+ * Load the selected environment configuration
+ */
+async function loadEnvironmentConfig(environment: string) {
+  const configPath = ENVIRONMENT_CONFIGS[environment as keyof typeof ENVIRONMENT_CONFIGS];
+  const fullPath = path.join(__dirname, configPath);
+  
+  if (!fs.existsSync(fullPath)) {
+    throw new Error(`Environment configuration file not found: ${fullPath}`);
+  }
+  
+  console.log(`📁 Loading configuration for ${environment} environment...`);
+  
+  try {
+    // Use dynamic import for ES modules
+    const config = await import(configPath);
+    return config.default || config;
+  } catch (error) {
+    throw new Error(`Error loading configuration file: ${error}`);
+  }
+}
 
 // Helper function to prompt user for input
 function askQuestion(question: string): Promise<string> {
@@ -64,6 +115,18 @@ async function createRestaurant() {
   try {
     console.log("🍽️  Restaurant Creation Wizard");
     console.log("==============================\n");
+
+    // Select environment
+    const selectedEnvironment = await selectEnvironment();
+    const outputs = await loadEnvironmentConfig(selectedEnvironment);
+    
+    // Configure Amplify with selected environment
+    Amplify.configure(outputs);
+    
+    // Use API key for all operations during creation
+    const client = generateClient<Schema>({
+      authMode: 'apiKey'
+    });
 
     // Get restaurant basic information
     const name = await askQuestion("Restaurant name: ");
@@ -150,6 +213,7 @@ async function createRestaurant() {
 
     // Confirm creation
     console.log("\n📋 Restaurant Summary:");
+    console.log(`Environment: ${selectedEnvironment}`);
     console.log(`Name: ${name}`);
     console.log(`Slug: ${slug}`);
     console.log(`Description: ${description}`);

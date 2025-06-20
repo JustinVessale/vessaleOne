@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-route
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RestaurantPage } from './features/restaurant/components/RestaurantPage';
 import { CartProvider } from './features/cart/context/CartContext';
-import { CheckoutPage } from './features/payment/components/CheckoutPage';
+import { CheckoutPageWrapper } from './features/payment/components/CheckoutPageWrapper';
 import { Cart } from './features/cart/components/Cart';
 import { LoginPage } from '@/features/restaurant-portal/components/LoginPage';
 import { ProtectedRoute } from '@/features/restaurant-portal/components/ProtectedRoute';
@@ -48,7 +48,7 @@ function AppContent() {
         <Route path="/" element={<Navigate to="/not-found" replace />} />
         
         {/* Checkout and order confirmation routes */}
-        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/checkout" element={<CheckoutPageWrapper />} />
         
         {/* Restaurant Portal Routes */}
         <Route path="/portal">

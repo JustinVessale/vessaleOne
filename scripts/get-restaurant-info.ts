@@ -3,7 +3,7 @@
 import { generateClient } from 'aws-amplify/api';
 import { type Schema } from '../amplify/data/resource';
 import { Amplify } from 'aws-amplify';
-import config from '../amplify_outputs.json';
+import config from '../amplify_outputs_prod.6.17.2025.json';
 import * as readline from 'readline';
 
 // Configure Amplify
