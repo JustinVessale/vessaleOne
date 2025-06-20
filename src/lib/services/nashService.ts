@@ -5,44 +5,100 @@
  * Documentation: https://docs.usenash.com/api-reference/order/get-order-quotes
  */
 
-// Nash API base URL - Use proxy in development, direct URL in production
-const NASH_API_BASE_URL = import.meta.env.DEV 
-  ? '/nash-api' 
-  : import.meta.env.PROD 
-    ? 'https://api.usenash.com' 
-    : 'https://api.sandbox.usenash.com';
+// Nash API base URL - Use sandbox for development, production API for production
+const getNashAPIBaseURL = () => {
+  // Check if we're in a development environment (local dev or Amplify develop branch)
+  const isDevelopment = import.meta.env.DEV || 
+                       window.location.hostname.includes('develop.amplifyapp.com') ||
+                       window.location.hostname.includes('develop.d2g0w15slq5y17.amplifyapp.com') ||
+                       window.location.hostname.includes('localhost');
+  
+  // Check if we're in production
+  const isProduction = import.meta.env.PROD && 
+                      !window.location.hostname.includes('develop.amplifyapp.com') &&
+                      !window.location.hostname.includes('develop.d2g0w15slq5y17.amplifyapp.com');
+  
+  if (isDevelopment) {
+    // In development, use sandbox API
+    return import.meta.env.DEV ? '/nash-api' : 'https://api.sandbox.usenash.com';
+  } else if (isProduction) {
+    // In production, use production API
+    return 'https://api.usenash.com';
+  } else {
+    // Fallback to sandbox for other environments
+    return 'https://api.sandbox.usenash.com';
+  }
+};
+
+const NASH_API_BASE_URL = getNashAPIBaseURL();
 
 // Get the appropriate Nash API key based on the environment
 const getNashAPIKey = () => {
-  const isProd = import.meta.env.PROD === true;
-  const isDev = import.meta.env.DEV === true;
+  // Check if we're in a development environment (local dev or Amplify develop branch)
+  const isDevelopment = import.meta.env.DEV || 
+                       window.location.hostname.includes('develop.amplifyapp.com') ||
+                       window.location.hostname.includes('develop.d2g0w15slq5y17.amplifyapp.com') ||
+                       window.location.hostname.includes('localhost');
   
-  if (isDev) {
+  // Check if we're in production
+  const isProduction = import.meta.env.PROD && 
+                      !window.location.hostname.includes('develop.amplifyapp.com') &&
+                      !window.location.hostname.includes('develop.d2g0w15slq5y17.amplifyapp.com');
+  
+  console.log('Environment detection:', {
+    isDevelopment,
+    isProduction,
+    hostname: window.location.hostname,
+    importMetaEnvDev: import.meta.env.DEV,
+    importMetaEnvProd: import.meta.env.PROD
+  });
+  
+  if (isDevelopment) {
     // In development, use dev key (sandbox)
-    return import.meta.env.VITE_NASH_API_KEY_DEV;
-  } else if (isProd) {
+    const devKey = import.meta.env.VITE_NASH_API_KEY_DEV;
+    console.log('Using development Nash API key:', devKey ? 'configured' : 'not configured');
+    return devKey;
+  } else if (isProduction) {
     // In production, use prod key
-    return import.meta.env.VITE_NASH_API_KEY_PROD;
+    const prodKey = import.meta.env.VITE_NASH_API_KEY_PROD || import.meta.env.VITE_NASH_API_KEY;
+    console.log('Using production Nash API key:', prodKey ? 'configured' : 'not configured');
+    return prodKey;
   } else {
     // Fallback to dev key for other environments (staging, etc.)
-    return import.meta.env.VITE_NASH_API_KEY_DEV;
+    const fallbackKey = import.meta.env.VITE_NASH_API_KEY_DEV;
+    console.log('Using fallback Nash API key:', fallbackKey ? 'configured' : 'not configured');
+    return fallbackKey;
   }
 };
 
 // Get the appropriate Nash Org ID based on the environment
 const getNashOrgID = () => {
-  const isProd = import.meta.env.PROD === true;
-  const isDev = import.meta.env.DEV === true;
+  // Check if we're in a development environment (local dev or Amplify develop branch)
+  const isDevelopment = import.meta.env.DEV || 
+                       window.location.hostname.includes('develop.amplifyapp.com') ||
+                       window.location.hostname.includes('develop.d2g0w15slq5y17.amplifyapp.com') ||
+                       window.location.hostname.includes('localhost');
   
-  if (isDev) {
+  // Check if we're in production
+  const isProduction = import.meta.env.PROD && 
+                      !window.location.hostname.includes('develop.amplifyapp.com') &&
+                      !window.location.hostname.includes('develop.d2g0w15slq5y17.amplifyapp.com');
+  
+  if (isDevelopment) {
     // In development, use dev org ID (sandbox)
-    return import.meta.env.VITE_NASH_ORG_ID_DEV;
-  } else if (isProd) {
+    const devOrgId = import.meta.env.VITE_NASH_ORG_ID_DEV;
+    console.log('Using development Nash Org ID:', devOrgId ? 'configured' : 'not configured');
+    return devOrgId;
+  } else if (isProduction) {
     // In production, use prod org ID
-    return import.meta.env.VITE_NASH_ORG_ID_PROD;
+    const prodOrgId = import.meta.env.VITE_NASH_ORG_ID_PROD || import.meta.env.VITE_NASH_ORG_ID;
+    console.log('Using production Nash Org ID:', prodOrgId ? 'configured' : 'not configured');
+    return prodOrgId;
   } else {
     // Fallback to dev org ID for other environments (staging, etc.)
-    return import.meta.env.VITE_NASH_ORG_ID_DEV;
+    const fallbackOrgId = import.meta.env.VITE_NASH_ORG_ID_DEV;
+    console.log('Using fallback Nash Org ID:', fallbackOrgId ? 'configured' : 'not configured');
+    return fallbackOrgId;
   }
 };
 
@@ -54,10 +110,11 @@ const NASH_DISPATCH_STRATEGY_ID = import.meta.env.VITE_NASH_DISPATCH_STRATEGY_ID
 // Log configuration on startup
 console.log('Nash Service Configuration:');
 console.log('- Environment:', import.meta.env.DEV ? 'Development' : import.meta.env.PROD ? 'Production' : 'Other');
+console.log('- Hostname:', window.location.hostname);
+console.log('- API Base URL:', NASH_API_BASE_URL);
 console.log('- API credentials configured:', !!NASH_API_KEY && !!NASH_ORG_ID);
-console.log('- Using sandbox API:', import.meta.env.DEV || !import.meta.env.PROD);
+console.log('- Using sandbox API:', NASH_API_BASE_URL.includes('sandbox') || NASH_API_BASE_URL.includes('/nash-api'));
 console.log('- Dispatch strategy configured:', !!NASH_DISPATCH_STRATEGY_ID);
-console.log('- API base URL:', NASH_API_BASE_URL);
 
 // Nash API endpoints
 const ENDPOINTS = {
@@ -201,8 +258,17 @@ async function nashRequest<T>(
 ): Promise<T> {
   // Check if API credentials are configured
   if (!NASH_API_KEY || !NASH_ORG_ID) {
-    const envSuffix = import.meta.env.DEV ? '_DEV' : import.meta.env.PROD ? '_PROD' : '_DEV';
+    const envSuffix = import.meta.env.DEV || 
+                     window.location.hostname.includes('develop.amplifyapp.com') ||
+                     window.location.hostname.includes('develop.d2g0w15slq5y17.amplifyapp.com') ? '_DEV' : '_PROD';
     console.error(`Nash API credentials not configured. Please set VITE_NASH_API_KEY${envSuffix} and VITE_NASH_ORG_ID${envSuffix} environment variables.`);
+    console.error('Current environment detection:', {
+      hostname: window.location.hostname,
+      isDev: import.meta.env.DEV,
+      isProd: import.meta.env.PROD,
+      apiKeyConfigured: !!NASH_API_KEY,
+      orgIdConfigured: !!NASH_ORG_ID
+    });
     throw new Error('Nash API credentials not configured');
   }
 
