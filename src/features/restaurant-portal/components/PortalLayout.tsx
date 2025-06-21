@@ -55,11 +55,19 @@ export function PortalLayout({ children }: PortalLayoutProps) {
 
   const handleSignOut = async () => {
     try {
+      // Clear all session storage data first
+      sessionStorage.clear();
+      
+      // Sign out from AWS Amplify
       await signOut();
+      
       // Redirect to login page after signout
       navigate('/portal/login');
     } catch (error) {
       console.error('Error signing out:', error);
+      // Even if signOut fails, clear session data and redirect
+      sessionStorage.clear();
+      navigate('/portal/login');
     }
   };
 
