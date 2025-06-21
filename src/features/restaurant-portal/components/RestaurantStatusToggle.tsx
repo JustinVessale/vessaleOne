@@ -36,6 +36,8 @@ export function RestaurantStatusToggle({ className = '' }: RestaurantStatusToggl
         // Fetch location status
         const { data: location, errors } = await client.models.RestaurantLocation.get({
           id: locationId
+        }, {
+          authMode: 'apiKey'
         });
         
         if (errors) {
@@ -48,6 +50,8 @@ export function RestaurantStatusToggle({ className = '' }: RestaurantStatusToggl
         // Fetch restaurant status
         const { data: restaurant, errors } = await client.models.Restaurant.get({
           id: restaurantId
+        }, {
+          authMode: 'apiKey'
         });
         
         if (errors) {
@@ -90,6 +94,8 @@ export function RestaurantStatusToggle({ className = '' }: RestaurantStatusToggl
         const { errors } = await client.models.RestaurantLocation.update({
           id: locationId,
           isOpen: newStatus,
+        }, {
+          authMode: 'apiKey'
         });
         
         if (errors) {
@@ -100,6 +106,8 @@ export function RestaurantStatusToggle({ className = '' }: RestaurantStatusToggl
         const { errors } = await client.models.Restaurant.update({
           id: restaurantId,
           isOpen: newStatus,
+        }, {
+          authMode: 'apiKey'
         });
         
         if (errors) {

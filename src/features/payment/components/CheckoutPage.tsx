@@ -151,7 +151,18 @@ export function CheckoutPage({ restaurantIsOpen = true, locationIsOpen }: Checko
             specialInstructions: item.specialInstructions
           })
         );
-        await Promise.all(orderItemPromises);
+        const orderItemResults = await Promise.all(orderItemPromises);
+        
+        // Check if any order items failed to create
+        const failedItems = orderItemResults.filter(result => result.errors);
+        if (failedItems.length > 0) {
+          console.error('Failed to create order items:', failedItems);
+          throw new Error('Failed to create order items');
+        }
+        
+        // Add a small delay to ensure order items are fully created
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         setOrder(newOrder);
         console.log('Order created successfully:', newOrder);
         setIsLoading(false);
@@ -251,6 +262,7 @@ export function CheckoutPage({ restaurantIsOpen = true, locationIsOpen }: Checko
               onClick={async (e) => {
                 e.preventDefault();
                 console.log('Pickup button clicked');
+                console.log('Current order:', order);
                 setIsLoading(true);
                 setLoadingMessage('Redirecting to payment...');
                 try {
@@ -264,14 +276,17 @@ export function CheckoutPage({ restaurantIsOpen = true, locationIsOpen }: Checko
                     updatedAt: new Date().toISOString(),
                   });
                   if (errors || !updatedOrder) throw new Error('Failed to update order');
+                  console.log('Order updated for pickup:', updatedOrder);
                   setOrder(updatedOrder);
                   // Use restaurantId from updatedOrder, fallback to order.restaurantId
                   const restaurantId = updatedOrder.restaurantId || order.restaurantId;
                   if (!restaurantId) throw new Error('Missing restaurantId for checkout session');
+                  console.log('Creating checkout session for order:', updatedOrder.id, 'restaurant:', restaurantId);
                   const { url } = await createCheckoutSession({
                     orderId: updatedOrder.id,
                     restaurantId,
                   });
+                  console.log('Checkout session created, redirecting to:', url);
                   window.location.href = url;
                 } catch (err) {
                   setIsLoading(false);

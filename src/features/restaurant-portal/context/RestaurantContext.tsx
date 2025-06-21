@@ -57,6 +57,8 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
       
       const { data: restaurantData, errors: restaurantErrors } = await client.models.Restaurant.get({
         id: restaurantId
+      }, {
+        authMode: 'apiKey'
       });
       
       if (restaurantErrors) {

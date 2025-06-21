@@ -31,6 +31,24 @@ backend.stripePayment.addEnvironment('API_ENDPOINT', `https://${backend.data.res
 backend.stripePayment.addEnvironment('REGION', Stack.of(backend.data.resources.graphqlApi).region);
 backend.stripePayment.addEnvironment('AMPLIFY_DATA_DEFAULT_NAME', 'default');
 
+// Add environment-specific APP_URL for payment redirects
+const amplifyEnv = process.env.AMPLIFY_ENV || 'dev';
+let appUrl: string;
+
+switch (amplifyEnv) {
+  case 'main':
+    appUrl = 'https://orderthevessale.com';
+    break;
+  case 'develop':
+    appUrl = 'https://develop.d2g0w15slq5y17.amplifyapp.com';
+    break;
+  default:
+    appUrl = 'http://localhost:5173';
+    break;
+}
+
+backend.stripePayment.addEnvironment('APP_URL', appUrl);
+
 // Add necessary permissions for the stripe-payment Lambda
 backend.stripePayment.resources.lambda.addToRolePolicy(
   new PolicyStatement({
