@@ -53,8 +53,16 @@ export async function POST(request: Request) {
       }
     });
 
+    console.log('Order items query result:', { orderItems, itemsErrors, orderId });
+
     if (itemsErrors || !orderItems) {
+      console.error('Failed to fetch order items:', { itemsErrors, orderItems, orderId });
       throw new Error('Failed to fetch order items');
+    }
+
+    if (orderItems.length === 0) {
+      console.error('No order items found for order:', orderId);
+      throw new Error('No order items found for this order');
     }
 
     // Calculate the preliminary total to determine processing fee
@@ -143,7 +151,19 @@ export async function POST(request: Request) {
     });
 
     // Construct success and cancel URLs with restaurant context
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    // Determine base URL based on environment
+    let baseUrl: string;
+    
+    if (process.env.NODE_ENV === 'production') {
+      // In production, use the production domain
+      baseUrl = 'https://orderthevessale.com';
+    } else if (process.env.VERCEL_ENV === 'preview') {
+      // For preview deployments (like develop branch), use the develop domain
+      baseUrl = 'https://develop.d2g0w15slq5y17.amplifyapp.com';
+    } else {
+      // For local development, use localhost
+      baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5173';
+    }
     
     // Get restaurant and location slugs for proper redirect
     let restaurantSlug = restaurant.slug;
